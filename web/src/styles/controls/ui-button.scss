@@ -1,0 +1,89 @@
+button {
+  background-color: var(--neutral-color-soft);
+  border: none;
+  border-radius: 6px;
+  color: var(--background-color);
+  cursor: pointer;
+  display: inline-block;
+  font-size: 1.1em;
+  padding: .5em 1em;
+  transition:
+    all 1s,
+    color .25s,
+    background-color .25s;
+
+  &>span {
+    &>svg.svg-inline--fa {
+      position: relative;
+      top: .05em;
+    }
+  }
+
+  &[disabled] {
+    cursor: not-allowed;
+    opacity: .5;
+  }
+
+  &:hover:not([disabled]) {
+    background-color: var(--neutral-color);
+  }
+
+  &:active:not([disabled]) {
+    background-color: var(--neutral-color-soft);
+    box-shadow: inset .1em .1em .4em var(--shadow-color);
+    
+    >span {
+      position: relative;
+      top: .05em;
+      left: .05em;
+    }
+  }
+
+  &.accent {
+    background-color: var(--primary-color);
+    color: var(--background-color);
+
+    &:hover:not([disabled]) {
+      background-color: var(--primary-color-soft);
+    }
+
+    &:active:not([disabled]) {
+      background-color: var(--primary-color);
+    }
+  }
+}
+
+.ui-button {
+  overflow: hidden;
+
+  &__spinner {
+    display: inline-block;
+    transform: translateX(-5px);
+    width: 25px;
+  }
+
+  &__icon {
+    display: inline-block;
+    width: 25px;
+  }
+
+  &__icon {
+    display: inline-block;
+  }
+
+  &__content {
+    display: inline-block;
+  }
+}
+
+.button-spinner-enter-active,
+.button-spinner-leave-active {
+  transition: all .5s ease-in-out;
+}
+
+.button-spinner-enter-from,
+.button-spinner-leave-to {
+  opacity: 0;
+  transform: translateX(-30px) scale(.1);
+  width: 0;
+}

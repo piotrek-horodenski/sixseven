@@ -1,0 +1,19 @@
+// available transitions:
+// - fade
+
+.fade-wrapper-active {
+  position: relative;
+}
+
+.fade-leave-active,
+.fade-enter-active {
+  position: absolute;
+  top: 0;
+  transition: opacity .5s ease;
+  width: 100%;
+}
+
+.fade-leave-to,
+.fade-enter-from {
+  opacity: 0;
+}

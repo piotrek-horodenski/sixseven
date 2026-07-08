@@ -1,0 +1,100 @@
+.ui-message {
+  word-wrap: break-word;
+
+  &__title {
+    font-size: 1.143em;
+    font-weight: bold;
+    margin-bottom: .5em;
+  }
+
+  &__close {
+    cursor: pointer;
+    float: right;
+    margin: -.3em -.8em 0 0;
+    opacity: .6;
+    padding: .2em .5em;
+
+    >svg {
+      text-shadow: 1px 1px 3px var(--shadow-color);;
+    }
+
+    &:hover {
+      opacity: 1;
+    }
+  }
+
+  &__success, &__info, &__warning, &__error {
+    border-radius: 6px;
+    border-width: .5px;
+    border-style: solid;
+    padding: .5em 1em;
+  }
+
+  &__success {
+    background-color: var(--success-color-soft);
+    border-color: var(--success-color);
+
+    .ui-message__icon {
+      color: var(--success-color);
+    }
+
+    .ui-message__close {
+      color: var(--success-color-over);
+
+      &:hover {
+        color: var(--success-color);
+      }
+    }
+  }
+
+  &__info {
+    background-color: var(--info-color-soft);
+    border-color: var(--info-color);
+
+    .ui-message__icon {
+      color: var(--info-color);
+    }
+
+    .ui-message__close {
+      color: var(--info-color-over);
+
+      &:hover {
+        color: var(--info-color);
+      }
+    }
+  }
+
+  &__warning {
+    background-color: var(--warning-color-soft);
+    border-color: var(--warning-color);
+
+    .ui-message__icon {
+      color: var(--warning-color);
+    }
+
+    .ui-message__close {
+      color: var(--warning-color-over);
+
+      &:hover {
+        color: var(--warning-color);
+      }
+    }
+  }
+
+  &__error {
+    background-color: var(--error-color-soft);
+    border-color: var(--error-color);
+
+    .ui-message__icon {
+      color: var(--error-color);
+    }
+
+    .ui-message__close {
+      color: var(--error-color-over);
+
+      &:hover {
+        color: var(--error-color);
+      }
+    }
+  }
+}

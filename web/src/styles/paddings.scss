@@ -1,0 +1,12 @@
+@use 'sass:string';
+
+$padding-spaceamounts: (1, 2, 3, 4, 5, 6);
+$padding-sides: (top, bottom, left, right);
+
+@each $space in $padding-spaceamounts {
+  @each $side in $padding-sides {
+    .p#{string.slice($side, 0, 1)}-#{$space} {
+      padding-#{$side}: #{$space}em !important;
+    }
+  }
+}
