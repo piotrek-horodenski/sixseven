@@ -2,7 +2,7 @@
   "name": "sixseven",
   "version": "0.0.1",
   "private": true,
-  "description": "sixseven — platforma gier turowych z symultanicznym planowaniem (powiernik sekretów).",
+  "description": "sixseven turn-based games platform monorepo",
   "workspaces": [
     "gate",
     "web",
@@ -16,7 +16,9 @@
     "test:games": "npm run test --workspace games",
     "test:web": "npm run test --workspace web",
     "build": "npm run build --workspaces --if-present",
-    "dev": "node dev-runner.js"
+    "dev": "node dev-runner.js",
+    "secret:generate": "node scripts/gen-secret.js",
+    "secret:print": "node scripts/gen-secret.js --print"
   },
   "license": "ISC"
 }
