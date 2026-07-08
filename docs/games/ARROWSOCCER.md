@@ -94,5 +94,4 @@ Przykładowa pula: `unbeaten-footballer` „Niezwyciężony piłkarz" (positive,
 - Czy strzałki można rysować też „w przyszłość" piłki (celowanie z wyprzedzeniem) — czy tylko impuls od aktualnej pozycji? (MVP: tylko impuls)
 - Kolizje zawodników tej samej drużyny — pełne zderzenia czy przenikanie? (skłaniam się: pełne, więcej taktyki)
 - 2v2 (2 graczy × 2 zawodników po stronie?) — kontrakt platformy wspiera minPlayers/maxPlayers, ale projekt formacji i wznowień do przemyślenia. Po MVP.
-- Widzowie (spectator mode) — wymaga polityki subskrypcji „widz widzi stan, nie widzi strzałek w planowaniu". Po MVP.
-- Dokładne wymiary boiska, koła i zakresy suwaków — do playtestów.
+- Widzowie (spectator mode) — wymaga polityki subskrypcji „widz widzi stan, nie widzi strzałek w planowaniu

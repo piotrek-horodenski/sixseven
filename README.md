@@ -34,8 +34,4 @@ Platforma gier turowych z symultanicznym planowaniem ruchów: wszyscy gracze pla
 | *serwis logiki gry* | infrastruktura dewelopera — bezstanowe HTTP wołane przez games | [`docs/GAME_DEV_GUIDE.md`](docs/GAME_DEV_GUIDE.md) |
 | *aplikacja UI gry* | frontend gry dewelopera (self-hosted lub zaufany bundle z CSP) | [`docs/GAME_DEV_GUIDE.md`](docs/GAME_DEV_GUIDE.md) |
 
-Fundament kodu: projekt **hydra** (gate + web + image + MongoDB replica set z change streams) — co bierzemy, a co wycinamy: sekcja „Co bierzemy z hydry" w `ARCHITECTURE.md`.
-
-## Gry na start
-
-Papier, kamień, nożyce (tutorial easy) · pojedynek snajperów (krótkie tury) · **arrowsoccer** (flagowiec — turowa piłka nożna z konfigurowalną fizyką).
+Fundament kodu: projekt **hydra** (gate + web + image + MongoDB replica set z change streams) — co bierzemy, a co wycinamy: sekcj

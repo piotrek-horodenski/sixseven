@@ -1,0 +1,36 @@
+.ui-textarea {
+  &__textarea {
+    background-color: var(--background-color);
+    border: 1px solid var(--background-color-soft);
+    border-radius: 6px;
+    color: var(--neutral-color);
+    font-size: 1em;
+    padding: .5em 1em;
+    transition: height .25s ease-in-out,
+                background-color .5s;
+
+    &:disabled {
+      cursor: not-allowed;
+      opacity: .4;
+    }
+  }
+
+  &__label {
+    margin-bottom: .25em;
+  }
+
+  &__proto {
+    position: absolute;
+    top: -5000px;
+    height: 'auto';
+    overflow: hidden;
+  }
+
+  &--disabled {
+    cursor: not-allowed;
+
+    &>.ui-textarea__label {
+      opacity: .4;
+    }
+  }
+}

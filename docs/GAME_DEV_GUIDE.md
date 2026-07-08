@@ -336,33 +336,4 @@ Konsekwencje poziomu zaufanego: bundle jest w pełni statyczny i samowystarczaln
 
 Jeśli współdzielisz moduł symulacji między logiką a UI (zalecane przy grach fizycznych — animujesz reveal, uruchamiając tę samą deterministyczną symulację ze stanu + ujawnionych ruchów), trzymaj go w osobnym pakiecie importowanym przez oba bundle.
 
-Token jest **scoped do meczu**: jeden gracz, jeden mecz, tylko własny widok i ruchy, wygasa z końcem partii. Nie dostaniesz (i nie potrzebujesz) tożsamości konta, czatu ani znajomych gracza. Kod handoff jest jednorazowy i krótkotrwały — wymień go od razu na starcie.
-
-**Co rysujesz sam (dane masz w `matches`):** timer fazy (`deadline`), listę graczy z gotowością (`ready`), punkty, fazę. Po `isFinished` platforma pokaże swój ekran wyniku — Twoja aplikacja powinna zaproponować powrót (`returnUrl` z handoffu).
-
-**Motyw (opcjonalnie, zalecane):** handoff niesie `theme=dark|light`, a `GET /themes/tokens.json` zwraca tokeny kolorów platformy — użyj ich, żeby gracz nie dostał białego flasha między dark-mode platformą a Twoją grą.
-
-**Zasady:**
-
-- **Nigdy nie proś o login/hasło platformy.** Całą autoryzację daje handoff. Formularz logowania w aplikacji gry = ban.
-- **Nie buduj kanałów bocznych między sesjami graczy.** Tajemnica ruchów do reveal to rdzeń platformy. Platforma aktywnie wykrywa przecieki (analiza statystyczna wyników, mecze-pułapki z instrumentowanymi klientami); potwierdzony przeciek = unpublish i ban konta deweloperskiego.
-- Reconnect: token działa do końca meczu — po odświeżeniu strony wznów subskrypcję (dostaniesz świeży snapshot `collection-init`).
-- Nie polegaj na UI w kwestiach reguł: i tak każdy ruch waliduje serwer przez Twoje `validateMove`.
-
-**Hosting:** Twój, jak cała gra. Statyczny hosting wystarczy — aplikacja rozmawia bezpośrednio z API platformy.
-
-## Checklist przed rejestracją
-
-- [ ] `sixseven-sdk test` przechodzi przeciw docelowemu URL-owi serwisu
-- [ ] Serwis: HTTPS, weryfikacja podpisów, bezstanowy, mieści się w budżecie czasu (razem z siecią!)
-- [ ] Zero źródeł niedeterminizmu (`Math.random`, `Date.now`, stan modułu)
-- [ ] `viewFor` nie zdradza niczego, czego gracz nie powinien widzieć
-- [ ] `defaultMove` daje grywalny ruch (gracz AFK nie psuje partii reszcie)
-- [ ] Stan przeżywa JSON round-trip
-- [ ] Gra kończy się zawsze (brak nieskończonych partii — rozważ limit rund)
-- [ ] Odznaki: każda odbieralna ma logikę `revoke`; sentiment ustawiony uczciwie (negatywne nie przejdą review jako „positive")
-- [ ] Manifest: opis, thumbnail, poprawne min/max graczy
-- [ ] Aplikacja UI: wymienia handoff od razu, wznawia po odświeżeniu, oferuje powrót na platformę
-- [ ] Celujesz w ranked? Bundle UI samowystarczalny (zero zewnętrznych zapytań — przejdzie CSP) i opublikowany przez `sixseven-sdk publish-ui`
-- [ ] Aplikacja UI respektuje `theme` z handoffu (dark/light bez flasha)
-- [ ] Zero formularzy logowania — autoryzacja wyłącznie przez handoff
+Token jest **scoped do meczu**: jeden gracz, je

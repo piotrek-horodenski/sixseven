@@ -1,0 +1,20 @@
+[Unit]
+Description=Podman Start All Pods
+Documentation=man:podman-pod-start(1)
+StartLimitIntervalSec=0
+Wants=network-online.target
+Requires=user@1001.service
+After=network-online.target
+
+[Service]
+Type=oneshot
+RemainAfterExit=true
+User=vrecadm
+Group=vrecadm
+ExecStart=podman pod start --all
+Restart=on-failure
+RestartSec=10
+ExecStop=podman pod stop --all
+
+[Install]
+WantedBy=default.target

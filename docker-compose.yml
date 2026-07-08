@@ -1,0 +1,143 @@
+name: hydra
+
+services:
+
+  # ─── MongoDB replica set ──────────────────────────────────────────
+
+  hydra-mongo1:
+    container_name: hydra-mongo1
+    image: mongo:latest
+    volumes:
+      - ./db/db1:/data/db:rw
+    networks:
+      - hydra-network
+    ports:
+      - "27117:27017"
+    restart: always
+    entrypoint: ["/usr/bin/mongod", "--bind_ip_all", "--replSet", "h2dbs"]
+    healthcheck:
+      test: ["CMD", "mongosh", "--quiet", "--eval", "db.adminCommand('ping').ok"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 20s
+
+  hydra-mongo2:
+    container_name: hydra-mongo2
+    image: mongo:latest
+    volumes:
+      - ./db/db2:/data/db:rw
+    networks:
+      - hydra-network
+    ports:
+      - "27118:27017"
+    restart: always
+    entrypoint: ["/usr/bin/mongod", "--bind_ip_all", "--replSet", "h2dbs"]
+
+  hydra-mongo3:
+    container_name: hydra-mongo3
+    image: mongo:latest
+    volumes:
+      - ./db/db3:/data/db:rw
+    networks:
+      - hydra-network
+    ports:
+      - "27119:27017"
+    restart: always
+    entrypoint: ["/usr/bin/mongod", "--bind_ip_all", "--replSet", "h2dbs"]
+
+  # One-shot container: initialises the replica set and creates collections.
+  # On first run it waits 25 s for the primary election; on subsequent runs
+  # rs.initiate() throws and is caught, so it completes in seconds.
+  mongo-init:
+    image: mongo:latest
+    depends_on:
+      hydra-mongo1:
+        condition: service_healthy
+      hydra-mongo2:
+        condition: service_started
+      hydra-mongo3:
+        condition: service_started
+    volumes:
+      - ./db/scripts/rs-init-docker.sh:/scripts/rs-init-docker.sh
+      - ./db/scripts/init-db-data.js:/scripts/init-db-data.js
+    command: bash /scripts/rs-init-docker.sh
+    networks:
+      - hydra-network
+    restart: "no"
+
+  # ─── Gate (API / WebSocket server) ───────────────────────────────
+
+  gate:
+    build:
+      context: ./gate
+    container_name: hydra-gate
+    ports:
+      - "4214:4114"
+    environment:
+      - NODE_ENV=production
+      - GATE_PORT=4114
+      - WEB_URL=http://localhost:5273
+      - MONGODB_URI=mongodb://hydra-mongo1:27017/hydra?directConnection=true
+      - REDIS_URL=
+      - CERT_KEY_PATH=/certs/key.pem
+      - CERT_PATH=/certs/cert.pem
+      - JWT_SECRET=hydra-dev-secret
+    volumes:
+      - ./cfg/cert:/certs:ro
+    depends_on:
+      mongo-init:
+        condition: service_completed_successfully
+    networks:
+      - hydra-network
+    restart: always
+
+  # ─── Frontend (Vue 3, served by nginx) ────────────────────────
+
+  web:
+    build:
+      context: ./web
+      args:
+        VITE_GATE_URL: wss://localhost:4214
+    container_name: hydra-web
+    ports:
+      - "5273:80"
+    networks:
+      - hydra-network
+    restart: always
+
+  # ─── Image microservice ────────────────────────────────────────
+
+  hydra-image-mongo:
+    container_name: hydra-image-mongo
+    image: mongo:latest
+    volumes:
+      - ./image/data/db:/data/db:rw
+    networks:
+      - hydra-network
+    ports:
+      - "27133:27017"
+    restart: always
+
+  image:
+    build:
+      context: ./image
+    container_name: hydra-image
+    ports:
+      - "5279:5179"
+    environment:
+      - IMAGE_DB_HOST=hydra-image-mongo
+      - IMAGE_DB_NAME=himage
+      - IMAGE_DB_PARAMS=?directConnection=true
+      - JWT_SECRET=hydra-dev-secret
+    volumes:
+      - ./image/uploads:/app/uploads
+    depends_on:
+      - hydra-image-mongo
+    networks:
+      - hydra-network
+    restart: always
+
+networks:
+  hydra-network:
+    driver: bridge

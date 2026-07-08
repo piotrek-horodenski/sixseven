@@ -1,0 +1,51 @@
+// available transitions:
+// - only-left
+// - only-right
+// - only-up
+// - only-down
+
+.only-left-wrapper-active,
+.only-right-wrapper-active,
+.only-up-wrapper-active,
+.only-down-wrapper-active {
+  position: relative;
+}
+
+.only-left-leave-active,
+.only-left-enter-active,
+.only-right-leave-active,
+.only-right-enter-active,
+.only-up-leave-active,
+.only-up-enter-active,
+.only-down-leave-active,
+.only-down-enter-active {
+  position: absolute;
+  top: 0;
+  transition: opacity .5s ease,
+              transform .5s ease;
+  width: 100%;
+}
+
+.only-left-enter-from,
+.only-left-leave-to {
+  opacity: 0;
+  transform: translateX(-100%);
+}
+
+.only-right-enter-from,
+.only-right-leave-to {
+  opacity: 0;
+  transform: translateX(100%);
+}
+
+.only-up-leave-to,
+.only-up-enter-from {
+  opacity: 0;
+  transform: translateY(-100%);
+}
+
+.only-down-leave-to,
+.only-down-enter-from {
+  opacity: 0;
+  transform: translateY(100%);
+}
