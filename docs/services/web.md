@@ -4,6 +4,8 @@
 
 Twarz sixseven (Vue 3): katalog gier, lobby i pokoje, profile i społeczność, ekran wyniku meczu, panel admina. **Nie renderuje samych meczów** — mecz dzieje się w aplikacji gry (redirect z handoffem); web wita gracza z powrotem wynikiem i rewanżem. W modelu sekretu web jest klientem jak każdy inny: widzi wyłącznie to, na co pozwalają polityki subskrypcji gate — zero specjalnych uprawnień.
 
+![Mockupy ekranów: katalog gier i hub gry na slotach hydry](../assets/web-screens.svg)
+
 ## Odpowiedzialności
 
 - **Ekrany** (mapowanie na sloty layoutu — tabela w `ARCHITECTURE.md`): katalog gier (z renomą/sprawdzalnością), hub gry (graj / pokoje / ranking / zasady), lobby pokoju z generycznym rendererem opcji meczu (schemat z manifestu: presety + pola), ekran powrotu z meczu (wynik z `match_events`, rewanż), profil (odznaki wg sentiment, ELO, historia), znajomi + presence, czat, rejestracja/logowanie/goście, panel dewelopera (gry, tokeny, dashboard zaufania), panel admina (moderacja rejestracji, dossier judge, konfiguracja AI targetingu).

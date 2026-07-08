@@ -1,0 +1,117 @@
+<svg viewBox="0 0 760 600" xmlns="http://www.w3.org/2000/svg" font-family="Segoe UI, Arial, sans-serif">
+  <defs>
+    <marker id="arrowY" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto">
+      <path d="M0,0 L7,3 L0,6 Z" fill="#ffd54f"/>
+    </marker>
+    <marker id="arrowR" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto">
+      <path d="M0,0 L7,3 L0,6 Z" fill="#ff8a80"/>
+    </marker>
+    <pattern id="net" width="8" height="8" patternUnits="userSpaceOnUse">
+      <path d="M0,0 L8,8 M8,0 L0,8" stroke="#cfd8dc" stroke-width="0.8" opacity="0.7"/>
+    </pattern>
+    <g id="pitch">
+      <!-- pasy trawy -->
+      <rect x="0" y="0" width="280" height="430" fill="#2e7d32"/>
+      <rect x="0" y="53.75"  width="280" height="53.75" fill="#388e3c"/>
+      <rect x="0" y="161.25" width="280" height="53.75" fill="#388e3c"/>
+      <rect x="0" y="268.75" width="280" height="53.75" fill="#388e3c"/>
+      <rect x="0" y="376.25" width="280" height="53.75" fill="#388e3c"/>
+      <!-- bramki (przerwy w bandzie) -->
+      <rect x="95" y="-20" width="90" height="20" fill="#1b2a1b" stroke="#cfd8dc" stroke-width="2"/>
+      <rect x="95" y="-20" width="90" height="20" fill="url(#net)"/>
+      <rect x="95" y="430" width="90" height="20" fill="#1b2a1b" stroke="#cfd8dc" stroke-width="2"/>
+      <rect x="95" y="430" width="90" height="20" fill="url(#net)"/>
+      <!-- banda z przerwami na bramki -->
+      <path d="M95,0 L0,0 L0,430 L95,430 M185,430 L280,430 L280,0 L185,0"
+            fill="none" stroke="#eceff1" stroke-width="3.5"/>
+      <!-- linia środkowa i koło -->
+      <line x1="0" y1="215" x2="280" y2="215" stroke="#eceff1" stroke-width="2" opacity="0.9"/>
+      <circle cx="140" cy="215" r="42" fill="none" stroke="#eceff1" stroke-width="2" opacity="0.9"/>
+      <circle cx="140" cy="215" r="3" fill="#eceff1"/>
+    </g>
+    <g id="unitB"><circle r="13" fill="#1e88e5" stroke="#e3f2fd" stroke-width="2.5"/></g>
+    <g id="unitR"><circle r="13" fill="#e53935" stroke="#ffebee" stroke-width="2.5"/></g>
+    <g id="ball">
+      <circle r="8" fill="#fafafa" stroke="#455a64" stroke-width="1.5"/>
+      <path d="M-3,-2 L3,-2 L0,3 Z" fill="#455a64" transform="scale(0.8)"/>
+    </g>
+  </defs>
+
+  <rect width="760" height="600" fill="#0f172a"/>
+  <text x="380" y="34" text-anchor="middle" fill="#e2e8f0" font-size="20" font-weight="600">arrowsoccer — tura w dwóch aktach</text>
+  <text x="380" y="56" text-anchor="middle" fill="#94a3b8" font-size="12">strzałka = impuls (kierunek + siła ∝ długość) · 1v1, po 4 zawodników · banda jak w piłkarzykach</text>
+
+  <!-- ================ PANEL 1: PLANOWANIE ================ -->
+  <text x="180" y="92" text-anchor="middle" fill="#e2e8f0" font-size="14" font-weight="600">1 · Planowanie — rysujesz w tajemnicy</text>
+  <g transform="translate(40,120)">
+    <use href="#pitch"/>
+    <!-- czerwoni (przeciwnik, gra od góry) — bez strzałek -->
+    <use href="#unitR" x="140" y="30"/>
+    <use href="#unitR" x="70"  y="105"/>
+    <use href="#unitR" x="210" y="105"/>
+    <use href="#unitR" x="140" y="160"/>
+    <!-- niebiescy (Ty, od dołu) -->
+    <use href="#unitB" x="140" y="398"/>
+    <use href="#unitB" x="70"  y="330"/>
+    <use href="#unitB" x="210" y="330"/>
+    <use href="#unitB" x="140" y="270"/>
+    <use href="#ball" x="140" y="215"/>
+    <!-- Twoje strzałki -->
+    <line x1="140" y1="270" x2="140" y2="228" stroke="#ffd54f" stroke-width="4" marker-end="url(#arrowY)"/>
+    <line x1="70"  y1="330" x2="112" y2="272" stroke="#ffd54f" stroke-width="4" marker-end="url(#arrowY)"/>
+    <line x1="210" y1="330" x2="196" y2="262" stroke="#ffd54f" stroke-width="4" marker-end="url(#arrowY)"/>
+    <!-- uchwyt przeciągania na napastniku -->
+    <circle cx="140" cy="270" r="19" fill="none" stroke="#ffd54f" stroke-width="1.5" stroke-dasharray="4 4"/>
+  </g>
+  <!-- chipy statusu -->
+  <g transform="translate(58,132)">
+    <rect x="0" y="0" width="66" height="24" rx="12" fill="#1e293b" stroke="#475569"/>
+    <text x="33" y="16" text-anchor="middle" fill="#fbbf24" font-size="12" font-weight="600">⏱ 0:17</text>
+  </g>
+  <g transform="translate(156,132)">
+    <rect x="0" y="0" width="148" height="24" rx="12" fill="#14532d" stroke="#22c55e"/>
+    <text x="74" y="16" text-anchor="middle" fill="#bbf7d0" font-size="11">przeciwnik: gotowy ✓</text>
+  </g>
+  <g transform="translate(70,564)">
+    <rect x="0" y="0" width="220" height="26" rx="13" fill="#1e293b" stroke="#475569"/>
+    <text x="110" y="17" text-anchor="middle" fill="#94a3b8" font-size="11">🔒 Twoje strzałki widzisz tylko Ty</text>
+  </g>
+
+  <!-- ================ PANEL 2: REVEAL ================ -->
+  <text x="580" y="92" text-anchor="middle" fill="#e2e8f0" font-size="14" font-weight="600">2 · Reveal — fizyka rozstrzyga</text>
+  <g transform="translate(440,120)">
+    <use href="#pitch"/>
+    <!-- trajektoria piłki: impuls, odbicie od bandy, gol -->
+    <path d="M140,215 L58,150 L4,150 L112,-8" fill="none" stroke="#fafafa" stroke-width="2.5" stroke-dasharray="6 5" opacity="0.9"/>
+    <circle cx="140" cy="215" r="8" fill="none" stroke="#fafafa" stroke-width="1.5" opacity="0.5"/>
+    <circle cx="58" cy="150" r="8" fill="none" stroke="#fafafa" stroke-width="1.5" opacity="0.5"/>
+    <!-- czerwoni po ruchu -->
+    <use href="#unitR" x="140" y="52"/>
+    <use href="#unitR" x="88"  y="128"/>
+    <use href="#unitR" x="210" y="105"/>
+    <use href="#unitR" x="152" y="196"/>
+    <!-- strzałki czerwonych (już jawne) -->
+    <line x1="140" y1="160" x2="150" y2="192" stroke="#ff8a80" stroke-width="4" marker-end="url(#arrowR)"/>
+    <line x1="70"  y1="105" x2="86"  y2="124" stroke="#ff8a80" stroke-width="4" marker-end="url(#arrowR)"/>
+    <!-- niebiescy po ruchu -->
+    <use href="#unitB" x="140" y="398"/>
+    <use href="#unitB" x="104" y="288"/>
+    <use href="#unitB" x="198" y="278"/>
+    <use href="#unitB" x="146" y="238"/>
+    <!-- strzałki niebieskich (już jawne) -->
+    <line x1="140" y1="270" x2="145" y2="242" stroke="#ffd54f" stroke-width="4" marker-end="url(#arrowY)"/>
+    <line x1="70"  y1="330" x2="100" y2="292" stroke="#ffd54f" stroke-width="4" marker-end="url(#arrowY)"/>
+    <line x1="210" y1="330" x2="199" y2="282" stroke="#ffd54f" stroke-width="4" marker-end="url(#arrowY)"/>
+    <!-- piłka w bramce -->
+    <use href="#ball" x="121" y="-10"/>
+    <!-- GOL -->
+    <g transform="translate(216,18)">
+      <path d="M0,-16 L4,-5 L16,-5 L6,2 L10,13 L0,6 L-10,13 L-6,2 L-16,-5 L-4,-5 Z" fill="#fbbf24"/>
+      <text x="34" y="6" fill="#fbbf24" font-size="17" font-weight="700">GOL!</text>
+    </g>
+  </g>
+  <g transform="translate(468,564)">
+    <rect x="0" y="0" width="224" height="26" rx="13" fill="#1e293b" stroke="#475569"/>
+    <text x="112" y="17" text-anchor="middle" fill="#94a3b8" font-size="11">UI odtwarza tę samą symulację (animacja)</text>
+  </g>
+</svg>

@@ -8,6 +8,8 @@
 
 Boisko z dwiema bramkami, piłka odbija się od linii outu (brak autów — banda jak w piłkarzykach). Gracze **równocześnie i w tajemnicy** planują turę: przeciągnięcie z zawodnika rysuje strzałkę — kierunek i siłę impulsu (siła ∝ długość, z limitem). Po reveal wszystkie strzałki stają się jawne i rusza symulacja fizyki: impulsy, zderzenia, odbicia, tarcie. Kopnięcie piłki to po prostu kolizja zawodnika z piłką. Gol → wznowienie od środka.
 
+![Mockup tury arrowsoccera: planowanie i reveal](../assets/arrowsoccer-mockup.svg)
+
 ## Zasady
 
 - **Start i wznowienia:** piłka na środku, zawodnicy na pozycjach domyślnych gracza (prefs). Formacja jest definiowana w **przestrzeni kanonicznej**: pół boiska „atak do przodu", z wyłączeniem połówki koła środkowego — edytor formacji pokazuje dokładnie ten obszar. W meczu formacja jest obracana o 0° albo 180° zależnie od strony. Nielegalne pozycje (koło, poza połową, nakładający się zawodnicy) `init` klampuje do najbliższych legalnych — prefs są niezaufane.

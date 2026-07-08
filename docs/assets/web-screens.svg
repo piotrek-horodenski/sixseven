@@ -1,0 +1,204 @@
+<svg viewBox="0 0 960 620" xmlns="http://www.w3.org/2000/svg" font-family="Segoe UI, Arial, sans-serif">
+  <defs>
+    <g id="chrome">
+      <rect width="440" height="500" rx="10" fill="#1e293b" stroke="#475569" stroke-width="1.5"/>
+      <rect x="0" y="0" width="440" height="30" rx="10" fill="#0b1120"/>
+      <rect x="0" y="20" width="440" height="10" fill="#0b1120"/>
+      <circle cx="18" cy="15" r="4.5" fill="#ef4444"/>
+      <circle cx="34" cy="15" r="4.5" fill="#fbbf24"/>
+      <circle cx="50" cy="15" r="4.5" fill="#22c55e"/>
+      <rect x="70" y="7" width="300" height="16" rx="8" fill="#1e293b"/>
+    </g>
+    <g id="gcard">
+      <rect width="120" height="96" rx="8" fill="#0f172a" stroke="#334155"/>
+    </g>
+  </defs>
+
+  <rect width="960" height="620" fill="#0f172a"/>
+  <text x="480" y="34" text-anchor="middle" fill="#e2e8f0" font-size="20" font-weight="600">web — ekrany na slotach hydry</text>
+  <text x="480" y="56" text-anchor="middle" fill="#94a3b8" font-size="12">sloty layoutu oznaczone przerywaną ramką · mecz dzieje się poza web (redirect do aplikacji gry)</text>
+
+  <!-- ============ EKRAN A: KATALOG ============ -->
+  <g transform="translate(20,84)">
+    <use href="#chrome"/>
+    <text x="220" y="21" text-anchor="middle" fill="#64748b" font-size="10">sixseven.gg — katalog gier</text>
+
+    <!-- header -->
+    <rect x="10" y="38" width="420" height="26" rx="5" fill="#0f172a"/>
+    <text x="20" y="55" fill="#38bdf8" font-size="12" font-weight="700">sixseven</text>
+    <circle cx="414" cy="51" r="8" fill="#1e88e5"/>
+    <text x="398" y="55" text-anchor="end" fill="#94a3b8" font-size="9">Piotr</text>
+
+    <!-- slot intro: baner -->
+    <g>
+      <rect x="10" y="70" width="420" height="52" rx="6" fill="#14532d" stroke="#38bdf8" stroke-dasharray="4 3" stroke-width="1"/>
+      <text x="20" y="92" fill="#bbf7d0" font-size="12" font-weight="600">Zaplanuj w tajemnicy. Wygraj przy reveal.</text>
+      <text x="20" y="108" fill="#86efac" font-size="9.5">turniej arrowsoccer w weekend →</text>
+      <text x="424" y="82" text-anchor="end" fill="#38bdf8" font-size="8" font-style="italic">intro</text>
+    </g>
+
+    <!-- slot sidebar: znajomi -->
+    <g>
+      <rect x="10" y="130" width="96" height="322" rx="6" fill="#0f172a" stroke="#38bdf8" stroke-dasharray="4 3" stroke-width="1"/>
+      <text x="100" y="142" text-anchor="end" fill="#38bdf8" font-size="8" font-style="italic">sidebar</text>
+      <text x="20" y="152" fill="#e2e8f0" font-size="10" font-weight="600">Znajomi</text>
+      <circle cx="26" cy="172" r="5" fill="#22c55e"/><text x="36" y="176" fill="#cbd5e1" font-size="9">Ola · w meczu</text>
+      <circle cx="26" cy="192" r="5" fill="#22c55e"/><text x="36" y="196" fill="#cbd5e1" font-size="9">Marek · lobby</text>
+      <circle cx="26" cy="212" r="5" fill="#64748b"/><text x="36" y="216" fill="#64748b" font-size="9">Kuba · 2 h temu</text>
+      <circle cx="26" cy="232" r="5" fill="#64748b"/><text x="36" y="236" fill="#64748b" font-size="9">Ania · wczoraj</text>
+    </g>
+
+    <!-- slot default: siatka gier -->
+    <g>
+      <rect x="114" y="130" width="192" height="322" rx="6" fill="none" stroke="#38bdf8" stroke-dasharray="4 3" stroke-width="1"/>
+      <text x="300" y="142" text-anchor="end" fill="#38bdf8" font-size="8" font-style="italic">default</text>
+
+      <!-- karta arrowsoccer -->
+      <g transform="translate(124,150)">
+        <rect width="172" height="92" rx="8" fill="#0f172a" stroke="#fbbf24" stroke-width="1.5"/>
+        <rect x="8" y="8" width="52" height="60" rx="4" fill="#2e7d32"/>
+        <line x1="8" y1="38" x2="60" y2="38" stroke="#eceff1" stroke-width="1"/>
+        <circle cx="34" cy="38" r="8" fill="none" stroke="#eceff1" stroke-width="1"/>
+        <circle cx="24" cy="56" r="3.5" fill="#1e88e5"/>
+        <circle cx="44" cy="20" r="3.5" fill="#e53935"/>
+        <circle cx="34" cy="44" r="2.5" fill="#fafafa"/>
+        <text x="68" y="22" fill="#e2e8f0" font-size="11" font-weight="700">arrowsoccer</text>
+        <text x="68" y="37" fill="#94a3b8" font-size="8.5">turowa piłka · fizyka</text>
+        <rect x="68" y="46" width="96" height="6" rx="3" fill="#334155"/>
+        <rect x="68" y="46" width="90" height="6" rx="3" fill="#22c55e"/>
+        <text x="68" y="64" fill="#86efac" font-size="8">renoma 94% · sprawdzalność 71%</text>
+        <text x="68" y="82" fill="#fbbf24" font-size="8.5">★ ranked · sprawdzona</text>
+      </g>
+
+      <!-- karta RPS -->
+      <g transform="translate(124,252)">
+        <rect width="172" height="88" rx="8" fill="#0f172a" stroke="#334155"/>
+        <text x="12" y="34" font-size="20">✊ ✋ ✌</text>
+        <text x="12" y="56" fill="#e2e8f0" font-size="11" font-weight="700">papier, kamień, nożyce</text>
+        <rect x="12" y="64" width="96" height="6" rx="3" fill="#334155"/>
+        <rect x="12" y="64" width="96" height="6" rx="3" fill="#22c55e"/>
+        <text x="12" y="82" fill="#86efac" font-size="8">renoma 100% · sprawdzalność 88%</text>
+      </g>
+
+      <!-- karta snajperzy -->
+      <g transform="translate(124,350)">
+        <rect width="172" height="88" rx="8" fill="#0f172a" stroke="#334155"/>
+        <text x="12" y="34" font-size="18">🎯</text>
+        <text x="12" y="56" fill="#e2e8f0" font-size="11" font-weight="700">pojedynek snajperów</text>
+        <rect x="12" y="64" width="96" height="6" rx="3" fill="#334155"/>
+        <rect x="12" y="64" width="34" height="6" rx="3" fill="#fbbf24"/>
+        <text x="12" y="82" fill="#fde68a" font-size="8">nowa — niesprawdzona · casual</text>
+      </g>
+    </g>
+
+    <!-- slot aside: szczegóły gry -->
+    <g>
+      <rect x="314" y="130" width="116" height="322" rx="6" fill="#0f172a" stroke="#38bdf8" stroke-dasharray="4 3" stroke-width="1"/>
+      <text x="424" y="142" text-anchor="end" fill="#38bdf8" font-size="8" font-style="italic">aside</text>
+      <text x="324" y="156" fill="#e2e8f0" font-size="11" font-weight="700">arrowsoccer</text>
+      <rect x="324" y="166" width="96" height="54" rx="4" fill="#2e7d32"/>
+      <line x1="324" y1="193" x2="420" y2="193" stroke="#eceff1" stroke-width="1"/>
+      <circle cx="372" cy="193" r="9" fill="none" stroke="#eceff1" stroke-width="1"/>
+      <text x="324" y="238" fill="#94a3b8" font-size="8.5">1v1 · tura 30 s</text>
+      <text x="324" y="252" fill="#94a3b8" font-size="8.5">ELO: 1284 (#312)</text>
+      <text x="324" y="266" fill="#94a3b8" font-size="8.5">presety: klasyk, lodowisko…</text>
+      <rect x="324" y="282" width="96" height="26" rx="13" fill="#22c55e"/>
+      <text x="372" y="299" text-anchor="middle" fill="#052e16" font-size="11" font-weight="700">Szybki mecz</text>
+      <rect x="324" y="316" width="96" height="26" rx="13" fill="none" stroke="#38bdf8"/>
+      <text x="372" y="333" text-anchor="middle" fill="#38bdf8" font-size="10">Utwórz pokój</text>
+      <text x="324" y="362" fill="#64748b" font-size="8">odznaki: Niezwyciężony,</text>
+      <text x="324" y="374" fill="#64748b" font-size="8">Snajper, Posucha…</text>
+    </g>
+
+    <text x="220" y="478" text-anchor="middle" fill="#94a3b8" font-size="12" font-weight="600">A · Katalog gier</text>
+  </g>
+
+  <!-- ============ EKRAN B: POKÓJ ============ -->
+  <g transform="translate(500,84)">
+    <use href="#chrome"/>
+    <text x="220" y="21" text-anchor="middle" fill="#64748b" font-size="10">sixseven.gg/arrowsoccer — pokoje</text>
+
+    <!-- header + submenu -->
+    <rect x="10" y="38" width="420" height="26" rx="5" fill="#0f172a"/>
+    <text x="20" y="55" fill="#38bdf8" font-size="12" font-weight="700">sixseven</text>
+    <text x="90" y="55" fill="#e2e8f0" font-size="11">/ arrowsoccer</text>
+    <g>
+      <rect x="10" y="70" width="420" height="30" rx="6" fill="#0f172a" stroke="#38bdf8" stroke-dasharray="4 3" stroke-width="1"/>
+      <text x="424" y="82" text-anchor="end" fill="#38bdf8" font-size="8" font-style="italic">submenu</text>
+      <rect x="18" y="76" width="52" height="18" rx="9" fill="#1e293b"/>
+      <text x="44" y="89" text-anchor="middle" fill="#94a3b8" font-size="9">Graj</text>
+      <rect x="76" y="76" width="60" height="18" rx="9" fill="#38bdf8"/>
+      <text x="106" y="89" text-anchor="middle" fill="#0f172a" font-size="9" font-weight="700">Pokoje</text>
+      <rect x="142" y="76" width="60" height="18" rx="9" fill="#1e293b"/>
+      <text x="172" y="89" text-anchor="middle" fill="#94a3b8" font-size="9">Ranking</text>
+      <rect x="208" y="76" width="56" height="18" rx="9" fill="#1e293b"/>
+      <text x="236" y="89" text-anchor="middle" fill="#94a3b8" font-size="9">Zasady</text>
+    </g>
+
+    <!-- slot default: lista pokoi -->
+    <g>
+      <rect x="10" y="108" width="264" height="344" rx="6" fill="none" stroke="#38bdf8" stroke-dasharray="4 3" stroke-width="1"/>
+      <text x="268" y="120" text-anchor="end" fill="#38bdf8" font-size="8" font-style="italic">default</text>
+      <text x="20" y="128" fill="#e2e8f0" font-size="10" font-weight="600">Pokoje publiczne</text>
+
+      <g transform="translate(20,140)">
+        <rect width="244" height="44" rx="6" fill="#1e3a5f" stroke="#38bdf8"/>
+        <text x="10" y="18" fill="#e2e8f0" font-size="10" font-weight="700">#AB3X · pokój Oli</text>
+        <text x="10" y="33" fill="#94a3b8" font-size="8.5">lodowisko · 1/2 · czeka na gracza</text>
+        <circle cx="226" cy="22" r="5" fill="#22c55e"/>
+      </g>
+      <g transform="translate(20,192)">
+        <rect width="244" height="44" rx="6" fill="#0f172a" stroke="#334155"/>
+        <text x="10" y="18" fill="#e2e8f0" font-size="10">#K9QP · flipper szaleństwo</text>
+        <text x="10" y="33" fill="#94a3b8" font-size="8.5">flipper · 2/2 · w grze</text>
+        <circle cx="226" cy="22" r="5" fill="#fbbf24"/>
+      </g>
+      <g transform="translate(20,244)">
+        <rect width="244" height="44" rx="6" fill="#0f172a" stroke="#334155"/>
+        <text x="10" y="18" fill="#e2e8f0" font-size="10">#77RT · klasyk do 5 goli</text>
+        <text x="10" y="33" fill="#94a3b8" font-size="8.5">klasyk · 1/2 · czeka na gracza</text>
+        <circle cx="226" cy="22" r="5" fill="#22c55e"/>
+      </g>
+      <rect x="20" y="404" width="244" height="30" rx="15" fill="#22c55e"/>
+      <text x="142" y="424" text-anchor="middle" fill="#052e16" font-size="11" font-weight="700">+ Nowy pokój</text>
+    </g>
+
+    <!-- slot aside: szczegóły pokoju -->
+    <g>
+      <rect x="282" y="108" width="148" height="344" rx="6" fill="#0f172a" stroke="#38bdf8" stroke-dasharray="4 3" stroke-width="1"/>
+      <text x="424" y="120" text-anchor="end" fill="#38bdf8" font-size="8" font-style="italic">aside</text>
+      <text x="292" y="132" fill="#e2e8f0" font-size="11" font-weight="700">Pokój #AB3X</text>
+      <text x="292" y="148" fill="#94a3b8" font-size="8.5">preset: lodowisko → casual</text>
+
+      <text x="292" y="172" fill="#cbd5e1" font-size="9">maxForce</text>
+      <rect x="292" y="178" width="128" height="5" rx="2.5" fill="#334155"/>
+      <rect x="292" y="178" width="80" height="5" rx="2.5" fill="#38bdf8"/>
+      <circle cx="372" cy="180.5" r="6" fill="#e2e8f0"/>
+
+      <text x="292" y="204" fill="#cbd5e1" font-size="9">friction (lód!)</text>
+      <rect x="292" y="210" width="128" height="5" rx="2.5" fill="#334155"/>
+      <rect x="292" y="210" width="20" height="5" rx="2.5" fill="#38bdf8"/>
+      <circle cx="312" cy="212.5" r="6" fill="#e2e8f0"/>
+
+      <text x="292" y="236" fill="#cbd5e1" font-size="9">gole do wygranej: 3</text>
+      <rect x="292" y="242" width="128" height="5" rx="2.5" fill="#334155"/>
+      <rect x="292" y="242" width="38" height="5" rx="2.5" fill="#38bdf8"/>
+      <circle cx="330" cy="244.5" r="6" fill="#e2e8f0"/>
+
+      <line x1="292" y1="266" x2="420" y2="266" stroke="#334155"/>
+      <text x="292" y="284" fill="#e2e8f0" font-size="9" font-weight="600">Gracze</text>
+      <circle cx="300" cy="302" r="7" fill="#1e88e5"/>
+      <text x="314" y="306" fill="#cbd5e1" font-size="9">Ola (host) ✓</text>
+      <circle cx="300" cy="324" r="7" fill="none" stroke="#64748b" stroke-dasharray="3 2"/>
+      <text x="314" y="328" fill="#64748b" font-size="9">wolne miejsce…</text>
+      <text x="292" y="352" fill="#64748b" font-size="8">link: sixseven.gg/r/AB3X</text>
+
+      <rect x="292" y="368" width="128" height="28" rx="14" fill="#22c55e"/>
+      <text x="356" y="386" text-anchor="middle" fill="#052e16" font-size="11" font-weight="700">Dołącz</text>
+      <text x="292" y="420" fill="#64748b" font-size="8">start → redirect do</text>
+      <text x="292" y="432" fill="#64748b" font-size="8">aplikacji gry (handoff)</text>
+    </g>
+
+    <text x="220" y="478" text-anchor="middle" fill="#94a3b8" font-size="12" font-weight="600">B · Hub gry — pokoje</text>
+  </g>
+</svg>

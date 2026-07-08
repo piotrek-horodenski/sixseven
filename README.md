@@ -6,6 +6,8 @@ Platforma gier turowych z symultanicznym planowaniem ruchów: wszyscy gracze pla
 
 **Status: faza projektowa.** Kod jeszcze nie powstał; dokumentacja poniżej definiuje, jak platforma ma działać — łącznie z tym, czego jeszcze nie wiemy (`docs/UNKNOWNS.md`).
 
+![Mapa pomysłu: gracze, platforma, infrastruktura dewelopera](docs/assets/platform-map.svg)
+
 ## Mapa dokumentacji
 
 | Dokument | Co zawiera | Dla kogo |
