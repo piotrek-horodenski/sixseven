@@ -1,31 +1,46 @@
-import express from "express";
+import express from 'express'
+
+import { connectDb } from './db'
+import { settings } from './settings'
+import logger from './logger'
+import { models } from './models'
+import { MatchEngine } from './engine/engine'
+import { Scheduler } from './engine/scheduler'
 
 /**
  * games — serwis skarbca (silnik meczów, matchmaking, trust).
  *
- * ETAP 0: to jest wyłącznie szkielet z endpointem /health, żeby serwis
- * bootował i wchodził do monorepo/CI. Właściwa logika powstaje później:
- *   - Etap 2: maszyna stanów meczu, kolekcje prywatne (moves, match_states,
- *     resolve_log), wire contract do serwisów gier.
- *   - Etap 3: matchmaking, kolejka, presence, kwoty.
- *   - Etap 4: ELO, hosting bundli UI.
- *   - Etap 5: silnik zaufania (trust_events, formuły, progi).
- * Kolekcje prywatne games NIE są nigdy wystawiane przez gate (patrz
- * IMPLEMENTATION_PLAN.md — model danych).
+ * PODETAP 2a: boot bazy + rejestracja modeli (7 kolekcji) + pętla harmonogramu
+ * (deadline'y w dokumentach, A5). Endpointy komend (submit-move itd. proxowane
+ * z gate) oraz rejestracja gier dochodzą w 2c — dlatego resolver endpointu
+ * serwisu gry jest na razie stubem (w produkcji 2a nie ma jeszcze meczów).
+ *
+ * Kolekcje prywatne games (moves, match_states, resolve_log, player_memory) NIE
+ * są nigdy wystawiane przez gate — default-deny z Etapu 1 je blokuje.
  */
 export async function boot(): Promise<void> {
-  const app = express();
-  const port = Number(process.env.GAMES_PORT ?? 4120);
+  await connectDb()
+  logger.info({ collections: models.map((m) => m.name) }, 'models registered')
 
-  app.get("/health", (_req, res) => {
-    res.json({ service: "games", status: "ok", stage: 0 });
-  });
+  const engine = new MatchEngine({
+    // 2a: brak kolekcji `registrations` — URL i sekret serwisu gry dojdą w 2c.
+    resolveEndpoint: async (gameId) => {
+      throw new Error(`game not registered: ${gameId} (rejestracja w podetapie 2c)`)
+    },
+  })
+  const scheduler = new Scheduler(engine)
+  scheduler.start()
+
+  const app = express()
+  app.use(express.json())
+  app.get('/health', (_req, res) => {
+    res.json({ service: 'games', status: 'ok', stage: '2a' })
+  })
 
   await new Promise<void>((resolve) => {
-    app.listen(port, () => {
-      // eslint-disable-next-line no-console
-      console.log(`games listening on :${port}`);
-      resolve();
-    });
-  });
+    app.listen(settings.port, () => {
+      logger.info({ port: settings.port }, 'games listening')
+      resolve()
+    })
+  })
 }
