@@ -1,0 +1,122 @@
+.ui-popup {
+  background-color: var(--popup-bg-color);
+  border-radius: 6px;
+  box-shadow: .5em .5em 4em var(--popup-shadow-color);
+  height: auto;
+  margin: 5em 0;
+  opacity: 0;
+  top: 5em;
+  
+  transform-origin: top center;
+  transform: perspective(800px) rotate3d(3, 0, 0, -90deg) translate3d(0, -100px, -100px);
+  width: 60em;
+
+  &--transitioning {
+    transition: all .3s ease-in-out;
+  }
+
+  &--thin {
+    width: 30em;
+  }
+
+  &--wide {
+    width: calc(100% - 10em);
+  }
+
+  &--shown {
+    transform: perspective(800px) rotate3d(0, 0, 0, 0) translate3d(0, 0, 0);
+    opacity: 1;
+  }
+
+  &__content {
+    padding: .5em 1em;
+  }
+
+  &__title {
+    background-color: var(--popup-title-bg-color);
+    border-radius: 6px 6px 0 0;
+    display: flex;
+    flex-direction: row;
+    padding: .5em 0 .5em 1em;
+  }
+  
+  &__title-text {
+    flex-grow: 1;
+    font-size: 1.15em;
+    font-weight: bold;
+  }
+
+  &__close {
+    align-items: center;
+    display: flex;
+    flex-shrink: 0;
+
+    >a {
+      opacity: .6;
+      padding: 0 1em;
+
+      &:hover {
+        opacity: 1;
+      }
+    }
+  }
+
+  &__overlay {
+    height: 100vh;
+    left: 0;
+    position: fixed;
+    top: 0;
+    width: 100%;
+  }
+}
+
+.popups {
+  background-color: transparent;
+  overflow: auto;
+  transition: background-color .3s;
+
+  &:has(.ui-popup) {
+    align-items: flex-start;
+    background-color: var(--popup-overlay-color);
+    display: flex;
+    height: 100vh;
+    justify-content: center;
+    left: 0;
+    position: fixed;
+    top: 0;
+    width: 100%;
+    z-index: 9000;
+  }
+  
+  &:not(:has(.ui-popup--shown)) {
+    background-color: transparent;
+    overflow: hidden;
+  }
+}
+
+.ui-popup-phantom {
+  background-color: var(--popup-bg-color);
+  border-radius: 6px;
+  box-shadow: .5em .5em 4em var(--popup-shadow-color);
+  height: auto;
+  margin-top: 5em;
+  opacity: 0;
+  top: 5em;
+  transition: all 30s ease-in-out;
+  transform-origin: top center;
+  transform: perspective(800px) rotate3d(3, 0, 0, -90deg) translate3d(0, -100px, -100px);
+  width: 60em;
+
+  &--thin {
+    width: 30em;
+  }
+
+  &--wide {
+    width: calc(100% - 10em);
+  }
+
+  &--shown {
+    transform: perspective(800px) rotate3d(0, 0, 0, 0) translate3d(0, 0, 0);
+    opacity: 1;
+  }
+}

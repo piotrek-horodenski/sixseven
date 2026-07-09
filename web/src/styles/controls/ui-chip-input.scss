@@ -1,0 +1,68 @@
+@use 'dropdown-shared' as dropdown;
+
+.ui-chip-input {
+  display: block;
+  position: relative;
+
+  &__label {
+    @include dropdown.dropdown-label;
+  }
+
+  &__trigger {
+    @include dropdown.dropdown-trigger;
+    flex-wrap: wrap;
+    cursor: text;
+    gap: .25em;
+  }
+
+  &__chip {
+    align-items: center;
+    background-color: var(--chip-input-color, var(--background-color-soft));
+    border-radius: 10rem;
+    color: #1a1a1a;
+    display: inline-flex;
+    font-size: .85em;
+    gap: .25em;
+    padding: .1em .5em;
+  }
+
+  &__chip-label {
+    white-space: nowrap;
+  }
+
+  &__chip-remove {
+    cursor: pointer;
+    font-size: 1.1em;
+    line-height: 1;
+    opacity: .6;
+    transition: opacity .15s;
+
+    &:hover {
+      opacity: 1;
+    }
+  }
+
+  &__input {
+    background: transparent;
+    border: none;
+    color: inherit;
+    flex: 1;
+    font-family: inherit;
+    font-size: 1em;
+    min-width: 60px;
+    outline: none;
+    padding: 0;
+  }
+
+  &__dropdown {
+    @include dropdown.dropdown-panel;
+  }
+
+  &__option {
+    @include dropdown.dropdown-option;
+  }
+
+  &--disabled {
+    @include dropdown.dropdown-disabled;
+  }
+}

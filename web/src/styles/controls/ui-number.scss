@@ -1,0 +1,36 @@
+.ui-number {
+  position: relative;
+
+  &__content {
+    display: block;
+    position: relative;
+  }
+
+  &__input {
+    cursor: col-resize;
+    padding: .5em 1.5em .5em 1em;
+    text-align: right;
+  }
+
+  &__caret-up,
+  &__caret-down {
+    cursor: pointer;
+    height: 1em;
+    opacity: .7;
+    padding: 0 .5em 0 .4em;
+    position: absolute;
+    right: 0;
+
+    &:hover {
+      opacity: 1;
+    }
+  }
+
+  &__caret-up {
+    top: .07em;
+  }
+
+  &__caret-down {
+    bottom: .2em;
+  }
+}

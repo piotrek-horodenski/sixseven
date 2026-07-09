@@ -1,0 +1,17 @@
+{
+  "name": "sixseven-hmac",
+  "version": "0.0.1",
+  "description": "Wspólny moduł podpisów HMAC dla żądań platforma→serwis gry (i weryfikacji po stronie SDK twórcy). Okno timestamp ±30 s, ochrona przed replayem.",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "build": "tsc",
+    "test": "vitest run"
+  },
+  "license": "ISC",
+  "devDependencies": {
+    "@types/node": "^20.10.2",
+    "typescript": "^6.0.2",
+    "vitest": "^4.1.1"
+  }
+}

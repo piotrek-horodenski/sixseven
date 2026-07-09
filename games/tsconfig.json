@@ -1,0 +1,17 @@
+{
+  "include": ["app/**/*", "index.ts"],
+  "exclude": ["node_modules", "dist"],
+  "compilerOptions": {
+    "strict": true,
+    "module": "commonjs",
+    "target": "ES6",
+    "lib": ["ES2021"],
+    "paths": { "@/*": ["./app/*"] },
+    "rootDir": ".",
+    "outDir": "./dist",
+    "resolveJsonModule": true,
+    "skipLibCheck": true,
+    "esModuleInterop": true,
+    "sourceMap": true
+  }
+}

@@ -1,0 +1,16 @@
+.ui-loader {
+  cursor: progress;
+  display: inline-block;
+  height: 3em;
+  width: 3em;
+
+  &--tiny {
+    height: 1em;
+    width: 1em;
+  }
+
+  &--big {
+    height: 6em;
+    width: 6em;
+  }
+}

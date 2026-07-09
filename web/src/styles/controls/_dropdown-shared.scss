@@ -1,0 +1,76 @@
+@mixin dropdown-panel {
+  background-color: var(--popover-background-color);
+  border: 1px solid var(--popover-border-color);
+  border-radius: 6px;
+  box-shadow: 0 6px 20px var(--shadow-color);
+  left: 0;
+  max-height: 16em;
+  overflow-y: auto;
+  position: absolute;
+  right: 0;
+  z-index: 1000;
+}
+
+@mixin dropdown-option {
+  cursor: pointer;
+  padding: .5em 1em;
+  transition: background-color .15s, color .15s;
+
+  &:hover,
+  &--highlighted {
+    background-color: rgba(128, 128, 128, .15);
+  }
+
+  &--selected {
+    color: var(--primary-color);
+  }
+
+  &--disabled {
+    cursor: not-allowed;
+    opacity: .4;
+    pointer-events: none;
+  }
+}
+
+@mixin dropdown-trigger {
+  align-items: center;
+  appearance: none;
+  background-color: var(--background-color);
+  border: 1px solid var(--background-color-soft);
+  border-radius: 6px;
+  color: var(--neutral-color);
+  cursor: pointer;
+  display: flex;
+  font-family: inherit;
+  font-size: 1em;
+  gap: .5em;
+  min-height: 2.25em;
+  padding: .5em 1em;
+  text-align: left;
+  transition: background-color .5s;
+  width: 14.25em;
+}
+
+@mixin dropdown-label {
+  margin-bottom: .25em;
+}
+
+@mixin dropdown-disabled {
+  cursor: not-allowed;
+  opacity: .4;
+  pointer-events: none;
+}
+
+@mixin dropdown-chevron {
+  margin-left: auto;
+  opacity: .5;
+  transition: transform .2s;
+}
+
+@mixin dropdown-chevron-open {
+  transform: rotate(180deg);
+}
+
+@mixin dropdown-placeholder {
+  opacity: .5;
+}

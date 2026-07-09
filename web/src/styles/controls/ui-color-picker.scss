@@ -1,0 +1,412 @@
+@use 'dropdown-shared' as dropdown;
+
+.ui-color-picker {
+  display: block;
+  position: relative;
+
+  &__label {
+    @include dropdown.dropdown-label;
+  }
+
+  &__trigger {
+    @include dropdown.dropdown-trigger;
+    padding-left: 0;
+    overflow: hidden;
+
+    &:hover:not([disabled]) {
+      background-color: var(--background-color);
+    }
+  }
+
+  &__swatch {
+    align-self: stretch;
+    flex-shrink: 0;
+    margin: -.5em 0;
+    overflow: hidden;
+    position: relative;
+    width: 2.5em;
+
+    &--checkerboard {
+      background-color: #fff;
+      background-image:
+        linear-gradient(45deg, #ccc 25%, transparent 25%),
+        linear-gradient(-45deg, #ccc 25%, transparent 25%),
+        linear-gradient(45deg, transparent 75%, #ccc 75%),
+        linear-gradient(-45deg, transparent 75%, #ccc 75%);
+      background-size: 8px 8px;
+      background-position: 0 0, 0 4px, 4px -4px, -4px 0;
+    }
+  }
+
+  &__swatch-color {
+    display: block;
+    inset: 0;
+    position: absolute;
+  }
+
+  &__value {
+    flex: 1;
+    font-family: monospace;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  &__chevron {
+    @include dropdown.dropdown-chevron;
+  }
+
+  &--open &__chevron {
+    @include dropdown.dropdown-chevron-open;
+  }
+
+  &__panel {
+    @include dropdown.dropdown-panel;
+    max-height: none;
+    overflow: visible;
+    padding: .75em;
+    width: 19.2em;
+
+    &--below {
+      top: calc(100% + 2px);
+    }
+
+    &--above {
+      bottom: calc(100% + 2px);
+    }
+  }
+
+  // --- Tabs ---
+  &__tabs {
+    display: flex;
+    gap: 0;
+    margin-bottom: .5em;
+    border-bottom: 1px solid var(--background-color-soft);
+  }
+
+  &__tab {
+    border-bottom: 2px solid transparent;
+    color: var(--neutral-color-soft);
+    cursor: pointer;
+    flex: 1;
+    font-size: .8em;
+    padding: .4em .5em;
+    text-align: center;
+    text-decoration: none;
+    transition: color .15s, border-color .15s;
+
+    &:hover {
+      color: var(--neutral-color);
+    }
+
+    &--active {
+      border-bottom-color: var(--primary-color);
+      color: var(--neutral-color);
+    }
+  }
+
+  // --- Tab body (grid overlay keeps height stable) ---
+  &__tab-body {
+    display: grid;
+
+    > * {
+      grid-area: 1 / 1;
+    }
+  }
+
+  &__tab-hidden {
+    pointer-events: none;
+    visibility: hidden;
+  }
+
+  // --- Saturation / Brightness area ---
+  &__satval {
+    border-radius: 4px;
+    cursor: crosshair;
+    height: 11.4em;
+    overflow: hidden;
+    position: relative;
+    touch-action: none;
+    width: 100%;
+  }
+
+  &__satval-white {
+    background: linear-gradient(to right, #fff, transparent);
+    inset: 0;
+    position: absolute;
+  }
+
+  &__satval-black {
+    background: linear-gradient(to bottom, transparent, #000);
+    inset: 0;
+    position: absolute;
+  }
+
+  &__satval-cursor {
+    border: 2px solid #fff;
+    border-radius: 50%;
+    box-shadow: 0 0 2px rgba(0, 0, 0, .6);
+    height: 12px;
+    margin: -6px 0 0 -6px;
+    pointer-events: none;
+    position: absolute;
+    width: 12px;
+  }
+
+  // --- Hue slider ---
+  &__hue {
+    background: linear-gradient(to right,
+      #f00, #ff0, #0f0, #0ff, #00f, #f0f, #f00);
+    border-radius: 4px;
+    cursor: pointer;
+    height: .75em;
+    margin-top: .5em;
+    position: relative;
+    touch-action: none;
+    width: 100%;
+  }
+
+  &__hue-cursor {
+    background: #fff;
+    border: 2px solid #fff;
+    border-radius: 50%;
+    box-shadow: 0 0 2px rgba(0, 0, 0, .6);
+    height: 14px;
+    margin-left: -7px;
+    pointer-events: none;
+    position: absolute;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 14px;
+  }
+
+  // --- Alpha slider ---
+  &__alpha {
+    background-color: #fff;
+    background-image:
+      linear-gradient(45deg, #ccc 25%, transparent 25%),
+      linear-gradient(-45deg, #ccc 25%, transparent 25%),
+      linear-gradient(45deg, transparent 75%, #ccc 75%),
+      linear-gradient(-45deg, transparent 75%, #ccc 75%);
+    background-size: 8px 8px;
+    background-position: 0 0, 0 4px, 4px -4px, -4px 0;
+    border-radius: 4px;
+    cursor: pointer;
+    height: .75em;
+    margin-top: .5em;
+    overflow: hidden;
+    position: relative;
+    touch-action: none;
+    width: 100%;
+  }
+
+  &__alpha-gradient {
+    border-radius: 4px;
+    inset: 0;
+    position: absolute;
+  }
+
+  &__alpha-cursor {
+    background: #fff;
+    border: 2px solid #fff;
+    border-radius: 50%;
+    box-shadow: 0 0 2px rgba(0, 0, 0, .6);
+    height: 14px;
+    margin-left: -7px;
+    pointer-events: none;
+    position: absolute;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 14px;
+  }
+
+  // --- Color inputs ---
+  &__inputs {
+    align-items: center;
+    display: flex;
+    gap: .4em;
+    margin-top: .5em;
+  }
+
+  &__format-label {
+    color: var(--neutral-color-soft);
+    cursor: pointer;
+    flex-shrink: 0;
+    font-size: .7em;
+    text-decoration: none;
+    transition: color .15s;
+    user-select: none;
+    width: 2.2em;
+
+    &:hover {
+      color: var(--primary-color);
+    }
+  }
+
+  &__input-fields {
+    display: flex;
+    flex: 1;
+    gap: 4px;
+    min-width: 0;
+    overflow: hidden;
+  }
+
+  &__field {
+    appearance: none;
+    background-color: var(--background-color);
+    border: 1px solid var(--background-color-soft);
+    border-radius: 4px;
+    color: var(--neutral-color);
+    flex: 1 1 0;
+    font-family: monospace;
+    font-size: .8em;
+    min-width: 0;
+    padding: .25em .4em;
+    width: 0 !important;
+
+    &::placeholder {
+      color: var(--neutral-color);
+      opacity: .5;
+    }
+
+    &:focus {
+      border-color: var(--primary-color);
+      outline: none;
+    }
+
+    // hide number input spinners
+    &::-webkit-inner-spin-button,
+    &::-webkit-outer-spin-button {
+      -webkit-appearance: none;
+      margin: 0;
+    }
+
+    &[type="number"] {
+      -moz-appearance: textfield;
+    }
+  }
+
+  // --- Save preset button ---
+  &__save-preset {
+    border: 1px dashed var(--background-color-soft);
+    border-radius: 4px;
+    color: var(--neutral-color-soft);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: .4em;
+    font-size: .8em;
+    justify-content: center;
+    margin-top: .5em;
+    padding: .35em .75em;
+    text-decoration: none;
+    transition: color .15s, border-color .15s;
+
+    &:hover {
+      border-color: var(--primary-color);
+      color: var(--primary-color);
+    }
+  }
+
+  // --- Presets tab ---
+  &__presets-tab {
+    display: flex;
+    flex-direction: column;
+  }
+
+  &__presets-grid {
+    display: grid;
+    gap: 4px;
+    grid-template-columns: repeat(6, 1fr);
+    max-height: 14em;
+    overflow-y: auto;
+  }
+
+  &__preset-item {
+    position: relative;
+  }
+
+  &__preset {
+    aspect-ratio: 1;
+    border: 2px solid var(--background-color-soft);
+    border-radius: 4px;
+    cursor: pointer;
+    display: block;
+    overflow: hidden;
+    position: relative;
+    text-decoration: none;
+    transition: border-color .15s;
+    width: 100%;
+
+    &--checkerboard {
+      background-color: #fff;
+      background-image:
+        linear-gradient(45deg, #ccc 25%, transparent 25%),
+        linear-gradient(-45deg, #ccc 25%, transparent 25%),
+        linear-gradient(45deg, transparent 75%, #ccc 75%),
+        linear-gradient(-45deg, transparent 75%, #ccc 75%);
+      background-size: 6px 6px;
+      background-position: 0 0, 0 3px, 3px -3px, -3px 0;
+    }
+
+    &:hover {
+      border-color: var(--primary-color);
+    }
+
+    &--active {
+      border-color: var(--primary-color);
+      box-shadow: 0 0 0 1px var(--primary-color);
+    }
+  }
+
+  &__preset-color {
+    display: block;
+    height: 100%;
+    left: 0;
+    position: absolute;
+    top: 0;
+    width: 100%;
+    z-index: 0;
+    pointer-events: none;
+  }
+
+  &__preset-remove {
+    appearance: none;
+    background: var(--popover-background-color);
+    border: 1px solid var(--background-color-soft);
+    border-radius: 50%;
+    color: var(--neutral-color-soft);
+    cursor: pointer;
+    display: none;
+    font-size: .55em;
+    height: 1.4em;
+    line-height: 1;
+    padding: 0;
+    position: absolute;
+    right: -3px;
+    top: -3px;
+    width: 1.4em;
+    z-index: 1;
+
+    &:hover {
+      color: var(--error-color);
+    }
+  }
+
+  &__preset-item:hover &__preset-remove {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  &__presets-empty {
+    color: var(--neutral-color-soft);
+    font-size: .8em;
+    padding: 2em 0;
+    text-align: center;
+  }
+
+  &--disabled {
+    @include dropdown.dropdown-disabled;
+  }
+}

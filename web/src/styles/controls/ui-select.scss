@@ -1,0 +1,54 @@
+@use 'dropdown-shared' as dropdown;
+
+.ui-select {
+  display: block;
+  position: relative;
+
+  &__label {
+    @include dropdown.dropdown-label;
+  }
+
+  &__trigger {
+    @include dropdown.dropdown-trigger;
+
+    &:hover:not([disabled]) {
+      background-color: var(--background-color);
+    }
+
+    &:active:not([disabled]) {
+      background-color: var(--background-color);
+      box-shadow: none;
+    }
+  }
+
+  &__placeholder {
+    @include dropdown.dropdown-placeholder;
+  }
+
+  &__value {
+    flex: 1;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  &__chevron {
+    @include dropdown.dropdown-chevron;
+  }
+
+  &--open &__chevron {
+    @include dropdown.dropdown-chevron-open;
+  }
+
+  &__dropdown {
+    @include dropdown.dropdown-panel;
+  }
+
+  &__option {
+    @include dropdown.dropdown-option;
+  }
+
+  &--disabled {
+    @include dropdown.dropdown-disabled;
+  }
+}

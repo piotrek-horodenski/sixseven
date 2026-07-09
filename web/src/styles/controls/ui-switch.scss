@@ -1,0 +1,93 @@
+.ui-switch {
+  cursor: pointer;
+  display: inline-block;
+  height: calc(var(--switch-height) + 2 * var(--switch-focus-border));
+  position: relative;
+  width: auto;
+
+  &--disabled {
+    cursor: not-allowed;
+
+    .ui-switch__text {
+      opacity: .6;
+    }
+  }
+
+  &__slider {
+    border: var(--switch-focus-border) solid transparent;
+    border-radius: var(--switch-height);
+    bottom: 0;
+    height: calc(var(--switch-height) + 2 * var(--switch-focus-border) - 1px);
+    left: 1px;
+    position: absolute;
+    right: 0;
+    top: 1px;
+    transition: .4s;
+    width: calc(var(--switch-width) + 2 * var(--switch-focus-border) - 1px);
+
+    &:before {
+      background-color: var(--switch-ball-color);
+      border-radius: 50%;
+      box-shadow: 0 0 calc(var(--switch-shadow-spread) * 1.2) var(--switch-shadow-color);
+      content: "";
+      height: calc(var(--switch-ball-radius) * 2);
+      left: calc((var(--switch-height) - 2 * var(--switch-ball-radius)) / 2);
+      position: absolute;
+      top: calc((var(--switch-height) - 2 * var(--switch-ball-radius)) / 2);
+      transition: .4s;
+      width: calc(var(--switch-ball-radius) * 2);
+    }
+  }
+
+  &__slider-bg {
+    background-color: var(--background-color-soft);
+    border-radius: var(--switch-height);
+    box-shadow: inset 0 0 var(--switch-shadow-spread) var(--switch-shadow-color);
+    display: inline-block;
+    height: var(--switch-height);
+    transition: .4s;
+    width: var(--switch-width);
+  }
+
+  &__text {
+    overflow: hidden;
+    padding-right: 1em;
+    position: relative;
+    top: 0;
+    vertical-align: middle;
+    width: auto;
+  }
+
+  &__checkbox {
+    opacity: 0;
+    width: calc(var(--switch-width) + 2 * var(--switch-focus-border));
+
+    &:focus-within + .ui-switch__slider {
+      border: var(--switch-focus-border) solid var(--neutral-color-soft);
+    }
+
+    &:checked + .ui-switch__slider {
+      &:before {
+        transform: translateX(calc(var(--switch-width) - var(--switch-height)));
+      }
+
+      &>.ui-switch__slider-bg {
+        background-color: var(--primary-color);
+      }
+    }
+
+    &:disabled {
+      &+.ui-switch__slider {
+        cursor: not-allowed;
+
+        &::before {
+          opacity: .6;
+        }
+
+        &>.ui-switch__slider-bg {
+          opacity: .4;
+        }
+      }
+    }
+  }
+}
