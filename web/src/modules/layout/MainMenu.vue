@@ -30,6 +30,16 @@ function onSelect() {
   </li>
   <li>
     <RouterLink
+      to="/play"
+      :tabindex="props.tabindex"
+      @click="onSelect"
+    >
+      <span class="icon"><fa icon="gamepad" /></span>
+      <span class="label">Graj</span>
+    </RouterLink>
+  </li>
+  <li>
+    <RouterLink
       to="/controls"
       :tabindex="props.tabindex"
       @click="onSelect"

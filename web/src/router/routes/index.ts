@@ -7,6 +7,7 @@ import profileRoute from './profile.route'
 import loginRoute from './login.route'
 import registerRoute from './register.route'
 import imagesRoute from './images.route'
+import gamesRoute from './games.route'
 
 export const routes = [
   loginRoute,
@@ -18,4 +19,5 @@ export const routes = [
   adminRoute,
   profileRoute,
   imagesRoute,
+  gamesRoute,
 ]

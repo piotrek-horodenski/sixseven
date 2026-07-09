@@ -6,6 +6,7 @@ import { storeToRefs } from 'pinia'
 import { useLayoutStore } from '@/stores/layout/layout.store'
 import { useGateStore } from '@/stores/gate/gate.store'
 import { useColorPresetsStore } from '@/stores/color-presets/color-presets.store'
+import { useGamesStore } from '@/stores/games/games.store'
 import RegularSlot from './RegularSlot.vue'
 import AppMenu from './AppMenu.vue'
 import AppVerticalMenu from './AppVerticalMenu.vue'
@@ -22,6 +23,7 @@ const { connected } = storeToRefs(useGateStore())
 
 onMounted(() => {
   useColorPresetsStore().init()
+  useGamesStore().init()
 })
 
 const layoutClasses = computed(() => {

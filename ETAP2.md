@@ -1,7 +1,7 @@
 # Etap 2 — status wykonania (handoff)
 
 > Silnik meczu + pierwszy sekret end-to-end (RPS). Podetapy wg `docs/ETAP2_PLAN.md`.
-> Stan na teraz: **2a ✅, 2b ✅, 2c prawie (backend ✅ + gate proxy ✅; został ekran web)**, 2d/2e nietknięte.
+> Stan na teraz: **2a ✅, 2b ✅, 2c ✅ (backend + gate proxy + ekran web)**, 2d/2e nietknięte.
 > Ten plik = co zrobione, jak zweryfikować, co dalej, i na co uważać.
 
 ## Gdzie jesteśmy
@@ -10,7 +10,7 @@
 |---|---|---|
 | 2a | Silnik: maszyna stanów + kolekcje prywatne + pętla deadline'ów, fake-serwis | ✅ zielone (unit + integracyjne) |
 | 2b | Wire contract + SDK (`serve` + harness `test`) + SSRF (C1) | ✅ zielone |
-| 2c | RPS jako zdalny serwis + silnik e2e | 🟡 backend ✅ + gate proxy ✅; **brak: ekran web** |
+| 2c | RPS jako zdalny serwis + silnik e2e + ekran web | ✅ backend + gate proxy + ekran web |
 | 2d | Pokoje przez link + goście + handoff + tokeny meczu | ⬜ nietknięte |
 | 2e | Hartowanie + benchmark wolumenu streamów | ⬜ nietknięte |
 
@@ -46,6 +46,14 @@
 - Env: `GAMES_URL` (bazowy URL games, domyślnie `http://localhost:4120`) + `INTERNAL_SECRET` (musi = games) w `gate/app/settings.service.ts` + `.env.example` (root i gate). games nie jest jeszcze w `docker-compose` — na razie dev lokalny.
 - Testy (bez sieci/bazy): `gate/tests/handlers/games.test.ts` (fake-klient: guardy, mapowanie playerId, acki, rejected, błędy) + `gate/tests/services/games-client.test.ts` (fake-fetch: nagłówek, ścieżki, mapowanie statusów). Logika zweryfikowana też runtime (strip-types) w sandboxie; **pełne testy odpala Piotr lokalnie**.
 
+**2c ekran web (`web/`, tej sesji):**
+- `useCollection` (`src/composables/useCollection.ts`) — reużywalna subskrypcja jednej kolekcji (subscribe + `collection-*` + reconnect + cleanup), wyciągnięta ze wzorca color-presets. Rejestracja idempotentna (`off` przed `on`).
+- Store meczu: `src/stores/games/{games.model.ts,games.store.ts}` — subskrypcja `matches` + `match_views` (dwa `useCollection`), emisja komend `games:*`, nasłuch acków (`*-complete`/`*-error`/`submit-move-rejected`, tylko UX). Gettery: `activeMatches`/`finishedMatches`, `matchById`, `latestView`, `opponentId`. Subskrypcja startuje w `AppLayout` (jak color-presets), nie per-route → brak wyścigu mount/unmount `/play` ↔ `/play/:id`.
+- Moduł `src/modules/games/`: `GamesView` (lobby: lista meczów gracza + formularz „nowy mecz" po `userId` przeciwnika — 2c bez matchmakingu), `MatchView` + `RpsBoard` (lobby/planning/resolving/revealing/finished/paused/cancelled), `RpsHand`, `MatchCard`, `CreateMatchForm`. Planning: odliczanie z `matches.deadline` + wybór ruchu + `ready` przeciwnika; reveal: animacja odsłonięcia obu rąk + werdykt, po `REVEAL_MS` emit `reveal-done` (idempotentnie, raz na rundę); finished: wynik + rewanż. Mobile-first, styl `src/styles/modules/games.scss`, ikony w `font-awesome.config.ts`.
+- Trasa `/play` (+ `/play/:id`) w `router/routes/games.route.ts`, pozycja „Graj" w `MainMenu`.
+- **Backend (konieczne dla frontu):** dodana brakująca polityka subskrypcji `matches` w `gate/app/subscriptions/policies.ts` — row-level `{ players: user._id }` (członkostwo w tablicy; `match_views` była, `matches` NIE). Zweryfikowane w realnym silniku `query` (protobi/query): `{players:self}` dopasowuje po członkostwie, a `$and` ze spoofem klienta daje pustkę. `matches` nie zawiera treści ruchów (te w prywatnej `moves`), więc bez sanityzacji. Wariant „mecz publiczny z okrojonymi polami" świadomie odłożony do 2d. Test dopisany w `gate/tests/subscriptions/policies.test.ts`.
+- Testy web (odpala Piotr): `web/src/composables/__tests__/useCollection.test.ts`, `web/src/stores/games/__tests__/games.store.test.ts`.
+
 ## Jak uruchomić testy
 
 **Bez bazy (jednostkowe):**
@@ -54,6 +62,8 @@ npm test --workspace packages/sdk        # serve + harness + init
 npm test --workspace games               # maszyna stanów, ssrf, command-api
 npm test --workspace catalog/rps         # kontrakt RPS
 npm test --workspace packages/hmac
+npm test --workspace gate                 # m.in. polityki subskrypcji (matches/match_views)
+npm test --workspace web                  # useCollection + games store (wymaga linuksowego rollup — patrz pułapki)
 ```
 
 **Integracyjne games (wymagają replica setu — transakcje A2):**
@@ -81,10 +91,11 @@ Sprzątanie: `docker rm -f games-test-mongo`. Config celuje w `mongodb://localho
 - **Git: commituje wyłącznie Piotr.** Claude nie robi żadnych operacji git.
 - Nowe zależności/workspace'y (np. `catalog/rps`) → `npm install` przed testami.
 
-## Następny krok — dokończyć 2c
+## Następny krok — 2c domknięte, pozostały testy akceptacji + 2d
 
-1. ~~**Gate proxy (backend)**~~ ✅ zrobione (patrz „2c gate proxy" wyżej). Subskrypcja stanu (`matches`/`match_views`) już działa z Etapu 1 (polityki row-level).
-2. **Ekran web (frontend, Vue/hydra):** `useCollection` (subskrypcja) + ekran meczu RPS (składanie ruchu, reveal) + ekran wyniku z rewanżem. Ustalony zakres: **dopracowany, z animacjami reveal** (mobile-first, spójny z `UiButton` itd.). Rozważyć skill `front`. Wiąże się z eventami gate: emituje `games:create-match|start|submit-move|reveal-done`, słucha `*-complete`/`*-error`/`submit-move-rejected`; stan przez subskrypcję `matches`/`match_views`.
+1. ~~**Gate proxy (backend)**~~ ✅ · ~~**Ekran web**~~ ✅ (patrz „2c ekran web" wyżej).
+2. **Do sprawdzenia lokalnie przez Piotra:** odpalić `npm test --workspace gate` i `--workspace web` (te ostatnie wymagają linuksowego rollup — sandbox Claude ich nie odpalił). Ręczny happy-path: dwóch zalogowanych graczy, jeden tworzy mecz podając `userId` drugiego, obaj widzą go na `/play`, start → runda → reveal → wynik → rewanż.
 3. **Testy akceptacji 2c:** S2 (mock głuchego deva — częściowo w e2e 2a), rozszerzenie S1 na żywe `match_views`, „zalogowany gracz gra RPS przez web".
+4. **Uwaga do 2d:** ekran zakłada dziś PEŁNY JWT (goście nie grają — jak gate). Doborem graczy jest ręczne `userId` (bez pokoi/linków/handoffu). Wariant „mecz publiczny" w polityce `matches` odłożony.
 
 Reszta Etapu 2: 2d (pokoje/link/goście/handoff/tokeny meczu — tu wchodzi też implementacja wielotokenowych sesji w gate), 2e (hartowanie Paused/Cancelled na żywym RPS + benchmark 200 równoległych meczów przed Etapem 3).

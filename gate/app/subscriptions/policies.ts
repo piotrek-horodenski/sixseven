@@ -47,6 +47,13 @@ export const collectionPolicies: Record<string, CollectionPolicy> = {
   // teraz, żeby row-level był wymuszany od chwili istnienia kolekcji — subskrypcja
   // pustej/nieistniejącej kolekcji zwraca po prostu zero dokumentów.
   //
+  // ROW-LEVEL: gracz widzi mecze, w których UCZESTNICZY. Filtr { players: self }
+  // korzysta z semantyki Mongo „element tablicy == wartość" (players to tablica
+  // userId). $and z ewentualnym filtrem klienta nie pozwala poszerzyć zakresu.
+  // matches NIE zawiera treści ruchów (te żyją w prywatnej `moves`, I1) — bezpieczne
+  // do wystawienia uczestnikom bez sanityzacji. Wariant „mecz publiczny z okrojonymi
+  // polami" (patrz matches.schema) świadomie odłożony do 2d/Etapu 3.
+  matches:      { filter: (user) => ({ players: user._id } as unknown as SubscriptionTicketFilter) },
   // ROW-LEVEL: gracz widzi wyłącznie SWÓJ widok meczu. Nawet gdy klient podeśle
   // filtr { playerId: '<cudzy>' }, $and z { playerId: self } daje pustkę.
   match_views:  { filter: (user) => ({ playerId: user._id } as unknown as SubscriptionTicketFilter) },

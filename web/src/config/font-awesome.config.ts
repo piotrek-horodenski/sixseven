@@ -68,6 +68,16 @@ import {
   faMinus,
   faChevronDown,
   faLightbulb,
+  faGamepad,
+  faHand,
+  faHandBackFist,
+  faHandScissors,
+  faHandshake,
+  faTrophy,
+  faFlag,
+  faPlay,
+  faRotateRight,
+  faHourglassHalf,
 } from '@fortawesome/free-solid-svg-icons'
 import { FontAwesomeIcon } from '@fortawesome/vue-fontawesome'
 
@@ -139,6 +149,16 @@ const icons = [
   faMinus,
   faChevronDown,
   faLightbulb,
+  faGamepad,
+  faHand,
+  faHandBackFist,
+  faHandScissors,
+  faHandshake,
+  faTrophy,
+  faFlag,
+  faPlay,
+  faRotateRight,
+  faHourglassHalf,
 ]
 
 export default (app: App) => {

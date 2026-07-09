@@ -11,6 +11,7 @@ describe('subscription policies', () => {
     it('returns a policy for registered collections', () => {
       expect(getPolicy('users')).toBeDefined()
       expect(getPolicy('color-presets')).toBeDefined()
+      expect(getPolicy('matches')).toBeDefined()
       expect(getPolicy('match_views')).toBeDefined()
     })
 
@@ -28,6 +29,11 @@ describe('subscription policies', () => {
   })
 
   describe('row-level filters', () => {
+    it('matches scopes to participation (players contains user)', () => {
+      const f = collectionPolicies.matches.filter!({ _id: 'u1' })
+      expect(f).toEqual({ players: 'u1' })
+    })
+
     it('match_views scopes to the current player', () => {
       const f = collectionPolicies.match_views.filter!({ _id: 'u1' })
       expect(f).toEqual({ playerId: 'u1' })
