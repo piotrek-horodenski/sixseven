@@ -13,9 +13,12 @@ import path from 'path'
 export default defineConfig({
   resolve: {
     alias: {
-      // Pakiet sixseven-hmac jest źródło-only (bez zbudowanego dist/). W dev/test
-      // rozwiązujemy import wprost do źródła TS — esbuild go transpiluje.
+      // Pakiety źródło-only (bez zbudowanego dist/) — w dev/test rozwiązujemy
+      // import wprost do źródła TS; esbuild je transpiluje. sixseven-game-rps
+      // używa tylko test e2e (silnik ↔ prawdziwy RPS przez serve).
       'sixseven-hmac': path.resolve(__dirname, '../packages/hmac/src/index.ts'),
+      'sixseven-sdk': path.resolve(__dirname, '../packages/sdk/src/index.ts'),
+      'sixseven-game-rps': path.resolve(__dirname, '../catalog/rps/src/index.ts'),
     },
   },
   test: {

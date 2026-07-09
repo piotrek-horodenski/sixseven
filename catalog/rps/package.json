@@ -1,0 +1,20 @@
+{
+  "name": "sixseven-game-rps",
+  "version": "1.0.0",
+  "description": "Papier-kamień-nożyce jako pierwsza gra first-party sixseven. Zdalny serwis logiki na sixseven-sdk (dogfooding wire contract).",
+  "main": "dist/index.js",
+  "scripts": {
+    "build": "tsc",
+    "start": "node dist/index.js",
+    "test": "vitest run"
+  },
+  "license": "ISC",
+  "dependencies": {
+    "sixseven-sdk": "*"
+  },
+  "devDependencies": {
+    "@types/node": "^20.10.2",
+    "typescript": "^6.0.2",
+    "vitest": "^4.1.1"
+  }
+}

@@ -8,7 +8,8 @@
     "web",
     "image",
     "games",
-    "packages/*"
+    "packages/*",
+    "catalog/*"
   ],
   "scripts": {
     "test": "npm run test --workspaces --if-present",

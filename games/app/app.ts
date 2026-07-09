@@ -6,27 +6,25 @@ import logger from './logger'
 import { models } from './models'
 import { MatchEngine } from './engine/engine'
 import { Scheduler } from './engine/scheduler'
+import { createRegistrationResolver } from './services/register-game'
 
 /**
  * games — serwis skarbca (silnik meczów, matchmaking, trust).
  *
- * PODETAP 2a: boot bazy + rejestracja modeli (7 kolekcji) + pętla harmonogramu
- * (deadline'y w dokumentach, A5). Endpointy komend (submit-move itd. proxowane
- * z gate) oraz rejestracja gier dochodzą w 2c — dlatego resolver endpointu
- * serwisu gry jest na razie stubem (w produkcji 2a nie ma jeszcze meczów).
+ * PODETAP 2c: boot bazy + rejestracja modeli + pętla harmonogramu (A5) + resolver
+ * endpointu serwisu gry z kolekcji `registrations`. Endpointy komend (submit-move
+ * itd. proxowane z gate) dochodzą w dalszej części 2c.
  *
- * Kolekcje prywatne games (moves, match_states, resolve_log, player_memory) NIE
- * są nigdy wystawiane przez gate — default-deny z Etapu 1 je blokuje.
+ * Kolekcje prywatne games (moves, match_states, resolve_log, player_memory,
+ * registrations) NIE są nigdy wystawiane przez gate — default-deny z Etapu 1.
  */
 export async function boot(): Promise<void> {
   await connectDb()
   logger.info({ collections: models.map((m) => m.name) }, 'models registered')
 
   const engine = new MatchEngine({
-    // 2a: brak kolekcji `registrations` — URL i sekret serwisu gry dojdą w 2c.
-    resolveEndpoint: async (gameId) => {
-      throw new Error(`game not registered: ${gameId} (rejestracja w podetapie 2c)`)
-    },
+    // 2c: endpoint serwisu gry pochodzi z kolekcji `registrations`.
+    resolveEndpoint: createRegistrationResolver(),
   })
   const scheduler = new Scheduler(engine)
   scheduler.start()
@@ -34,7 +32,7 @@ export async function boot(): Promise<void> {
   const app = express()
   app.use(express.json())
   app.get('/health', (_req, res) => {
-    res.json({ service: 'games', status: 'ok', stage: '2a' })
+    res.json({ service: 'games', status: 'ok', stage: '2c' })
   })
 
   await new Promise<void>((resolve) => {

@@ -7,6 +7,7 @@ import { MatchView } from './match-views.schema'
 import { MatchEvent } from './match-events.schema'
 import { ResolveLog } from './resolve-log.schema'
 import { PlayerMemory } from './player-memory.schema'
+import { Registration } from './registrations.schema'
 
 export interface ModelCollectionMapping {
   name: string
@@ -27,6 +28,7 @@ export const models: ModelCollectionMapping[] = [
   { name: 'match_states', model: MatchState, exposed: false },
   { name: 'resolve_log', model: ResolveLog, exposed: false },
   { name: 'player_memory', model: PlayerMemory, exposed: false },
+  { name: 'registrations', model: Registration, exposed: false },
 ]
 
 export {
@@ -37,4 +39,5 @@ export {
   MatchEvent,
   ResolveLog,
   PlayerMemory,
+  Registration,
 }
