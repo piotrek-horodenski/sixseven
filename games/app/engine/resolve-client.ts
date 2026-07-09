@@ -1,6 +1,7 @@
 import { sign } from 'sixseven-hmac'
 
 import { ResolveRequest, ResolveResponse, ResolveOutcome } from '../contract/wire'
+import { assertAllowedUrl } from './ssrf'
 import { settings } from '../settings'
 import logger from '../logger'
 
@@ -38,6 +39,8 @@ export interface ResolveCallOptions {
   maxBodyBytes?: number
   /** Wstrzykiwalny fetch (testy). Domyślnie globalny fetch (Node ≥ 18). */
   fetchImpl?: typeof fetch
+  /** Pozwól na adresy prywatne/loopback (dev/test). Domyślnie z settings. */
+  allowPrivate?: boolean
 }
 
 /** Walidacja strukturalna odpowiedzi (bez znajomości reguł gry). */
@@ -66,11 +69,19 @@ export async function callResolve(
   const budgetMs = options.budgetMs ?? settings.resolveBudgetMs
   const maxBodyBytes = options.maxBodyBytes ?? settings.resolveMaxBodyBytes
 
+  const base = { outcome: 'error' as ResolveOutcome, response: null, requestBody: request }
+
+  // SSRF (C1): odrzuć cel wskazujący na zakres prywatny/loopback (chyba że dev/test).
+  try {
+    await assertAllowedUrl(endpoint.url, { allowPrivate: options.allowPrivate ?? settings.resolveAllowPrivate })
+  } catch (err) {
+    logger.warn({ err, url: endpoint.url, matchId: request.matchId, round: request.round }, 'resolve target blocked (ssrf)')
+    return base
+  }
+
   // Kanoniczne ciało: DOKŁADNIE ten string idzie po drucie i jest podpisywany.
   const body = JSON.stringify(request)
   const { timestamp, signature } = sign(endpoint.secret, body, options.now)
-
-  const base = { outcome: 'error' as ResolveOutcome, response: null, requestBody: request }
 
   let res: Response
   try {

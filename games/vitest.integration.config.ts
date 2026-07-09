@@ -32,6 +32,8 @@ export default defineConfig({
       JWT_SECRET: 'test-secret-not-used-for-real-signing',
       // Krótkie backoffy — testy sterują zegarem, ale trzymajmy wartości sensowne.
       RESOLVE_BACKOFF_MS: '10,10,10',
+      // Fake-serwis gry biega na 127.0.0.1 — pozwól na adresy prywatne w testach.
+      RESOLVE_ALLOW_PRIVATE: 'true',
       TEST_DB_URI: 'mongodb://localhost:27140/games_test?replicaSet=rs0',
     },
     // Wspólna baza + globalny afterEach: brak równoległości plików (jak w image).

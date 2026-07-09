@@ -25,6 +25,9 @@ const envSchema = z.object({
   RESOLVE_MAX_BODY_BYTES: z.string().default('1048576'),  // twardy limit rozmiaru odpowiedzi (1 MiB)
   RESOLVE_RETRY_MAX: z.string().default('3'),             // liczba prób w rundzie zanim Paused
   RESOLVE_BACKOFF_MS: z.string().default('2000,4000,8000'), // backoff kolejnych prób (CSV)
+  // SSRF (C1): domyślnie blokujemy adresy prywatne/loopback celu /resolve.
+  // W dev/test (fake-serwis na 127.0.0.1) ustaw 'true'.
+  RESOLVE_ALLOW_PRIVATE: z.string().default('false'),
 
   // Fazy meczu.
   PLANNING_MIN_MS: z.string().default('2000'),   // dolny limit fazy planowania (walidacja manifestu)
@@ -65,6 +68,7 @@ export const settings = {
   resolveMaxBodyBytes: Number(env.RESOLVE_MAX_BODY_BYTES),
   resolveRetryMax: Number(env.RESOLVE_RETRY_MAX),
   resolveBackoffMs: csvNumbers(env.RESOLVE_BACKOFF_MS),
+  resolveAllowPrivate: env.RESOLVE_ALLOW_PRIVATE === 'true',
 
   planningMinMs: Number(env.PLANNING_MIN_MS),
   revealMarginMs: Number(env.REVEAL_MARGIN_MS),
