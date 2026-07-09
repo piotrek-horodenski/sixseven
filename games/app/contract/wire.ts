@@ -10,6 +10,21 @@
  * ciałem, które idzie po drucie (bajt w bajt) — patrz resolve-client.
  */
 
+/** Wejście do `/init` — stan początkowy meczu liczy GRA, nie platforma. */
+export interface InitRequest {
+  matchId: string
+  manifestVersion: string
+  playerIds: string[]
+  seed: string
+  playerData: Record<string, { data: Record<string, unknown>; prefs: Record<string, unknown> }>
+  options: Record<string, unknown>
+}
+
+/** Wyjście z `/init`. */
+export interface InitResponse {
+  state: unknown
+}
+
 /** Ruch jednego gracza przekazany do logiki po zamknięciu fazy (stan 4). */
 export interface PlayerMove {
   playerId: string

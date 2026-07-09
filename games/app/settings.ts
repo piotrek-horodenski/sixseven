@@ -18,6 +18,8 @@ const envSchema = z.object({
   // Sekret do weryfikacji tokenów meczu (realne użycie w 2d) — trzymany od 2a,
   // bo silnik i tak potrzebuje go do podpisów wychodzących w kolejnych podetapach.
   JWT_SECRET: z.string().min(1, 'JWT_SECRET is required'),
+  // Sekret wewnętrzny gate↔games (auth komend HTTP). PROD MUSI nadpisać.
+  INTERNAL_SECRET: z.string().default('dev-internal-secret-change-me'),
 
   // Budżet i retry wywołań /resolve do serwisu gry (C2, A4).
   RESOLVE_BUDGET_MS: z.string().default('2000'),          // całkowity budżet od wysłania do pełnego body
@@ -62,6 +64,7 @@ export const settings = {
   port: Number(env.GAMES_PORT),
   mongodb: env.MONGODB_URI,
   jwtSecret: env.JWT_SECRET,
+  internalSecret: env.INTERNAL_SECRET,
 
   resolveBudgetMs: Number(env.RESOLVE_BUDGET_MS),
   resolveConnectTimeoutMs: Number(env.RESOLVE_CONNECT_TIMEOUT_MS),

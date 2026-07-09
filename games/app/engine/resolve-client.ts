@@ -20,10 +20,15 @@ import logger from '../logger'
  */
 
 export interface GameServiceEndpoint {
-  /** Pełny URL endpointu `/resolve` serwisu gry. */
+  /** BAZOWY URL serwisu gry (bez ścieżki). Klienci doklejają `/resolve`, `/init`. */
   url: string
   /** Sekret HMAC współdzielony z twórcą gry (z rejestracji). */
   secret: string
+}
+
+/** Dokleja ścieżkę do bazowego URL-a serwisu gry (bez podwójnych `/`). */
+export function gameUrl(base: string, path: string): string {
+  return base.replace(/\/+$/, '') + path
 }
 
 export interface ResolveCallResult {
@@ -85,7 +90,7 @@ export async function callResolve(
 
   let res: Response
   try {
-    res = await fetchImpl(endpoint.url, {
+    res = await fetchImpl(gameUrl(endpoint.url, '/resolve'), {
       method: 'POST',
       headers: {
         'content-type': 'application/json',

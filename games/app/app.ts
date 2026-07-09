@@ -3,10 +3,12 @@ import express from 'express'
 import { connectDb } from './db'
 import { settings } from './settings'
 import logger from './logger'
-import { models } from './models'
+import { models, Registration } from './models'
 import { MatchEngine } from './engine/engine'
 import { Scheduler } from './engine/scheduler'
+import { callInit } from './engine/init-client'
 import { createRegistrationResolver } from './services/register-game'
+import { createCommandRouter } from './command-api'
 
 /**
  * games — serwis skarbca (silnik meczów, matchmaking, trust).
@@ -34,6 +36,24 @@ export async function boot(): Promise<void> {
   app.get('/health', (_req, res) => {
     res.json({ service: 'games', status: 'ok', stage: '2c' })
   })
+
+  // Komendy meczu proxowane z gate (auth: sekret wewnętrzny).
+  app.use(
+    '/command',
+    createCommandRouter({
+      engine,
+      internalSecret: settings.internalSecret,
+      getRegistration: async (gameId) => {
+        const reg = await Registration.findOne({ gameId, status: 'active' })
+        if (!reg) return null
+        return {
+          version: reg.version as string,
+          endpoint: { url: reg.serviceUrl as string, secret: reg.hmacSecret as string },
+        }
+      },
+      init: (endpoint, request) => callInit(endpoint, request as never),
+    }),
+  )
 
   await new Promise<void>((resolve) => {
     app.listen(settings.port, () => {

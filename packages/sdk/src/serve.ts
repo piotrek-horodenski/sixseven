@@ -6,6 +6,8 @@ import {
   ResolveRequest,
   ResolveResponse,
   ResolvedMove,
+  InitRequest,
+  InitResponse,
 } from './contract'
 
 /**
@@ -54,6 +56,75 @@ function isResolveRequest(x: unknown): x is ResolveRequest {
   )
 }
 
+function isInitRequest(x: unknown): x is InitRequest {
+  if (typeof x !== 'object' || x === null) return false
+  const o = x as Record<string, unknown>
+  return (
+    typeof o.matchId === 'string' &&
+    typeof o.manifestVersion === 'string' &&
+    Array.isArray(o.playerIds) &&
+    typeof o.seed === 'string' &&
+    typeof o.options === 'object' && o.options !== null
+  )
+}
+
+/**
+ * Wspólny brzeg: limit rozmiaru + weryfikacja HMAC nad surowym ciałem. Zwraca
+ * `HandlerResult` z błędem, gdy coś nie gra, albo `null`, gdy można kontynuować.
+ */
+function checkAuth(
+  rawBody: string,
+  headers: Record<string, string | undefined>,
+  options: ServeOptions,
+): HandlerResult | null {
+  const maxBody = options.maxBodyBytes ?? DEFAULT_MAX_BODY
+  if (Buffer.byteLength(rawBody, 'utf8') > maxBody) {
+    return err(413, 'payload too large')
+  }
+  const provided: SignedRequest = {
+    timestamp: String(headers['x-sixseven-timestamp'] ?? ''),
+    signature: String(headers['x-sixseven-signature'] ?? ''),
+  }
+  const ok = verify(options.secret, rawBody, provided, { windowMs: options.windowMs, now: options.now })
+  if (!ok) return err(401, 'invalid signature')
+  return null
+}
+
+/**
+ * Czysty rdzeń obsługi `/init`. Stan początkowy meczu liczy GRA.
+ */
+export function handleInit(
+  def: GameDefinition,
+  rawBody: string,
+  headers: Record<string, string | undefined>,
+  options: ServeOptions,
+): HandlerResult {
+  const authErr = checkAuth(rawBody, headers, options)
+  if (authErr) return authErr
+
+  let parsed: unknown
+  try {
+    parsed = JSON.parse(rawBody)
+  } catch {
+    return err(400, 'invalid json')
+  }
+  if (!isInitRequest(parsed)) {
+    return err(400, 'invalid init request')
+  }
+  try {
+    const state = def.init({
+      playerIds: parsed.playerIds,
+      seed: parsed.seed,
+      playerData: parsed.playerData ?? {},
+      options: parsed.options,
+    })
+    const response: InitResponse = { state }
+    return { status: 200, body: JSON.stringify(response) }
+  } catch {
+    return err(500, 'init threw')
+  }
+}
+
 /**
  * Czysty rdzeń obsługi `/resolve`. Zwraca status + ciało JSON, nie dotyka sieci.
  */
@@ -63,27 +134,10 @@ export function handleResolve(
   headers: Record<string, string | undefined>,
   options: ServeOptions,
 ): HandlerResult {
-  const maxBody = options.maxBodyBytes ?? DEFAULT_MAX_BODY
+  const authErr = checkAuth(rawBody, headers, options)
+  if (authErr) return authErr
 
-  // 1) Limit rozmiaru — zanim cokolwiek sparsujemy.
-  if (Buffer.byteLength(rawBody, 'utf8') > maxBody) {
-    return err(413, 'payload too large')
-  }
-
-  // 2) Podpis HMAC nad SUROWYM ciałem (bajt w bajt).
-  const provided: SignedRequest = {
-    timestamp: String(headers['x-sixseven-timestamp'] ?? ''),
-    signature: String(headers['x-sixseven-signature'] ?? ''),
-  }
-  const ok = verify(options.secret, rawBody, provided, {
-    windowMs: options.windowMs,
-    now: options.now,
-  })
-  if (!ok) {
-    return err(401, 'invalid signature')
-  }
-
-  // 3) Parsowanie + walidacja strukturalna.
+  // Parsowanie + walidacja strukturalna.
   let parsed: unknown
   try {
     parsed = JSON.parse(rawBody)
@@ -150,7 +204,9 @@ export function serve(
       res.end(JSON.stringify({ service: def.manifest.id, version: def.manifest.version, status: 'ok' }))
       return
     }
-    if (req.method !== 'POST' || req.url !== '/resolve') {
+    const isInit = req.method === 'POST' && req.url === '/init'
+    const isResolveRoute = req.method === 'POST' && req.url === '/resolve'
+    if (!isInit && !isResolveRoute) {
       res.statusCode = 404
       res.end()
       return
@@ -172,7 +228,9 @@ export function serve(
         'x-sixseven-timestamp': req.headers['x-sixseven-timestamp'] as string | undefined,
         'x-sixseven-signature': req.headers['x-sixseven-signature'] as string | undefined,
       }
-      const result = handleResolve(def, raw, headers, options)
+      const result = isInit
+        ? handleInit(def, raw, headers, options)
+        : handleResolve(def, raw, headers, options)
       res.statusCode = result.status
       res.setHeader('content-type', 'application/json')
       res.end(result.body)

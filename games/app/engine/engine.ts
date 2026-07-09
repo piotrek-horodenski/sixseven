@@ -31,8 +31,10 @@ export interface CreateMatchInput {
   guestIds?: string[]
   ranked?: boolean
   options?: Record<string, unknown>
-  /** Stan początkowy gry (w 2c pochodzi z /init; w 2a podawany wprost). */
+  /** Stan początkowy gry (z /init; w testach podawany wprost). */
   initialState: unknown
+  /** Opcjonalny z góry ustalony _id meczu (command API generuje go przed /init). */
+  matchId?: string
 }
 
 function readFsm(match: any): MatchFsm {
@@ -72,6 +74,7 @@ export class MatchEngine {
   async createMatch(input: CreateMatchInput): Promise<string> {
     const now = this.now()
     const match = await Match.create({
+      ...(input.matchId ? { _id: input.matchId } : {}),
       gameId: input.gameId,
       manifestVersion: input.manifestVersion,
       players: input.players,
@@ -239,7 +242,25 @@ export class MatchEngine {
       latePlayers,
     }
 
+    // Telemetria (G2): zegar ścienny (niezależny od logicznego this.now()),
+    // wynik, rozmiar stanu i liczności — dane do kalibracji budżetów (Etap 5).
+    const startedAt = Date.now()
     const result = await this.call(endpoint, request, { now: this.now() })
+    const durationMs = Date.now() - startedAt
+    logger.info(
+      {
+        evt: 'resolve',
+        matchId,
+        round: match.round,
+        attempt,
+        outcome: result.outcome,
+        durationMs,
+        stateBytes: Buffer.byteLength(JSON.stringify(stateDoc?.state ?? null), 'utf8'),
+        moves: moves.length,
+        late: latePlayers.length,
+      },
+      'resolve attempt',
+    )
     await this.logAttempt(matchId, match.round, attempt, result)
 
     if (result.outcome === 'ok' && result.response) {

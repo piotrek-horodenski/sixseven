@@ -13,7 +13,7 @@ export const RegistrationSchema = new Schema({
   name: { type: String, default: '' },
   version: { type: String, required: true },
 
-  /** Pełny URL endpointu `/resolve` serwisu gry. */
+  /** BAZOWY URL serwisu gry (bez ścieżki). Klient dokleja `/resolve`, `/init`. */
   serviceUrl: { type: String, required: true },
   /** Sekret HMAC współdzielony z twórcą (sekret — dlatego kolekcja prywatna). */
   hmacSecret: { type: String, required: true },

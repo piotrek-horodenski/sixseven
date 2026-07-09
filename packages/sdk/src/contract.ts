@@ -28,6 +28,21 @@ export interface InitInput {
   options: Record<string, unknown>
 }
 
+/**
+ * Wejście do `/init` po drucie: InitInput + tożsamość meczu i wersja manifestu.
+ * Stan początkowy meczu liczy GRA (nie klient/platforma) — dlatego to osobne
+ * wywołanie do serwisu gry przy tworzeniu meczu.
+ */
+export interface InitRequest extends InitInput {
+  matchId: string
+  manifestVersion: string
+}
+
+/** Wyjście z `/init`: stan początkowy meczu. */
+export interface InitResponse {
+  state: unknown
+}
+
 /** Ruch jednego gracza w żądaniu (treść nieznana typom — waliduje ją gra). */
 export interface PlayerMove {
   playerId: PlayerId

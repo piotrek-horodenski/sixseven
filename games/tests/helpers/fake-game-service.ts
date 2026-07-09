@@ -73,7 +73,8 @@ export async function startFakeService(opts: {
   const addr = server.address() as AddressInfo
 
   return {
-    url: `http://127.0.0.1:${addr.port}/resolve`,
+    // Bazowy URL (klient dokleja /resolve). Fake odpowiada na dowolną ścieżkę.
+    url: `http://127.0.0.1:${addr.port}`,
     secret: opts.secret,
     calls,
     stop: () => new Promise<void>((resolve) => server.close(() => resolve())),

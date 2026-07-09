@@ -1,8 +1,8 @@
 import { describe, it, expect } from 'vitest'
 import { sign } from 'sixseven-hmac'
 
-import { handleResolve, resolvePipeline } from '../src/serve'
-import { ResolveRequest, ResolveResponse } from '../src/contract'
+import { handleResolve, handleInit, resolvePipeline } from '../src/serve'
+import { ResolveRequest, ResolveResponse, InitRequest, InitResponse } from '../src/contract'
 import { rps } from './fixtures/games'
 
 const SECRET = 'serve-test-secret'
@@ -95,6 +95,37 @@ describe('handleResolve', () => {
     const s = sign(SECRET, garbage, NOW)
     const res = handleResolve(rps, garbage, { 'x-sixseven-timestamp': s.timestamp, 'x-sixseven-signature': s.signature }, { secret: SECRET, now: NOW })
     expect(res.status).toBe(400)
+  })
+})
+
+describe('handleInit', () => {
+  function initReq(): InitRequest {
+    return {
+      matchId: 'm1',
+      manifestVersion: '1.0.0',
+      playerIds: ['p1', 'p2'],
+      seed: 's',
+      playerData: {},
+      options: { target: 3 },
+    }
+  }
+
+  it('poprawnie podpisane /init → 200 i stan początkowy z gry', () => {
+    const body = JSON.stringify(initReq())
+    const { timestamp, signature } = sign(SECRET, body, NOW)
+    const res = handleInit(rps, body, { 'x-sixseven-timestamp': timestamp, 'x-sixseven-signature': signature }, { secret: SECRET, now: NOW })
+    expect(res.status).toBe(200)
+    const parsed = JSON.parse(res.body) as InitResponse
+    // Fixtura RPS (uproszczona) — stan początkowy to { round, scores }.
+    const state = parsed.state as { round: number; scores: Record<string, number> }
+    expect(state.round).toBe(1)
+    expect(state.scores).toEqual({ p1: 0, p2: 0 })
+  })
+
+  it('zły podpis /init → 401', () => {
+    const body = JSON.stringify(initReq())
+    const res = handleInit(rps, body, { 'x-sixseven-timestamp': String(NOW), 'x-sixseven-signature': 'bad' }, { secret: SECRET, now: NOW })
+    expect(res.status).toBe(401)
   })
 })
 

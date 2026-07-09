@@ -6,6 +6,7 @@ import { rps } from 'sixseven-game-rps'
 import { Match, MatchView, MatchEvent, ResolveLog } from '../../app/models'
 import { MatchEngine } from '../../app/engine/engine'
 import { Scheduler } from '../../app/engine/scheduler'
+import { callInit } from '../../app/engine/init-client'
 import { registerGame, createRegistrationResolver } from '../../app/services/register-game'
 
 /**
@@ -32,7 +33,7 @@ describe('E2E: silnik ↔ prawdziwy RPS', () => {
     await registerGame({
       gameId: 'rps',
       version: rps.manifest.version,
-      serviceUrl: `http://127.0.0.1:${port}/resolve`,
+      serviceUrl: `http://127.0.0.1:${port}`, // bazowy URL (klient dokleja /resolve, /init)
       hmacSecret: SECRET,
       manifest: rps.manifest as unknown as Record<string, unknown>,
     })
@@ -101,6 +102,23 @@ describe('E2E: silnik ↔ prawdziwy RPS', () => {
     const ev = await MatchEvent.findOne({ matchId: id, round: 1 })
     expect(ev).not.toBeNull()
     expect((ev!.events as any[])[0].winner).toBe('p1')
+  })
+
+  it('callInit zwraca stan początkowy z RPS przez HTTP (/init + HMAC)', async () => {
+    const endpoint = { url: `http://127.0.0.1:${port}`, secret: SECRET }
+    const res = await callInit(endpoint, {
+      matchId: 'm-init',
+      manifestVersion: rps.manifest.version,
+      playerIds: ['p1', 'p2'],
+      seed: 'seed',
+      playerData: {},
+      options: { target: 3 },
+    }, { now: clock.t })
+    expect(res.ok).toBe(true)
+    const state = res.state as { round: number; target: number; scores: Record<string, number> }
+    expect(state.round).toBe(1)
+    expect(state.target).toBe(3)
+    expect(state.scores).toEqual({ p1: 0, p2: 0 })
   })
 
   it('nieznana gra → resolver rzuca (rejestracja wymagana)', async () => {
