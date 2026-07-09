@@ -108,7 +108,7 @@ Nowa gra = „niewinna, ale niesprawdzona". Gra po incydencie = „znana i skomp
 
 Sędzia prowadzi `audit_cases` (dossier per gra i per konto deweloperskie) i emituje werdykty jako `trust_events`. Bezstanowość i determinizm serwisów logiki czynią audyt prawie darmowym, więc odbywa się losowo i bez ostrzeżenia, nieodróżnialnie od ruchu produkcyjnego:
 
-- **Replay-audit** — platforma trzyma wejście/wyjście każdego `/resolve`; ponowne wysłanie historycznego żądania musi dać identyczną odpowiedź. Wykrywa złamany determinizm i cichą podmianę logiki.
+- **Replay-audit** — platforma trzyma wejście/wyjście każdego `/resolve`; ponowne wysłanie historycznego żądania musi dać identyczną odpowiedź. Wykrywa złamany determinizm i cichą podmianę logiki. **Werdykt „replay niezgodny" wymaga zgodności wersji manifestu** między oryginałem a powtórką: legalna zmiana wersji ma prawo dać inny wynik, więc replay porównuje tylko w obrębie tej samej wersji (patrz „Wersjonowanie" i wersja w `/resolve`). *(C3)*
 - **Test lustrzany** — historyczny stan z zamienionymi graczami musi dać lustrzany wynik. Wykrywa logikę faworyzującą konkretnego gracza, bez znajomości reguł gry.
 - **Mecze-pułapki** — jak w „Safe secret": platforma gra obiema stronami przez instrumentowaną aplikację UI.
 
@@ -147,7 +147,7 @@ sequenceDiagram
     Note over E: tylko walidacja strukturalna (schemat, rozmiar) —<br/>ruch NIE opuszcza platformy przed końcem fazy
     E->>M: matches: ready[A]=true (ruch zostaje w bazie prywatnej)
     Note over E: deadline LUB komplet ruchów — faza zamknięta
-    E->>S: POST /resolve (stan + surowe ruchy + lista spóźnionych, podpisane)
+    E->>S: POST /resolve (stan + surowe ruchy + lista spóźnionych + wersja manifestu, podpisane)
     S-->>E: nowy stan, punkty, events, views, finished, revealDurationMs
     E->>M: match_events.insert, matches.update, match_views.update × N
     M-->>G: change streams → reveal u wszystkich graczy
@@ -173,7 +173,7 @@ interface GameDefinition<State, Move, View> {
 }
 ```
 
-Kontrakt ma dwie postaci: **funkcje** (SDK TypeScript — dev implementuje `GameDefinition`, a `sixseven-sdk serve` opakowuje go w serwis HTTP) i **wire contract** (HTTP z podpisanymi żądaniami — dla dowolnego języka). Silnik minimalizuje round-tripy: jedna runda = jeden `POST /resolve` (stan + surowe ruchy + lista spóźnionych → nowy stan, punkty, events, widoki per gracz, finished, revealDurationMs). Serwis gry jest **bezstanowy** — cały stan trzyma i przekazuje platforma.
+Kontrakt ma dwie postaci: **funkcje** (SDK TypeScript — dev implementuje `GameDefinition`, a `sixseven-sdk serve` opakowuje go w serwis HTTP) i **wire contract** (HTTP z podpisanymi żądaniami — dla dowolnego języka). Silnik minimalizuje round-tripy: jedna runda = jeden `POST /resolve` (stan + surowe ruchy + lista spóźnionych + **wersja manifestu, z którą mecz wystartował** → nowy stan, punkty, events, widoki per gracz, finished, revealDurationMs). Wersja jest zapisywana w `resolve_log`; dzięki niej dev wie, którą wersją logiki obsłużyć stan, a replay-audit nie generuje fałszywych pozytywów po legalnej zmianie wersji. Każda próba retry niesie **świeży podpis** (nowy timestamp) i to samo `(matchId, round)` jako klucz idempotencji. Serwis gry jest **bezstanowy** — cały stan trzyma i przekazuje platforma. *(C3, A4)*
 
 Zasada „safe secret" w wire contract: **żaden ruch nie opuszcza platformy przed zamknięciem fazy planowania** — dlatego nie ma zdalnego `/validate-move` w trakcie planowania. W fazie planowania platforma waliduje tylko strukturalnie (JSON, rozmiar); `validateMove` z SDK jest wywoływane przez adapter `serve` wewnątrz `/resolve` — nielegalny ruch dostaje `defaultMove`, co gra raportuje w `events`. UI waliduje lokalnie dla UX (zna reguły).
 
@@ -194,7 +194,7 @@ graph LR
 ```
 
 - **Zaufanie i podpisy:** przy rejestracji gra dostaje sekret; silnik podpisuje każde żądanie (HMAC + timestamp), serwis gry weryfikuje. Odpowiedzi walidowane strukturalnie (schema, limity rozmiaru stanu/eventów) — serwis gry nie może wstrzyknąć niczego poza kontraktem.
-- **Wersjonowanie:** manifest deklaruje `version`; zmiany niekompatybilne (schemat opcji, odznaki) wymagają ponownej weryfikacji. Kompatybilność logiki w trakcie trwających meczów to odpowiedzialność deva — stan wraca do niego przy każdym wywołaniu, więc musi umieć przyjąć stan z wcześniejszej wersji logiki.
+- **Wersjonowanie:** manifest deklaruje `version`; zmiany niekompatybilne (schemat opcji, odznaki) wymagają ponownej weryfikacji. Kompatybilność logiki w trakcie trwających meczów to odpowiedzialność deva — stan wraca do niego przy każdym wywołaniu, więc musi umieć przyjąć stan z wcześniejszej wersji logiki. **Każde `/resolve` niesie wersję, z którą mecz wystartował** (mecz jest przypięty do swojej wersji), a `resolve_log` ją zapisuje — bez tego replay-audit dawałby fałszywe pozytywy po legalnej publikacji nowej wersji. *(C3)*
 - **Determinizm jako wymóg kontraktu:** ten sam stan + ruchy + seed → ten sam wynik. Weryfikowany kontrakt-testami (podwójne wywołania); replay meczu odtwarzamy z zapisanych wyników rund w `match_events`, nie przez ponowne wykonanie.
 - **Kontrakt-testy identyczne lokalnie i przy rejestracji:** `sixseven-sdk test` uderza w lokalnie uruchomiony serwis tym samym harnessem, którym platforma weryfikuje przy rejestracji i okresowo (health-check + re-test po zmianie wersji).
 
@@ -280,6 +280,11 @@ Slot `aside` (36rem) jako szczegóły pokoju na listach — wzorzec `engine-deta
 **Why:** Gracz musi natychmiast wiedzieć, że ruch odrzucono (walidacja); round-trip przez bazę i stream dodaje lag i gubi kontekst błędu.
 **What:** gate proxuje `games:*` do games po HTTP i zwraca ack/błąd; cały fan-out stanu wyłącznie przez subskrypcje.
 **Watch out:** Dwie ścieżki = dwa źródła prawdy u klienta; UI traktuje ack tylko jako potwierdzenie przyjęcia, renderuje zawsze ze streamu.
+
+### Model sesji: wielotokenowy (minimalny)
+**Why:** Hydra trzyma pojedyncze `users.token` — logowanie na drugim urządzeniu nadpisuje token i po cichu wylogowuje pierwsze. Platforma ma presence, znajomych i handoff do aplikacji gier, więc gracz realnie bywa na web (desktop) i aplikacji gry (telefon) naraz; jednosesyjność by to psuła. Lista sesji jest znacznie tańsza do zbudowania teraz niż migracja później (Etap 1 i tak dotykał tokenów).
+**What:** `users.token: String` → `users.sessions: [{ token/jti, device?, createdAt, lastSeen }]`. Middleware auth dopasowuje token do dowolnej aktywnej sesji (`findOne({ _id, 'sessions.token': token })`), login **dokłada** sesję zamiast nadpisywać, logout usuwa bieżącą sesję, plus akcja „wyloguj wszędzie" czyszcząca listę. Rewokacja pozostaje DB-backed, ale per sesja.
+**Watch out:** (1) Bez limitu lista sesji rośnie — TTL/prune nieużywanych (np. `lastSeen` starsze niż TTL JWT = 7 dni) i górny limit sesji per user. (2) Pełne zarządzanie w UI (lista urządzeń, „wyloguj wybrane") świadomie odłożone po MVP — teraz tylko model + „wyloguj wszędzie". (3) Zmiana schematu = migracja istniejących `token` → jednoelementowe `sessions`. *(realizacja w Etapie 1/2 przy tokenach)*
 
 ### UI gry jako zewnętrzna aplikacja z dostępem do API (nie sandbox w DOM platformy)
 **Why:** Deweloper dostarcza produkt end-to-end. Izolację najlepiej daje osobny origin — przeglądarka pilnuje granicy za darmo, znika cały problem XSS, renderera i mostków. Ukrytej informacji UI nie musi chronić (klient i tak dostaje tylko własny `match_views`).

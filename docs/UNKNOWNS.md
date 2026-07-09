@@ -6,7 +6,6 @@ Skonsolidowana lista rzeczy, których świadomie jeszcze nie wiemy. Zasada: niew
 
 | Pytanie | Kontekst | Kiedy |
 |---|---|---|
-| Multi-device: dedupe ticketów subskrypcji w hydrze gubi drugą kartę/urządzenie | podejrzenie z code review; do potwierdzenia testem | etap 0 (naprawa w wycince) |
 | Budżety czasu odpowiedzi serwisów gier (2 s na `/resolve` to strzał) i dokładna polityka pauzy/anulowania | do zgrania z `revealDuration` i realną siecią | etap 2 (pomiar na RPS) |
 | Responsywność mobilna: web hydry nie ma ani jednego breakpointu — ile mobile'u w MVP? | katalog/lobby/czat muszą działać na telefonie; pełny mobile to realna praca | etap 3 |
 | Kalibracja liczb zaufania (progi przywilejów, wagi zdarzeń, tempo odbudowy renomy) | wartości startowe w `IMPLEMENTATION_PLAN.md`; są konfiguracją | etap 5+ (dane z produkcji) |

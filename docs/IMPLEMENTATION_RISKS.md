@@ -126,11 +126,14 @@
 
 ## Poprawki do naniesienia w istniejących dokumentach
 
-| Dokument | Zmiana | Wpis |
-|---|---|---|
-| `IMPLEMENTATION_PLAN.md` | maszyna stanów: subfaza `sealed` per runda; rehydracja: sealed → ponowny `/resolve`, nie restart Planning | A1 |
-| `IMPLEMENTATION_PLAN.md` | test S2: nadpisania ruchu nie generują zdarzeń w kolekcjach subskrybowalnych | A3 |
-| `IMPLEMENTATION_PLAN.md` | test S3: + nawigacja, form-action, `<a ping>`, prefetch | D1 |
-| `ARCHITECTURE.md` / wire contract | wersja manifestu w żądaniu `/resolve`; werdykt replay wymaga zgodności wersji | C3 |
-| `games/ARROWSOCCER.md` | clamp prędkości `vMax` jako niezmiennik kwantu; zakres restytucji wiązany z `vMax·Δt` | F3 |
-| `games/ARROWSOCCER.md` | zakaz transcendentaliów w module fizyki (strzałki jako wektory, bez kątów) | F1 |
+Wszystkie naniesione (prerekwizyty Etapu 2). Dodatkowo A2 (atomowy zapis wyniku rundy) i A4 (świeży podpis + klucz idempotencji przy retry) dopisane przy okazji do maszyny stanów / wire contract.
+
+| Dokument | Zmiana | Wpis | Status |
+|---|---|---|---|
+| `IMPLEMENTATION_PLAN.md` | maszyna stanów: subfaza `sealed` per runda; rehydracja: sealed → ponowny `/resolve`, nie restart Planning | A1 | ✓ naniesione |
+| `IMPLEMENTATION_PLAN.md` | maszyna stanów: atomowy (transakcyjny) zapis wyniku rundy | A2 | ✓ naniesione |
+| `IMPLEMENTATION_PLAN.md` | test S2: nadpisania ruchu nie generują zdarzeń w kolekcjach subskrybowalnych | A3 | ✓ naniesione |
+| `IMPLEMENTATION_PLAN.md` | test S3: + nawigacja, form-action, `<a ping>`, prefetch | D1 | ✓ naniesione |
+| `ARCHITECTURE.md` / wire contract | wersja manifestu w żądaniu `/resolve`; werdykt replay wymaga zgodności wersji | C3 | ✓ naniesione |
+| `games/ARROWSOCCER.md` | clamp prędkości `vMax` jako niezmiennik kwantu; zakres restytucji wiązany z `vMax·Δt` | F3 | ✓ naniesione |
+| `games/ARROWSOCCER.md` | zakaz transcendentaliów w module fizyki (strzałki jako wektory, bez kątów) | F1 | ✓ naniesione |

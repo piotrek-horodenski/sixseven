@@ -53,7 +53,7 @@ Kolekcje prywatne games (gate nigdy ich nie wystawia): `moves` (ruchy rund — s
 
 | Token | Kto dostaje | Zakres | TTL |
 |---|---|---|---|
-| JWT użytkownika | zalogowany gracz | pełne API wg RBAC | 7 dni, rewokacja w DB (wzorzec hydry) |
+| JWT użytkownika | zalogowany gracz | pełne API wg RBAC | 7 dni, rewokacja w DB **per sesja** (model wielotokenowy `users.sessions[]`: login dokłada sesję, logout usuwa bieżącą, „wyloguj wszędzie" czyści listę) |
 | **Sesja gościa** | wejście z linku pokoju bez konta | dołączenie do tego pokoju, gra casual, czat pokoju; zero rankingu, historii, znajomych | 24 h |
 | Kod handoff | przekierowanie do aplikacji gry | jednorazowa wymiana na token meczu | 60 s, jednorazowy |
 | **Token meczu (scoped)** | aplikacja gry po wymianie kodu | subskrypcja własnego `match_views` + `matches` tego meczu, `submit-move`, `reveal-done`, zapis `prefs` | do końca meczu |
@@ -75,13 +75,14 @@ Paused ──(10 min)──► Cancelled
 Lobby ──(host wyszedł / 15 min bez kompletu)──► Cancelled
 ```
 
-- **Planning:** czas z manifestu/opcji (≥ 2000 ms). Ruch można nadpisywać do deadline. Brak ruchu → gracz trafia na listę spóźnionych w `/resolve` (gra stosuje `defaultMove`).
-- **Resolving:** budżet 2 s, retry ×3 z backoffem 2/4/8 s. Każdy fail = `trust_event`.
+- **Planning:** czas z manifestu/opcji (≥ 2000 ms). Ruch można nadpisywać do deadline (nadpisanie pisze wyłącznie do prywatnej `moves` — nigdy do kolekcji subskrybowalnych; `ready` ustawiane raz). Brak ruchu → gracz trafia na listę spóźnionych w `/resolve` (gra stosuje `defaultMove`).
+- **Zapieczętowanie (`sealed`):** zamknięcie fazy zapisuje **trwałą, atomową** subfazę `sealed` per runda w `match_states` **przed** wysłaniem `/resolve` (stan 3 cyklu sekretu). Od tej chwili ruchy są zamrożone; to punkt bez powrotu, na którym opiera się bezpieczna rehydracja po awarii. *(A1)*
+- **Resolving:** budżet 2 s, retry ×3 z backoffem 2/4/8 s. Każdy fail = `trust_event`. Zapis wyniku rundy (`match_events` + `matches` + `match_views` ×N) w **jednej transakcji multi-dokumentowej** — change streamy emitują dopiero po commicie, więc fan-out jest spójny, a crash w połowie nie zostawia częściowego stanu (klient nigdy nie widzi nowej fazy bez nowego widoku). *(A2)*
 - **Revealing:** tylko gdy `revealDurationMs > 0`; inaczej od razu Planning/Finished. Margines +2 s. `reveal-done` przyjmowany wyłącznie z tokenem meczu danego gracza.
 - **Rozłączenia:** ruchy złożone zostają; brak ruchu = defaultMove. Rozłączony przez 2 kolejne rundy w meczu rankingowym → walkower.
 - **Walkower (ranked):** porzucający dostaje przegraną z pełnym K; pozostały wygraną z **połową K** (farming walkowerów mało opłacalny). Casual: mecz kończy się bez wpisów ELO.
 - **Cancelled:** zero zmian ELO, zero adnotacji; `match_events` oznaczone `cancelled` (historia zostaje).
-- **Restart games:** rehydracja z `match_states` + `moves`; nierozstrzygnięta runda restartuje fazę Planning z pełnym czasem.
+- **Restart games:** rehydracja z `match_states` + `moves`. Runda **`sealed`** → ponowny `/resolve` z tymi samymi zapieczętowanymi ruchami (bezpieczne dzięki determinizmowi), **nigdy** powrót do Planning — inaczej gracze mogliby zmienić ruchy, które serwis gry już zna, a `resolve_log` miałby wpis niezgodny z powtórką (fałszywe pozytywy replay-auditu). Tylko runda **niezapieczętowana** restartuje Planning z pełnym czasem. *(A1)*
 
 ## Logika modułów
 
@@ -192,8 +193,8 @@ Arrowsoccer (wg `games/ARROWSOCCER.md`): moduł fizyki kwantowej (współdzielon
 ## Testy sekretu (stały pakiet w CI)
 
 - **S1 — Szpieg API:** konto z ważnym JWT próbuje wszystkich kolekcji i filtrów — nigdy nie widzi treści cudzego ruchu przed reveal ani cudzych `match_views`/`prefs`/`data`.
-- **S2 — Głuchy dev:** mock serwisu gry rejestruje wszystkie wywołania — żadne nie zawiera ruchu przed zamknięciem fazy; timing acków `ready` stały.
-- **S3 — Niemy bundle:** zaufany bundle UI z wstrzykniętą próbą eksfiltracji (fetch, WebSocket, WebRTC, obrazek-beacon) — wszystkie zablokowane przez CSP w prawdziwej przeglądarce (test e2e).
+- **S2 — Głuchy dev:** mock serwisu gry rejestruje wszystkie wywołania — żadne nie zawiera ruchu przed zamknięciem fazy; timing acków `ready` stały. Dodatkowo: **wielokrotne nadpisanie złożonego ruchu nie generuje żadnego zdarzenia w kolekcjach subskrybowalnych** (nadpisanie dotyka tylko prywatnej `moves`; „przeciwnik zmienia zdanie N razy" nie może być obserwowalną informacją). *(A3)*
+- **S3 — Niemy bundle:** zaufany bundle UI z wstrzykniętą próbą eksfiltracji — blokowaną przez CSP w prawdziwej przeglądarce (test e2e). Pokrywa nie tylko kanały danych (fetch, WebSocket, WebRTC, obrazek-beacon), ale też **kanały nawigacyjne**: `location =`, `form-action`, `<a ping>`, prefetch, `window.open`, rejestracja service workera. Rezydualne ryzyko kanałów nawigacyjnych (nie da się ich zamknąć w 100% bez zabicia UX) zapisane wprost w ADR — warstwa detekcji pozostaje siatką. *(D1)*
 - **S4 — Fałszerz:** serwis-fixtura zmieniający odpowiedzi między wywołaniami — replay-audit go wykrywa, trust spada zgodnie z tabelą.
 - **S5 — Stronniczy sędzia:** serwis-fixtura faworyzujący gracza po ID — test lustrzany go wykrywa.
 

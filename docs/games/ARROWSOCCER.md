@@ -30,9 +30,11 @@ Top-down 2D, wszystkie ciała to koła (8 zawodników + piłka).
 **Symulacja kwantowa (lekcja z poprzedniej implementacji — najważniejsza zasada):** czas liczony wyłącznie w małych, stałych kwantach. W każdym kwancie, w tej kolejności: integracja ruchu → wykrycie kolizji (koło–koło i koło–banda) → odbicia → **egzekucja niezmiennika: nic nie opuszcza boiska** (poza piłką w świetle bramki). Żadnego zmiennego timestepu, żadnego analitycznego „przewijania" do zdarzenia. Konsekwencje praktyczne:
 
 - Kwant musi być mały względem prędkości maksymalnej i najmniejszego promienia — inaczej tunelowanie (piłka przelatuje przez bandę/zawodnika między kwantami). Strażnik: `vMax · Δt < min(r)`, co wiąże `maxForce` z długością kwantu; szybkie presety (flipper) mogą wymagać subkroków.
+- **Twardy clamp prędkości `vMax` jest niezmiennikiem kwantu** (ta sama ranga co „nic nie opuszcza boiska"), nie tylko limitem siły strzałki. Bez niego restytucja > 1 (flipper) pompuje energię przy każdym odbiciu → prędkość rośnie bez granic, strażnik tunelowania przestaje obowiązywać, a symulacja może nigdy nie zejść pod próg energii. Zakresy suwaka restytucji projektowane **łącznie z `vMax` i `Δt`** (limit kwantów domyka terminację). *(F3)*
 - Klamp do boiska po każdym kwancie to niezmiennik, nie naprawa błędu — float zawsze w końcu wypchnie ciało o epsilon za linię.
 - Kwant symulacji jest niezależny od FPS renderu (klient interpoluje między kwantami do 60/120 Hz ekranu).
 - Determinizm = ta sama liczba kwantów, ta sama kolejność ciał w pętli kolizji, matematyka wyłącznie z `@sixseven/sdk/math`. `revealDurationMs = liczbaKwantów · Δt`.
+- **Zakaz transcendentaliów w module fizyki.** `+ − × ÷` i `sqrt` są ścisłe wg IEEE 754 (identyczne między V8/JSC/SpiderMonkey), ale `Math.sin/cos/atan2/pow/hypot` **nie są** — serwis logiki (Node) i telefon gracza (Safari) policzyłyby inną trajektorię. W symulacji trygonometria jest zbędna: strzałki to **wektory, nie kąty**; odbicia i kolizje kół potrzebują tylko iloczynów, różnic i `sqrt`. Lint w SDK zakazuje `Math.*` w module fizyki. Prezentacja (siatka-cloth, kamera) może używać czego chce — nie wpływa na stan. *(F1)*
 
 Poza tym: integracja półniejawna, tłumienie liniowe (tarcie), restytucja na zderzeniach i bandach, bramki jako przerwy w bandzie; gol = środek piłki przecina linię bramkową między słupkami.
 

@@ -30,9 +30,9 @@ Wpięte w `subscribe.handler.ts` (deny + wstrzyknięcie filtra przed przekazanie
 
 Reszta jak w `ETAP0.md`: uruchom `npm install` + `npm run test:gate` (mockuje Mongo). Nowe testy: `tests/subscriptions/policies.test.ts`, `tests/subscriptions/s1-spy.test.ts`, `tests/services/tokens.test.ts`. HMAC: `npm test --workspace packages/hmac`.
 
-## Decyzja wciąż otwarta (z etapu 0)
+## Decyzja rozstrzygnięta (z etapu 0)
 
-Model sesji jednotokenowy (`user.token`) vs wielotokenowy. Sesje gościa są niezależne (własny typ tokenu, bez wpisu w `user.token`), więc guest multi-tab działa. Ale wielo-urządzeniowość zalogowanego konta nadal wymaga decyzji o liście sesji per user.
+Model sesji jednotokenowy (`user.token`) vs wielotokenowy — **rozstrzygnięte: wielotokenowy (minimalny)**. `users.token` → `users.sessions[]` (token/jti + urządzenie + `lastSeen`), login dokłada sesję, logout usuwa bieżącą, „wyloguj wszędzie" czyści listę; rewokacja DB-backed per sesja; UI zarządzania urządzeniami po MVP. Uzasadnienie i „watch out" w `ARCHITECTURE.md` → „Model sesji: wielotokenowy (minimalny)". Realizacja przy tokenach w Etapie 2 (migracja istniejących `token` → jednoelementowe `sessions`).
 
 ## Następny krok — etap 2 (największy)
 
