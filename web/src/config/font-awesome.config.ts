@@ -78,6 +78,7 @@ import {
   faPlay,
   faRotateRight,
   faHourglassHalf,
+  faDoorOpen,
 } from '@fortawesome/free-solid-svg-icons'
 import { FontAwesomeIcon } from '@fortawesome/vue-fontawesome'
 
@@ -159,6 +160,7 @@ const icons = [
   faPlay,
   faRotateRight,
   faHourglassHalf,
+  faDoorOpen,
 ]
 
 export default (app: App) => {

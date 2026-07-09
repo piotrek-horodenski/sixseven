@@ -35,12 +35,21 @@ export const collectionPolicies: Record<string, CollectionPolicy> = {
   // --- Kolekcje istniejące dziś (gate) ---
   // Administracja — gating uprawnieniem (jak dotychczas). Row-level own-vs-others
   // profilu użytkownika dojdzie później; na razie password/token zawsze zdejmowane.
-  users:        { requiredPermission: 'manage-users', sanitize: ['password', 'token'] },
+  users:        { requiredPermission: 'manage-users', sanitize: ['password', 'token', 'sessions'] },
   roles:        { requiredPermission: 'manage-roles' },
   permissions:  { requiredPermission: 'manage-roles' },
   settings:     { requiredPermission: 'manage-settings' },
   // Publiczna paleta kolorów — bez ograniczeń.
   'color-presets': {},
+
+  // ROW-LEVEL: pokój widoczny gdy PUBLICZNY i otwarty/zmatchowany, LUB gdy
+  // subskrybent jest jego członkiem. $and z ewentualnym filtrem klienta nie
+  // poszerza zakresu. (Ścieżka gościa w subscribe.handler używa węższego,
+  // twardego filtra `{ 'members.id': guestId }` — patrz sekcja C.)
+  rooms:        { filter: (subject) => ({ $or: [
+    { visibility: 'public', status: { $ne: 'closed' } },
+    { 'members.id': subject._id },
+  ] } as unknown as SubscriptionTicketFilter) },
 
   // --- Kolekcje platformy gier (model danych z IMPLEMENTATION_PLAN.md) ---
   // Powstają fizycznie w etapie 2+ (pisze je games). Polityki definiujemy JUŻ

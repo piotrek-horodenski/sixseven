@@ -5,6 +5,7 @@ import { useGamesStore } from '@/stores/games/games.store'
 import { RPS_MOVES, REVEAL_MS, playerLabel } from './rps.consts'
 import type { Match, RpsMove } from '@/stores/games/games.model'
 import RpsHand from './RpsHand.vue'
+import RpsIcon from './RpsIcon.vue'
 
 const props = defineProps<{ match: Match }>()
 
@@ -188,7 +189,7 @@ const cancelReason = computed(() => {
         :disabled="iAmReady"
         @click="pick(m.move)"
       >
-        <fa :icon="m.icon" class="rps-move__icon" />
+        <RpsIcon :move="m.move" class="rps-move__icon" />
         <span class="rps-move__label">{{ m.label }}</span>
       </button>
     </div>

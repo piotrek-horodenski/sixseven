@@ -6,6 +6,7 @@ import { Role } from './roles.schema'
 import { Message } from './messages.schema'
 import { Setting } from './settings.schema'
 import { ColorPreset } from './color-presets.schema'
+import { Room } from './rooms.schema'
 
 export interface ModelCollectionMapping {
   name: string
@@ -36,5 +37,9 @@ export const models: ModelCollectionMapping[] = [
   {
     name: 'color-presets',
     model: ColorPreset,
+  },
+  {
+    name: 'rooms',
+    model: Room,
   },
 ]

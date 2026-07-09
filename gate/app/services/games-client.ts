@@ -36,6 +36,14 @@ export type CommandResult<T = Record<string, never>> =
   | { ok: true; data: T }
   | { ok: false; status: number; error: string }
 
+export interface MatchInfo {
+  matchId: string
+  gameId: string
+  players: string[]
+  guestIds: string[]
+  phase: string
+}
+
 export interface GamesClient {
   createMatch(input: CreateMatchInput): Promise<CommandResult<{ matchId: string }>>
   start(matchId: string): Promise<CommandResult>
@@ -45,6 +53,8 @@ export interface GamesClient {
     move: unknown,
   ): Promise<CommandResult<{ status: 'accepted' | 'rejected' }>>
   revealDone(matchId: string): Promise<CommandResult>
+  /** Weryfikacja członkostwa (2d): odczyt meczu do handoffu i wymiany tokenu. */
+  getMatch(matchId: string): Promise<CommandResult<MatchInfo>>
 }
 
 const DEFAULT_TIMEOUT_MS = 5000
@@ -133,6 +143,23 @@ export function createGamesClient(config: GamesClientConfig): GamesClient {
     async revealDone(matchId) {
       const { status, body } = await guardedCall('/reveal-done', { matchId })
       if (status === 200) return { ok: true, data: {} }
+      return { ok: false, status, error: errorOf(status, body) }
+    },
+
+    async getMatch(matchId) {
+      const { status, body } = await guardedCall('/get-match', { matchId })
+      if (status === 200 && typeof body.gameId === 'string') {
+        return {
+          ok: true,
+          data: {
+            matchId: String(body.matchId ?? matchId),
+            gameId: body.gameId,
+            players: Array.isArray(body.players) ? (body.players as string[]) : [],
+            guestIds: Array.isArray(body.guestIds) ? (body.guestIds as string[]) : [],
+            phase: typeof body.phase === 'string' ? body.phase : '',
+          },
+        }
+      }
       return { ok: false, status, error: errorOf(status, body) }
     },
   }

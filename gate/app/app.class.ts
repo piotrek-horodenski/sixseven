@@ -89,19 +89,29 @@ export class AppClass {
       const authSocket = socket as AuthenticatedSocket
       const token = socket.handshake.auth.token
       if (token) {
-        // Guest sessions carry a scoped token (typ: 'guest'); everything else is
-        // treated as a full user token with DB-backed revocation.
-        if (peekTokenType(token) === 'guest') {
+        // Scoped tokens (guest/match) carry `typ`; a match token authorizes the
+        // socket as one player in one match. handoff tokens are NOT socket auth
+        // (they are exchanged for a match token over REST). Everything else is a
+        // full user token, verified against one of the user's active sessions.
+        const tokenType = peekTokenType(token)
+        if (tokenType === 'guest') {
           const claims = verifyScopedToken(this.settings.jwtSecret, token)
           if (claims && claims.typ === 'guest') {
             authSocket.guest = { guestId: claims.guestId, roomId: claims.roomId }
           }
-        } else {
+        } else if (tokenType === 'match') {
+          const claims = verifyScopedToken(this.settings.jwtSecret, token)
+          if (claims && claims.typ === 'match') {
+            authSocket.match = { matchId: claims.matchId, playerId: claims.playerId }
+          }
+        } else if (tokenType === 'user') {
           try {
             const decoded = jwt.verify(token, this.settings.jwtSecret) as { _id: string }
             const UserModel = this.models.find(item => item.name === 'users')?.model
             if (!UserModel) { next(); return }
-            const User = await UserModel.findOne({ _id: decoded._id, token })
+            // Wielotokenowe sesje: token jest ważny, gdy należy do którejkolwiek
+            // aktywnej sesji użytkownika (logout usuwa tylko bieżącą sesję).
+            const User = await UserModel.findOne({ _id: decoded._id, 'sessions.token': token })
 
             if (User) {
               authSocket.user = User
@@ -110,9 +120,11 @@ export class AppClass {
             // Invalid or expired token — continue without auth
           }
         }
+        // handoff / nierozpoznane → brak autoryzacji socketu.
       } else {
         if (authSocket.user) authSocket.user = null
         if (authSocket.guest) authSocket.guest = null
+        if (authSocket.match) authSocket.match = null
       }
 
       next()

@@ -83,4 +83,18 @@ describe('games-client', () => {
     expect(await client.start('m')).toEqual({ ok: true, data: {} })
     expect(await client.revealDone('m')).toEqual({ ok: true, data: {} })
   })
+
+  it('getMatch maps 200 to match info and posts matchId', async () => {
+    const f = fakeFetch(200, { matchId: 'm1', gameId: 'rps', players: ['u1', 'u2'], guestIds: ['g_1'], phase: 'planning' })
+    const client = createGamesClient({ baseUrl: 'http://g', internalSecret: 's', fetchImpl: f.impl })
+    const res = await client.getMatch('m1')
+    expect(f.calls[0].url).toBe('http://g/command/get-match')
+    expect(JSON.parse(f.calls[0].init.body)).toEqual({ matchId: 'm1' })
+    expect(res).toEqual({ ok: true, data: { matchId: 'm1', gameId: 'rps', players: ['u1', 'u2'], guestIds: ['g_1'], phase: 'planning' } })
+  })
+
+  it('getMatch maps 404 to error', async () => {
+    const client = createGamesClient({ baseUrl: 'http://g', internalSecret: 's', fetchImpl: fakeFetch(404, { error: 'match not found' }).impl })
+    expect(await client.getMatch('gone')).toEqual({ ok: false, status: 404, error: 'match not found' })
+  })
 })

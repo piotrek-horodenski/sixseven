@@ -3,7 +3,7 @@ import express from 'express'
 import { connectDb } from './db'
 import { settings } from './settings'
 import logger from './logger'
-import { models, Registration } from './models'
+import { models, Registration, Match } from './models'
 import { MatchEngine } from './engine/engine'
 import { Scheduler } from './engine/scheduler'
 import { callInit } from './engine/init-client'
@@ -52,6 +52,17 @@ export async function boot(): Promise<void> {
         }
       },
       init: (endpoint, request) => callInit(endpoint, request as never),
+      getMatch: async (matchId) => {
+        const m = await Match.findById(matchId)
+        if (!m) return null
+        return {
+          matchId: String(m._id),
+          gameId: m.gameId as string,
+          players: (m.players as string[]) ?? [],
+          guestIds: (m.guestIds as string[]) ?? [],
+          phase: m.phase as string,
+        }
+      },
     }),
   )
 

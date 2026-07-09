@@ -42,11 +42,21 @@ export type InitFn = (
   },
 ) => Promise<{ ok: boolean; state: unknown | null }>
 
+export interface MatchInfo {
+  matchId: string
+  gameId: string
+  players: string[]
+  guestIds: string[]
+  phase: string
+}
+
 export interface CommandDeps {
   engine: EngineCommands
   internalSecret: string
   getRegistration: (gameId: string) => Promise<GameRegistrationInfo | null>
   init: InitFn
+  /** Odczyt meczu do weryfikacji członkostwa (2d handoff/token meczu). */
+  getMatch?: (matchId: string) => Promise<MatchInfo | null>
   genId?: () => string
   genSeed?: () => string
 }
@@ -87,10 +97,13 @@ export function createCommandRouter(deps: CommandDeps): express.Router {
       }
       const matchId = genId()
       const seed = genSeed()
+      // Pełny skład = zalogowani gracze + goście. Gra (init/resolve) nie rozróżnia
+      // typu tożsamości — musi znać KAŻDEGO uczestnika, żeby policzyć jego wynik.
+      const roster = [...players, ...(Array.isArray(guestIds) ? guestIds : [])]
       const initRes = await deps.init(reg.endpoint, {
         matchId,
         manifestVersion: reg.version,
-        playerIds: players,
+        playerIds: roster,
         seed,
         playerData: {},
         options: options ?? {},
@@ -150,6 +163,33 @@ export function createCommandRouter(deps: CommandDeps): express.Router {
     // Per-gracz „komplet reveal-done" to refinement (2e).
     await deps.engine.revealDone(matchId)
     res.json({ ok: true })
+  })
+
+  // Weryfikacja członkostwa (2d): gate pyta o mecz przed wystawieniem handoffu /
+  // wymianą kodu na token meczu. Zwraca wyłącznie metadane potrzebne bramce —
+  // NIGDY treści ruchów ani stanu prywatnego (I1).
+  router.post('/get-match', async (req, res) => {
+    const { matchId } = req.body ?? {}
+    if (typeof matchId !== 'string' || !matchId) {
+      res.status(400).json({ error: 'matchId required' })
+      return
+    }
+    if (!deps.getMatch) {
+      res.status(500).json({ error: 'get-match not configured' })
+      return
+    }
+    const match = await deps.getMatch(matchId)
+    if (!match) {
+      res.status(404).json({ error: 'match not found' })
+      return
+    }
+    res.json({
+      matchId: match.matchId,
+      gameId: match.gameId,
+      players: match.players,
+      guestIds: match.guestIds,
+      phase: match.phase,
+    })
   })
 
   return router

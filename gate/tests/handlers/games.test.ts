@@ -14,6 +14,10 @@ function fakeClient(overrides: Partial<GamesClient> = {}): GamesClient {
     start: vi.fn().mockResolvedValue({ ok: true, data: {} }),
     submitMove: vi.fn().mockResolvedValue({ ok: true, data: { status: 'accepted' } }),
     revealDone: vi.fn().mockResolvedValue({ ok: true, data: {} }),
+    getMatch: vi.fn().mockResolvedValue({
+      ok: true,
+      data: { matchId: 'm1', gameId: 'rps', players: ['u1', 'u2'], guestIds: [], phase: 'planning' },
+    }),
     ...overrides,
   }
 }

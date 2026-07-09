@@ -13,6 +13,7 @@ describe('subscription policies', () => {
       expect(getPolicy('color-presets')).toBeDefined()
       expect(getPolicy('matches')).toBeDefined()
       expect(getPolicy('match_views')).toBeDefined()
+      expect(getPolicy('rooms')).toBeDefined()
     })
 
     it('returns undefined for private games collections (never exposed by gate)', () => {
@@ -43,6 +44,14 @@ describe('subscription policies', () => {
       const f = collectionPolicies.queue.filter!({ _id: 'u1' })
       expect(f).toEqual({ userId: 'u1' })
     })
+
+    it('rooms scopes to public-open OR own membership', () => {
+      const f = collectionPolicies.rooms.filter!({ _id: 'u1' })
+      expect(f).toEqual({ $or: [
+        { visibility: 'public', status: { $ne: 'closed' } },
+        { 'members.id': 'u1' },
+      ] })
+    })
   })
 
   describe('mergeFilters — $and combination', () => {
@@ -66,8 +75,8 @@ describe('subscription policies', () => {
   })
 
   describe('sensitiveFields', () => {
-    it('derives from policies and strips password/token on users', () => {
-      expect(sensitiveFields.users).toEqual(['password', 'token'])
+    it('derives from policies and strips password/token/sessions on users', () => {
+      expect(sensitiveFields.users).toEqual(['password', 'token', 'sessions'])
     })
 
     it('has no entry for collections without sanitize', () => {

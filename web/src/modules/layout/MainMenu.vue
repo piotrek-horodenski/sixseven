@@ -40,6 +40,16 @@ function onSelect() {
   </li>
   <li>
     <RouterLink
+      to="/rooms"
+      :tabindex="props.tabindex"
+      @click="onSelect"
+    >
+      <span class="icon"><fa icon="door-open" /></span>
+      <span class="label">Pokoje</span>
+    </RouterLink>
+  </li>
+  <li>
+    <RouterLink
       to="/controls"
       :tabindex="props.tabindex"
       @click="onSelect"

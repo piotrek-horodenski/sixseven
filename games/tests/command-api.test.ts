@@ -121,4 +121,29 @@ describe('command API', () => {
     expect((await post('/reveal-done', { matchId: 'm1' }, auth)).status).toBe(200)
     expect(deps.engine.revealDone).toHaveBeenCalledWith('m1')
   })
+
+  it('get-match: zwraca metadane meczu (członkostwo dla 2d)', async () => {
+    const getMatch = vi.fn(async () => ({
+      matchId: 'm1', gameId: 'rps', players: ['p1', 'p2'], guestIds: ['g_1'], phase: 'planning',
+    }))
+    await start(makeDeps({ getMatch }))
+    const res = await post('/get-match', { matchId: 'm1' }, auth)
+    expect(res.status).toBe(200)
+    expect(await res.json()).toEqual({
+      matchId: 'm1', gameId: 'rps', players: ['p1', 'p2'], guestIds: ['g_1'], phase: 'planning',
+    })
+    expect(getMatch).toHaveBeenCalledWith('m1')
+  })
+
+  it('get-match: brak meczu → 404', async () => {
+    await start(makeDeps({ getMatch: vi.fn(async () => null) }))
+    const res = await post('/get-match', { matchId: 'nope' }, auth)
+    expect(res.status).toBe(404)
+  })
+
+  it('get-match: wymaga sekretu wewnętrznego', async () => {
+    await start(makeDeps({ getMatch: vi.fn(async () => null) }))
+    const res = await post('/get-match', { matchId: 'm1' })
+    expect(res.status).toBe(401)
+  })
 })

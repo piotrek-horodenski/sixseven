@@ -27,6 +27,7 @@ const lazyClient: GamesClient = {
   start: (matchId) => getClient().start(matchId),
   submitMove: (matchId, playerId, move) => getClient().submitMove(matchId, playerId, move),
   revealDone: (matchId) => getClient().revealDone(matchId),
+  getMatch: (matchId) => getClient().getMatch(matchId),
 }
 
 export const gamesHandlers: HandlerObject[] = createGamesHandlers(lazyClient)

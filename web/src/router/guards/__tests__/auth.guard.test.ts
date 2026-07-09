@@ -54,6 +54,19 @@ describe('AuthGuard', () => {
     expect(result).toBe('/')
   })
 
+  it('allows open route for anonymous visitor (guest room link / game app)', async () => {
+    const result = await AuthGuard(makeRoute({ meta: { public: true, open: true }, path: '/r/ABC234' }))
+    expect(result).toBe(true)
+  })
+
+  it('allows open route for authenticated user without bouncing to /', async () => {
+    const gate = useGateStore()
+    gate.isAuthenticated = true
+
+    const result = await AuthGuard(makeRoute({ meta: { public: true, open: true }, path: '/game/rps' }))
+    expect(result).toBe(true)
+  })
+
   it('redirects to /login when not authenticated on protected route', async () => {
     const result = await AuthGuard(makeRoute({ path: '/dashboard' }))
     expect(result).toBe('/login')

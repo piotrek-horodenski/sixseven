@@ -48,6 +48,12 @@ export const loginHandler: HandlerObject = {
       { expiresIn: settings.jwtExpiresIn as any },
     )
 
+    // Wielotokenowe sesje: DOPISZ nową sesję (nie nadpisuj innych urządzeń).
+    // `token` (pole legacy) trzymamy dla zgodności wstecznej — źródłem prawdy
+    // przy weryfikacji jest `sessions.token`.
+    const userAgent = (socket.handshake?.headers?.['user-agent'] as string | undefined) ?? ''
+    const sessions = Array.isArray((User as any).sessions) ? (User as any).sessions : []
+    ;(User as any).sessions = [...sessions, { token, createdAt: Date.now(), userAgent }]
     User.token = token
     await User.save()
 

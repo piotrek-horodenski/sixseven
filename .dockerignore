@@ -1,0 +1,13 @@
+# Kontekst budowania obrazów z ROOTA repo (games, rps). Wyklucz artefakty i sekrety.
+**/node_modules
+**/dist
+.git
+.env
+**/.env
+db/db1
+db/db2
+db/db3
+image/data
+image/uploads
+web/dist
+**/*.log

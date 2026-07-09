@@ -37,6 +37,14 @@ function getRequiredPermissions(to: RouteLocationNormalized): string[] {
 export const AuthGuard = async (to: RouteLocationNormalized) => {
   const gate = useGateStore()
 
+  // Open routes (room link `/r/:code`, standalone game app `/game/rps`) are
+  // reachable by everyone — logged-in AND anonymous — without any redirect.
+  // (`public` alone bounces authenticated users to '/', which would break a
+  // logged-in user opening a shared room link or the match app.)
+  if (to.meta?.open) {
+    return true
+  }
+
   // Public routes (login, register) don't need auth
   if (to.meta?.public) {
     if (gate.isAuthenticated) return '/'

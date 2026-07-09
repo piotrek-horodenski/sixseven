@@ -1,7 +1,8 @@
 # Etap 2 — status wykonania (handoff)
 
 > Silnik meczu + pierwszy sekret end-to-end (RPS). Podetapy wg `docs/ETAP2_PLAN.md`.
-> Stan na teraz: **2a ✅, 2b ✅, 2c ✅ (backend + gate proxy + ekran web)**, 2d/2e nietknięte.
+> Stan na teraz: **2a ✅, 2b ✅, 2c ✅, 2d 🟢 (kod gotowy, do live-weryfikacji), 2e 🟢 (testy/benchmark napisane)**.
+> Kontrakt integracyjny 2d: `docs/ETAP2D_CONTRACT.md`.
 > Ten plik = co zrobione, jak zweryfikować, co dalej, i na co uważać.
 
 ## Gdzie jesteśmy
@@ -11,8 +12,8 @@
 | 2a | Silnik: maszyna stanów + kolekcje prywatne + pętla deadline'ów, fake-serwis | ✅ zielone (unit + integracyjne) |
 | 2b | Wire contract + SDK (`serve` + harness `test`) + SSRF (C1) | ✅ zielone |
 | 2c | RPS jako zdalny serwis + silnik e2e + ekran web | ✅ backend + gate proxy + ekran web |
-| 2d | Pokoje przez link + goście + handoff + tokeny meczu | ⬜ nietknięte |
-| 2e | Hartowanie + benchmark wolumenu streamów | ⬜ nietknięte |
+| 2d | Pokoje/link + goście + handoff + tokeny meczu + aplikacja gry + wielotokenowe sesje | 🟢 kod gotowy (gate+web); **do live-weryfikacji przez Piotra; S3 podstawowy otwarty** |
+| 2e | Hartowanie (Paused/Cancelled na żywym RPS) + benchmark 200 meczów | 🟢 testy + benchmark napisane; **odpala Piotr (mongo RS)** |
 
 ## Co zrobione (z lokalizacją)
 
@@ -54,6 +55,23 @@
 - **Backend (konieczne dla frontu):** dodana brakująca polityka subskrypcji `matches` w `gate/app/subscriptions/policies.ts` — row-level `{ players: user._id }` (członkostwo w tablicy; `match_views` była, `matches` NIE). Zweryfikowane w realnym silniku `query` (protobi/query): `{players:self}` dopasowuje po członkostwie, a `$and` ze spoofem klienta daje pustkę. `matches` nie zawiera treści ruchów (te w prywatnej `moves`), więc bez sanityzacji. Wariant „mecz publiczny z okrojonymi polami" świadomie odłożony do 2d. Test dopisany w `gate/tests/subscriptions/policies.test.ts`.
 - Testy web (odpala Piotr): `web/src/composables/__tests__/useCollection.test.ts`, `web/src/stores/games/__tests__/games.store.test.ts`.
 
+**2d — pokoje/link/goście/handoff/tokeny meczu + wielotokenowe sesje (tej sesji):**
+- Kontrakt integracyjny: `docs/ETAP2D_CONTRACT.md` (źródło prawdy — nazwy eventów/REST).
+- **Gate:** kolekcja `rooms` (`models/rooms.schema.ts`, TTL 24h, code 6× [A-Z2-9]) + handlery `rooms:create/join/leave/start` (`socket-handlers/rooms/`). REST (`api/index.ts`): `POST /auth/match-token` (handoff→token meczu, rdzeń w `services/auth-exchange.ts`), `POST /rooms/join-guest` (wejście gościa). `games:request-handoff` (user/gość; członkostwo przez games `get-match`). Middleware (`app.class.ts`) rozpoznaje token `match` → `socket.match`. `submit-move`/`reveal-done` scope'owane do tokenu meczu; `subscribe.handler` rozgałęziony user/match/guest (twarde filtry, default-deny). Polityka `rooms` (publiczne-otwarte OR własne).
+- **Wielotokenowe sesje:** `users.sessions[]`; login DOPISUJE sesję, logout usuwa TYLKO bieżącą, middleware weryfikuje `{_id,'sessions.token':token}`. `users.sanitize` → `['password','token','sessions']`. **Uwaga: userzy zalogowani przed wdrożeniem muszą zalogować się ponownie.**
+- **games:** internal `POST /command/get-match` (członkostwo/gameId dla gate). **Fix integracyjny:** `/init` gry dostaje pełny roster `players ∪ guestIds` (inaczej RPS nie liczy wyniku gościa).
+- **Web:** `stores/rooms/*`, `modules/rooms/*` (hub, detail z linkiem `/r/CODE`, tworzenie), trasa `/r/:code` (join + gość), aplikacja gry `modules/game-app/GameRpsView.vue` + trasa `/game/rps` (osobny klient tokenu meczu: `composables/useTokenSocket.ts` + `useMatchClient.ts`; wymiana handoff→match-token REST-em; reużycie `RpsHand`/`rps.consts`/stylów `.rps-*`). Guest token pod osobnym kluczem `hydra_guest_token` (nie miesza z `hydra_token`). Env `VITE_GATE_HTTP_URL`. Wpięte: trasy, menu „Pokoje", ikona `door-open`, `styles/modules/rooms.scss`, guard `meta.open`.
+- **Testy (odpala Piotr):** gate — `tests/handlers/rooms.test.ts`, `games-match-scope.test.ts`, `services/auth-exchange.test.ts`, `subscriptions/scope-match-guest.test.ts` (S1 dla match/guest: token nie widzi cudzego `match_views`), rozszerzone login/logout/policies/games-client; web — `stores/rooms/__tests__`, `composables/__tests__/useMatchClient.test.ts`, `guards/__tests__/auth.guard.test.ts`.
+- **S3 podstawowy (zrobione, w miarę dev-trasy):** utwardzony powrót z gry — `?return=` tylko ścieżka lokalna (`/^\/(?![/\\])/`), blokada open-redirectu/kanału nawigacyjnego. Audyt kanałów eksfiltracji na powierzchni `/game/rps`: `web/src/modules/game-app/__tests__/s3-channels.test.ts` (brak RTCPeerConnection/sendBeacon/XHR/surowego WebSocket/`<a ping>`/prefetch, zero storage treści meczu, każdy adres celuje w platformę `VITE_GATE_*`). **Pełne egzekwowanie (CSP `connect-src`, blokada WebRTC, statyczny bundle) — Etap 4 (D1)**; na dev-trasie nie ma czego wymuszać poza audytem kodu.
+- **Docker Compose (2d):** dodane usługi `rps` (serwis logiki, `catalog/rps/Dockerfile`), `games` (`games/Dockerfile`, replica set `h2dbs`, `RESOLVE_ALLOW_PRIVATE=true` bo RPS na sieci docker) i `games-register` (one-shot upsert rejestracji RPS przez `db/scripts/register-rps.sh`). Gate dostał `GAMES_URL=http://games:4120` + `INTERNAL_SECRET`; web build-arg `VITE_GATE_HTTP_URL`. Dockerfile'e budują z kontekstu roota (rozwiązują blocker „pakiety źródło-only": budują `sixseven-hmac`/`sixseven-sdk` do `dist/`). Nowe env: `INTERNAL_SECRET`, `RPS_HMAC_SECRET` w root `.env.example`. **Buildów nie dało się zweryfikować w sandboxie (brak docker/npm) — Piotr robi `docker compose build` lokalnie.**
+- **Live-weryfikacja bramki** („dwóch graczy przez link", gość towarzysko) — u Piotra na żywym stacku.
+
+**2e — hartowanie + benchmark (tej sesji, `games/tests/`):**
+- `helpers/toggle-proxy.ts` — proxy z przełącznikiem awarii przed prawdziwym RPS (forward bajt-w-bajt, HMAC nienaruszony).
+- `integration/s2-deaf-dev.integration.test.ts` — **S2** (I2: żaden `/resolve` bez seala; A3: nadpisania ruchu nie tworzą zdarzeń subskrybowalnych; `ready` bez treści).
+- `integration/rps-hardening.integration.test.ts` — serwis pada → Paused → health → resume → dograne; Paused→Cancelled; rehydracja nowym enginem.
+- `integration/rps-volume.bench.integration.test.ts` — benchmark ~200 meczów (p50/p90/p99 `/resolve`, przepustowość), guard `BENCH=1`.
+
 ## Jak uruchomić testy
 
 **Bez bazy (jednostkowe):**
@@ -77,7 +95,7 @@ Sprzątanie: `docker rm -f games-test-mongo`. Config celuje w `mongodb://localho
 
 ## Decyzje podjęte w tej sesji (i gdzie udokumentowane)
 
-- **Model sesji: wielotokenowy (minimalny)** — `users.token` → `users.sessions[]`. `ARCHITECTURE.md` → „Model sesji", odzwierciedlone w `IMPLEMENTATION_PLAN.md` (tabela tokenów), `UNKNOWNS.md` (usunięte), `ETAP1.md`. **Jeszcze NIE zaimplementowane w gate** — do zrobienia przy tokenach (2d).
+- **Model sesji: wielotokenowy (minimalny)** — `users.token` → `users.sessions[]`. `ARCHITECTURE.md` → „Model sesji", odzwierciedlone w `IMPLEMENTATION_PLAN.md` (tabela tokenów), `UNKNOWNS.md` (usunięte), `ETAP1.md`. **Zaimplementowane w gate w 2d** (login dopisuje sesję, logout usuwa bieżącą, middleware po `sessions.token`).
 - **Poprawki ryzyk naniesione do planu** (tabela w `IMPLEMENTATION_RISKS.md`, wszystkie ✓): A1 sealed, A2 atomowość, A3 (S2), C3 wersja w `/resolve`, D1 (S3), F1/F3 (arrowsoccer). A4/A2 też w maszynie stanów.
 - **Retry/backoff przez scheduler** (deadline w dokumencie), nie blokujący `sleep`.
 - **`GameServiceEndpoint.url` = bazowy URL**, klient dokleja ścieżkę.
@@ -91,11 +109,13 @@ Sprzątanie: `docker rm -f games-test-mongo`. Config celuje w `mongodb://localho
 - **Git: commituje wyłącznie Piotr.** Claude nie robi żadnych operacji git.
 - Nowe zależności/workspace'y (np. `catalog/rps`) → `npm install` przed testami.
 
-## Następny krok — 2c domknięte, pozostały testy akceptacji + 2d
+## Następny krok — domknięcie bramki Etapu 2
 
-1. ~~**Gate proxy (backend)**~~ ✅ · ~~**Ekran web**~~ ✅ (patrz „2c ekran web" wyżej).
-2. **Do sprawdzenia lokalnie przez Piotra:** odpalić `npm test --workspace gate` i `--workspace web` (te ostatnie wymagają linuksowego rollup — sandbox Claude ich nie odpalił). Ręczny happy-path: dwóch zalogowanych graczy, jeden tworzy mecz podając `userId` drugiego, obaj widzą go na `/play`, start → runda → reveal → wynik → rewanż.
-3. **Testy akceptacji 2c:** S2 (mock głuchego deva — częściowo w e2e 2a), rozszerzenie S1 na żywe `match_views`, „zalogowany gracz gra RPS przez web".
-4. **Uwaga do 2d:** ekran zakłada dziś PEŁNY JWT (goście nie grają — jak gate). Doborem graczy jest ręczne `userId` (bez pokoi/linków/handoffu). Wariant „mecz publiczny" w polityce `matches` odłożony.
+Kod 2d (gate+web) + testy 2c-S2/2e są napisane; sandbox ich nie odpalił (rollup/mongo). Do zrobienia u Piotra:
 
-Reszta Etapu 2: 2d (pokoje/link/goście/handoff/tokeny meczu — tu wchodzi też implementacja wielotokenowych sesji w gate), 2e (hartowanie Paused/Cancelled na żywym RPS + benchmark 200 równoległych meczów przed Etapem 3).
+1. **Odpalić testy:** `npm test --workspace gate`, `--workspace web`, oraz integracyjne games z mongo RS (`npm run test:integration --workspace games`; benchmark: `BENCH=1 npx vitest run --config vitest.integration.config.ts tests/integration/rps-volume.bench.integration.test.ts`).
+2. **Zbudować i wystartować stack:** uzupełnić `.env` (`JWT_SECRET`, `INTERNAL_SECRET`, `RPS_HMAC_SECRET`), `docker compose build` (nowe: `rps`, `games`; sandbox nie zbudował — brak docker/npm), `docker compose up`. `games-register` (one-shot) wpisze rejestrację RPS.
+3. **Live-weryfikacja bramki** (dwie przeglądarki/telefony): user tworzy pokój → udostępnia `/r/CODE` → drugi user (lub gość przez nick) dołącza → host „Start" → obaj „Graj" (handoff → `/game/rps`) → rozgrywka → wynik → powrót.
+4. **Re-login** wszystkich userów po wdrożeniu wielotokenowych sesji (legacy `token` bez `sessions`).
+
+Po zielonych testach i przejściu bramki na żywo → Etap 2 zamknięty; wchodzi Etap 3.

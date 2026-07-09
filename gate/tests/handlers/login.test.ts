@@ -73,6 +73,9 @@ describe('loginHandler', () => {
     await loginHandler.handler(socket, { email: 'a@b.com', password: 'pw' })
 
     expect(user.token).toBe('mock-jwt-token')
+    // Wielotokenowe sesje: login dopisuje nową sesję.
+    expect((user as any).sessions).toHaveLength(1)
+    expect((user as any).sessions[0]).toMatchObject({ token: 'mock-jwt-token' })
     expect(mockSave).toHaveBeenCalled()
     expect(socket.emit).toHaveBeenCalledWith('login-complete', expect.objectContaining({
       _id: 'uid1',
@@ -82,5 +85,21 @@ describe('loginHandler', () => {
       permissions: [],
       token: 'mock-jwt-token',
     }))
+  })
+
+  it('appends a session without overwriting existing device sessions', async () => {
+    const user = {
+      _id: 'uid1', username: 'alice', email: 'a@b.com', password: 'hash',
+      profile: {}, permissions: [], token: 'old', sessions: [{ token: 'device-1', createdAt: 1, userAgent: 'a' }],
+      save: mockSave,
+    }
+    mockFindOne.mockResolvedValue(user)
+    vi.mocked(bcrypt.compare).mockResolvedValue(true as never)
+
+    await loginHandler.handler(socket, { email: 'a@b.com', password: 'pw' })
+
+    expect((user as any).sessions).toHaveLength(2)
+    expect((user as any).sessions[0].token).toBe('device-1')
+    expect((user as any).sessions[1].token).toBe('mock-jwt-token')
   })
 })

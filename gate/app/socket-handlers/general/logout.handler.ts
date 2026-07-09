@@ -28,8 +28,15 @@ export const logoutHandler: HandlerObject = {
       return
     }
 
-
-    User.token = null
+    // Usuń TYLKO bieżącą sesję (po tokenie tego socketu) — inne urządzenia
+    // pozostają zalogowane. Fallback do pola legacy `token`, gdy socket nie niesie
+    // tokenu w handshake (np. testy jednostkowe).
+    const currentToken = (socket.handshake?.auth?.token as string | undefined) ?? (User as any).token ?? null
+    const sessions = Array.isArray((User as any).sessions) ? (User as any).sessions : []
+    ;(User as any).sessions = sessions.filter((s: any) => s.token !== currentToken)
+    if ((User as any).token === currentToken) {
+      User.token = null
+    }
     await User.save()
 
     socket.emit('logout-complete', {

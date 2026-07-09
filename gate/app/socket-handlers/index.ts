@@ -12,6 +12,7 @@ import { profileUpdateHandler, changePasswordHandler } from './general/profile.h
 import { adminHandlers } from './admin'
 import { colorPresetHandlers } from './color-presets'
 import { gamesHandlers } from './games'
+import { roomsHandlers } from './rooms'
 
 export interface AuthenticatedSocket extends Socket {
   user?: {
@@ -30,6 +31,12 @@ export interface AuthenticatedSocket extends Socket {
   guest?: {
     guestId: string
     roomId: string
+  } | null
+  // Socket autoryzowany tokenem meczu (2d): scoped do jednego meczu jako jeden
+  // konkretny gracz. Wykluczający z `user`/`guest`.
+  match?: {
+    matchId: string
+    playerId: string
   } | null
 }
 
@@ -51,4 +58,5 @@ export const socketHandlers: HandlerObject[] = [
   ...adminHandlers,
   ...colorPresetHandlers,
   ...gamesHandlers,
+  ...roomsHandlers,
 ]

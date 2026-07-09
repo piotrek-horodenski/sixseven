@@ -2,17 +2,19 @@
 import { computed } from 'vue'
 import { moveMeta } from './rps.consts'
 import type { RpsMove } from '@/stores/games/games.model'
+import RpsIcon from './RpsIcon.vue'
 
 const props = defineProps<{
   move: RpsMove | null
-  /** true = odsłonięte (pokaż realny ruch); false = trzęsąca się pięść. */
+  /** true = odsłonięte (pokaż realny ruch); false = stan ukryty (trzęsie się). */
   revealed: boolean
   outcome?: 'win' | 'lose' | 'draw' | null
   label: string
   defaulted?: boolean
 }>()
 
-const icon = computed(() => (props.revealed && props.move ? moveMeta(props.move).icon : 'hand-back-fist'))
+// Przed odsłoną pokazujemy stan ukryty (null → znak zapytania), po — realny ruch.
+const shownMove = computed<RpsMove | null>(() => (props.revealed ? props.move : null))
 const moveLabel = computed(() => (props.revealed && props.move ? moveMeta(props.move).label : ''))
 </script>
 <template>
@@ -26,7 +28,7 @@ const moveLabel = computed(() => (props.revealed && props.move ? moveMeta(props.
   <span class="rps-hand__player">{{ label }}</span>
   <div class="rps-hand__disc">
     <Transition name="rps-flip" mode="out-in">
-      <fa :key="icon" :icon="icon" class="rps-hand__icon" />
+      <RpsIcon :key="shownMove ?? 'hidden'" :move="shownMove" class="rps-hand__icon" />
     </Transition>
   </div>
   <span class="rps-hand__move">

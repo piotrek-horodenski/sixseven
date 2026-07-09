@@ -2,7 +2,7 @@ name: hydra
 
 services:
 
-  # ─── MongoDB replica set ──────────────────────────────────────────
+  # --- MongoDB replica set ------------------------------------------
 
   hydra-mongo1:
     container_name: hydra-mongo1
@@ -66,7 +66,7 @@ services:
       - hydra-network
     restart: "no"
 
-  # ─── Gate (API / WebSocket server) ───────────────────────────────
+  # --- Gate (API / WebSocket server) --------------------------------
 
   gate:
     build:
@@ -82,25 +82,32 @@ services:
       - REDIS_URL=
       - CERT_KEY_PATH=/certs/key.pem
       - CERT_PATH=/certs/cert.pem
-      # Sekret współdzielony gate↔image; podstawiany z .env (patrz .env.example).
-      # Brak wartości = compose przerwie z błędem (żadnego hardcoded sekretu).
-      - JWT_SECRET=${JWT_SECRET:?ustaw JWT_SECRET w .env — patrz .env.example}
+      # Sekret wspoldzielony gate<->image; podstawiany z .env (patrz .env.example).
+      # Brak wartosci = compose przerwie z bledem (zadnego hardcoded sekretu).
+      - JWT_SECRET=${JWT_SECRET:?ustaw JWT_SECRET w .env - patrz .env.example}
+      # Proxy komend gate->games (2c/2d). INTERNAL_SECRET MUSI byc identyczny jak w games.
+      - GAMES_URL=http://games:4120
+      - INTERNAL_SECRET=${INTERNAL_SECRET:?ustaw INTERNAL_SECRET w .env - patrz .env.example}
     volumes:
       - ./cfg/cert:/certs:ro
     depends_on:
       mongo-init:
         condition: service_completed_successfully
+      games:
+        condition: service_started
     networks:
       - hydra-network
     restart: always
 
-  # ─── Frontend (Vue 3, served by nginx) ────────────────────────
+  # --- Frontend (Vue 3, served by nginx) ----------------------------
 
   web:
     build:
       context: ./web
       args:
         VITE_GATE_URL: wss://localhost:4214
+        # REST bramki (2d): aplikacja gry /game/rps wymienia handoff->token meczu.
+        VITE_GATE_HTTP_URL: https://localhost:4214
     container_name: hydra-web
     ports:
       - "5273:80"
@@ -108,7 +115,67 @@ services:
       - hydra-network
     restart: always
 
-  # ─── Image microservice ────────────────────────────────────────
+  # --- RPS (zdalny serwis logiki gry) -------------------------------
+
+  rps:
+    build:
+      context: .
+      dockerfile: catalog/rps/Dockerfile
+    container_name: hydra-rps
+    environment:
+      - GAME_PORT=4310
+      # Sekret HMAC - MUSI zgadzac sie z rejestracja RPS w games (games-register).
+      - SIXSEVEN_GAME_SECRET=${RPS_HMAC_SECRET:?ustaw RPS_HMAC_SECRET w .env - patrz .env.example}
+    networks:
+      - hydra-network
+    restart: always
+
+  # --- Games (silnik meczow - skarbiec) -----------------------------
+
+  games:
+    build:
+      context: .
+      dockerfile: games/Dockerfile
+    container_name: hydra-games
+    ports:
+      - "4220:4120"
+    environment:
+      - NODE_ENV=production
+      - GAMES_PORT=4120
+      # Replica set (transakcje A2) - games laczy sie do wszystkich wezlow po
+      # nazwach docker (dziala wewnatrz sieci, w przeciwienstwie do testow z hosta).
+      - MONGODB_URI=mongodb://hydra-mongo1:27017,hydra-mongo2:27017,hydra-mongo3:27017/games?replicaSet=h2dbs
+      - INTERNAL_SECRET=${INTERNAL_SECRET:?ustaw INTERNAL_SECRET w .env - patrz .env.example}
+      # RPS jest na sieci docker (adres prywatny) - w dev dopuszczamy prywatne cele
+      # /resolve (SSRF-guard C1). PROD: RPS na publicznym originie -> zostaw false.
+      - RESOLVE_ALLOW_PRIVATE=true
+    depends_on:
+      mongo-init:
+        condition: service_completed_successfully
+      rps:
+        condition: service_started
+    networks:
+      - hydra-network
+    restart: always
+
+  # One-shot: rejestruje RPS w games (idempotentny upsert do prywatnej kolekcji
+  # `registrations`). Skrypt montowany (jak rs-init-docker.sh) - bez kruchego
+  # inline'u w YAML. Wersja MUSI = manifest RPS (1.0.0 - kontrola wersji C3).
+  games-register:
+    image: mongo:latest
+    depends_on:
+      mongo-init:
+        condition: service_completed_successfully
+    environment:
+      - RPS_HMAC_SECRET=${RPS_HMAC_SECRET:?ustaw RPS_HMAC_SECRET w .env - patrz .env.example}
+    volumes:
+      - ./db/scripts/register-rps.sh:/scripts/register-rps.sh
+    command: bash /scripts/register-rps.sh
+    networks:
+      - hydra-network
+    restart: "no"
+
+  # --- Image microservice -------------------------------------------
 
   hydra-image-mongo:
     container_name: hydra-image-mongo
@@ -131,8 +198,8 @@ services:
       - IMAGE_DB_HOST=hydra-image-mongo
       - IMAGE_DB_NAME=himage
       - IMAGE_DB_PARAMS=?directConnection=true
-      # Ten sam sekret co gate — image weryfikuje tokeny wystawione przez gate.
-      - JWT_SECRET=${JWT_SECRET:?ustaw JWT_SECRET w .env — patrz .env.example}
+      # Ten sam sekret co gate - image weryfikuje tokeny wystawione przez gate.
+      - JWT_SECRET=${JWT_SECRET:?ustaw JWT_SECRET w .env - patrz .env.example}
     volumes:
       - ./image/uploads:/app/uploads
     depends_on:
