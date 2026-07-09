@@ -15,6 +15,11 @@ const envSchema = z.object({
   SUBSCRIPTION_QUERY_LIMIT: z.string().default('1000'),
   JWT_SECRET:             z.string().min(1, 'JWT_SECRET is required'),
   JWT_EXPIRES_IN:         z.string().default('7d'),
+  // Proxy komend gate→games (2c). GAMES_URL = bazowy URL serwisu games
+  // (klient dokleja /command/*). INTERNAL_SECRET MUSI być identyczny jak w
+  // games/.env (nagłówek x-sixseven-internal, porównanie w stałym czasie).
+  GAMES_URL:              z.string().default('http://localhost:4120'),
+  INTERNAL_SECRET:        z.string().default('dev-internal-secret-change-me'),
 })
 
 const parsed = envSchema.safeParse(process.env)
@@ -39,4 +44,6 @@ export const SettingsService = () => ({
   subscriptionQueryLimit: Number(env.SUBSCRIPTION_QUERY_LIMIT),
   jwtSecret:    env.JWT_SECRET,
   jwtExpiresIn: env.JWT_EXPIRES_IN,
+  gamesUrl:       env.GAMES_URL,
+  internalSecret: env.INTERNAL_SECRET,
 })

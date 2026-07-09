@@ -11,6 +11,7 @@ import { settingsPublicHandler } from './general/settings-public.handler'
 import { profileUpdateHandler, changePasswordHandler } from './general/profile.handler'
 import { adminHandlers } from './admin'
 import { colorPresetHandlers } from './color-presets'
+import { gamesHandlers } from './games'
 
 export interface AuthenticatedSocket extends Socket {
   user?: {
@@ -49,4 +50,5 @@ export const socketHandlers: HandlerObject[] = [
   changePasswordHandler,
   ...adminHandlers,
   ...colorPresetHandlers,
+  ...gamesHandlers,
 ]
