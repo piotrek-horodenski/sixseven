@@ -216,7 +216,7 @@ export class MatchEngine {
     const claimed = await Match.findOneAndUpdate(
       { _id: matchId, phase: 'resolving', round: match.round },
       { $inc: { attemptSeq: 1 }, $set: { updatedAt: this.now() } },
-      { new: true },
+      { returnDocument: 'after' },
     )
     if (!claimed) return
     const attempt = claimed.attemptSeq

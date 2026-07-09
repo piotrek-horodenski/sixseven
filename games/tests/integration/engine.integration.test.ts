@@ -62,7 +62,11 @@ describe('MatchEngine (integration)', () => {
     return id
   }
 
-  beforeEach(() => { clock = { t: 1_000_000 } })
+  // Zegar wirtualny ZAKOTWICZONY w realnym czasie: podpis HMAC ma timestamp
+  // bliski „teraz", więc mieści się w oknie ±30 s weryfikowanym przez fake-serwis
+  // (który używa realnego Date.now()). Przesuwanie clock.t o sekundy w teście
+  // zostaje w oknie.
+  beforeEach(() => { clock = { t: Date.now() } })
   afterEach(async () => { if (fake) await fake.stop() })
 
   it('I1/I2: podczas planowania ruch jest w prywatnej moves, ale nie w matches ani match_views, i /resolve NIE jest wołane', async () => {

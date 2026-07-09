@@ -1,4 +1,5 @@
 import { defineConfig } from 'vitest/config'
+import path from 'path'
 
 /**
  * Testy INTEGRACYJNE games (silnik meczu na prawdziwym Mongo). Uruchamiane przez
@@ -10,6 +11,13 @@ import { defineConfig } from 'vitest/config'
  * ustanawia setup.ts przez TEST_DB_URI.
  */
 export default defineConfig({
+  resolve: {
+    alias: {
+      // Pakiet sixseven-hmac jest źródło-only (bez zbudowanego dist/). W dev/test
+      // rozwiązujemy import wprost do źródła TS — esbuild go transpiluje.
+      'sixseven-hmac': path.resolve(__dirname, '../packages/hmac/src/index.ts'),
+    },
+  },
   test: {
     globals: true,
     environment: 'node',
@@ -17,17 +25,19 @@ export default defineConfig({
     setupFiles: ['./tests/integration/setup.ts'],
     env: {
       GAMES_PORT: '4120',
-      MONGODB_URI: 'mongodb://localhost:27117/games_test?directConnection=true',
+      // Jednowęzłowy replica set rozgłaszający się pod localhost (transakcje A2
+      // działają też na 1-węzłowym RS). 3-węzłowy h2dbs z compose NIE nadaje się
+      // do testów z hosta (primary bywa nieosiągalny pod wewnętrzną nazwą docker).
+      MONGODB_URI: 'mongodb://localhost:27140/games_test?replicaSet=rs0',
       JWT_SECRET: 'test-secret-not-used-for-real-signing',
       // Krótkie backoffy — testy sterują zegarem, ale trzymajmy wartości sensowne.
       RESOLVE_BACKOFF_MS: '10,10,10',
-      TEST_DB_URI: 'mongodb://localhost:27117/games_test?directConnection=true',
+      TEST_DB_URI: 'mongodb://localhost:27140/games_test?replicaSet=rs0',
     },
     // Wspólna baza + globalny afterEach: brak równoległości plików (jak w image).
+    // (W Vitest 4 wystarcza fileParallelism:false — poolOptions zostały usunięte.)
     fileParallelism: false,
     sequence: { concurrent: false },
-    pool: 'forks',
-    poolOptions: { forks: { singleFork: true } },
     testTimeout: 20000,
     hookTimeout: 20000,
   },
