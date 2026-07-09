@@ -54,7 +54,11 @@
 
 ### C1. SSRF przez URL-e rejestracji
 **Problem:** Dev rejestruje dowolny URL — w tym `localhost`, adresy prywatne, metadata endpoint chmury (`169.254.169.254`), albo domenę, która po walidacji zaczyna resolvować na IP wewnętrzne (DNS rebinding). Silnik woła te URL-e z wnętrza infrastruktury.
+
+> **Dlaczego `169.254.169.254` to najgroźniejszy pojedynczy cel.** To adres link-local (zakres `169.254.0.0/16`, RFC 3927), ale u praktycznie wszystkich dostawców chmury (AWS, GCP, Azure, DigitalOcean, Oracle) pełni rolę **endpointu metadanych instancji (IMDS)**. Maszyna wirtualna odpytuje go, by poznać własne metadane — w tym **tymczasowe poświadczenia roli IAM** przypiętej do tej maszyny. Jeśli nasz silnik (działając w chmurze) da się nakłonić do wywołania tego adresu, w odpowiedzi dostanie kredencjały chmurowe i odda je światu. To nie teoria: dokładnie tym wektorem był wyciek Capital One w 2019 (SSRF → kradzież poświadczeń IAM z IMDS → dostęp do danych w S3). Dlatego blokujemy cały zakres link-local, a ten adres wymieniamy wprost w kodzie i tutaj.
+
 **Wytyczna:** walidacja przy rejestracji **i przy każdym wywołaniu**: resolve DNS → odrzuć zakresy prywatne/link-local → przypnij wynikowe IP na czas żądania. Zakaz podążania za redirectami. Limit rozmiaru odpowiedzi egzekwowany strumieniowo (nie po wczytaniu). Docelowo osobny egress dla ruchu do devów. *(etap 2)*
+**Stan (2b):** zaimplementowane w `games/app/engine/ssrf.ts` — klasyfikator adresów zablokowanych (loopback, `10/8`, `172.16/12`, `192.168/16`, link-local `169.254/16`, CGNAT, ULA/​link-local v6, IPv4-mapped) + `assertAllowedUrl` (protokół http(s) + DNS), wpięte w `resolve-client` przed każdym wywołaniem; zakaz redirectów i limit rozmiaru już są; furtka `allowPrivate` dla dev/testów (fake-serwis na 127.0.0.1). **Do zrobienia w hardeningu 2e:** przypięcie IP na czas żądania (anty DNS-rebinding), osobny egress.
 
 ### C2. „Budżet 2 s" wymaga definicji
 **Problem:** 2 s liczone od czego? TLS handshake, time-to-first-byte i czytanie body to różne zegary; bez definicji każdy timeout będzie zaimplementowany inaczej.
