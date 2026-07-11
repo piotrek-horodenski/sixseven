@@ -112,6 +112,10 @@ services:
         VITE_GATE_URL: ws://${HOST_IP:-localhost}:4214
         # REST bramki (2d): aplikacja gry /game/rps wymienia handoff->token meczu.
         VITE_GATE_HTTP_URL: http://${HOST_IP:-localhost}:4214
+        # Serwis obrazkow (widok images/admin) - przegladarka laczy sie z nim
+        # bezposrednio (nie przez gate). Na hoscie wystawiony na 5279. HOST_IP
+        # dla telefonu w LAN; bez tego web strzelal w domyslny :5179 -> Failed to fetch.
+        VITE_IMAGE_URL: http://${HOST_IP:-localhost}:5279/api
     container_name: hydra-web
     ports:
       - "5273:80"
