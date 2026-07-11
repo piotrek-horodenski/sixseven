@@ -4,7 +4,35 @@
 
 ## Stan projektu (2026-07-11)
 
-**Faza: kod ISTNIEJE. Etapy 0, 1, 2 zaimplementowane. Bramka Etapu 2 PRZESZŁA NA ŻYWO** — dwóch graczy (Piotr + córka) rozegrało pełny mecz RPS z telefonu przez pokój/link, z handoffem do aplikacji gry, wynikiem do 2 zwycięstw i rewanżem. Następny: **Etap 3 (matchmaking)**.
+**Faza: kod ISTNIEJE. Etapy 0, 1, 2 zaimplementowane i przeszły na żywo. Etap 3 (UI/przepływ „gry", N-graczy) w większości ZROBIONY w sesji 2026-07-11 — patrz sekcja „Etap 3" niżej. JEDYNE otwarte duże zadanie: i18n całej aplikacji (Fala 3, NIEZROBIONA).**
+
+## Etap 3 — sesja 2026-07-11 (UI + przepływ „gry" + N-graczy + prefs)
+
+> Kontrakty tej sesji (źródła prawdy, przeczytaj przy kontynuacji): `docs/ETAP3_UI_CONTRACT.md`, `docs/ETAP3B_GAMES_CONTRACT.md`, `docs/ETAP3C_NPLAYERS_CONTRACT.md`. Pracowano falami, agentami na rozłącznych plikach.
+
+**Model UX: „nie ma pokojów, są gry".** `rooms` zostaje jako warstwa DISCOVERY (publiczne otwarte gry), `matches` = sekret (token meczu). Mecz powstaje OD RAZU przy zakładaniu gry (twórca ląduje w `/game/rps` i czeka na przeciwnika — bez limitu, bot w przyszłości). Drugi gracz klika kafelek → od razu ekran gry (join dokłada go do meczu + re-init `/init` pełnym rosterem).
+
+**Home (`/`) = kwadratowe kafelki 1/3/9.** Pierwszy = „Nowa gra" → ekran konfiguracji (`/new`, `CreateGameView`): gra (RPS), liczba graczy (2..N, soft-cap 8, bez twardego max), „do ilu punktów" (dom. **5**). Kolejne kafelki: moje gry (status z meczu) + publiczne otwarte („Dołącz"). Kafelek mojej gry pokazuje realny status z `useGamesStore().matchById`: „Czeka na graczy (x/N)" / „W toku" / „Zepsuta"; **zakończone/anulowane auto-znikają**; przycisk **„X"** (host) → `rooms:close` (zamyka pokój + anuluje niezakończony mecz → znika dla wszystkich).
+
+**Menu:** górne = tylko Home + Images/Admin (guardowane uprawnieniami). Profil/Wyloguj/**Preferencje** w dropdownie profilu (`AppMenu`/`AppVerticalMenu`). Usunięte na stałe: `controls`, `typography`, stary `/play`, lista `/rooms`, `RoomDetail` jako osobny ekran (join → prosto do gry).
+
+**Ekran gry `/game/rps` (N graczy):** lobby z listą graczy + gotowość (`lobbyReady`); reveal = siatka rąk WSZYSTKICH + wynik rundy przy każdym (`roundPoints`: +/−/0); tablica wyników N (lider = max `scores`); finished: zwycięzca = max score, remis na szczycie → „Remis".
+
+**Start gry (pkt 5 + 3B):** Planning rusza dopiero gdy WSZYSCY z rosteru klikną „Rozpocznij" ORAZ roster PEŁNY (`capacity`). Po 1. „Rozpocznij" ustawia się `deadline = now + planningPhaseMs`; scheduler AUTO-startuje po jego minięciu (pozostali dostają `defaultMove`). Lobby bez gotowości czeka bez limitu (brak auto-cancel).
+
+**RPS dla N graczy (`catalog/rps`):** punktacja PAROWA — każda para: wygrany +1, przegrany −1, remis 0; punkt rundy gracza = suma po przeciwnikach; wynik meczu = suma rund (może być ujemny). Koniec gdy ktoś osiągnie `target` (dom. 5). **UWAGA: zmiana dla 2 graczy — przegrany ma teraz −1 (było 0).** `defaultMove` = preferencja gracza `fallbackMove` (`rock/paper/scissors/random`, dev-default `random`, deterministyczny z seed+pid+round). Event `match_events` niesie `points` (roundPoints) + `winner` (=roundWinner).
+
+**Preferencje (menu profilu → `/preferences`):** motyw light/dark (trwałość localStorage `hydra-theme` już była), język pl/en (`usePrefsStore().language`, localStorage `hydra-language`, default `pl` — **UWAGA: to tylko ZAPIS wyboru; realne tłumaczenie = Fala 3 i18n, NIEZROBIONA**), ustawienia per gra (RPS fallback). Backend prefs: games command `/get-prefs`,`/set-prefs`; gate `games:get-prefs`/`games:set-prefs` (playerId z JWT).
+
+**Nowe/ważne pola:** `matches.capacity` (dom. 2), `matches.lobbyReady` (map pid→bool). `RpsRoundView.roundPoints`. `rooms:create` payload przyjmuje `capacity?`/`target?`; nowy `rooms:close {roomId}`.
+
+**Bugi produkcyjne wykryte w integracji i NAPRAWIONE tej sesji:** (a) `engine.createMatch` generuje `_id`, gdy brak `matchId` (schemat `_id` to String bez defaultu); (b) `command-api` — leniwy `require('./models')` → `await import('./models')` (nie działał w runtime ESM/vitest → 500 w create-match/prefs); (c) `engine.playerReady` — brama capacity: twórca nie startuje meczu w pojedynkę (był miękki deadlock). **Upload obrazków (admin/images):** web nie dostawał `VITE_IMAGE_URL` → strzelał w domyślny `:5179`; serwis image jest na hoście na **5279**. Dodano `VITE_IMAGE_URL` w `web/Dockerfile` (ARG) i `docker-compose` (build-arg `http://${HOST_IP}:5279/api`). Firewall: dla telefonu odblokuj też 5279.
+
+**Rebuild po tej sesji:** dotknięte `gate`, `games`, `rps`, `web` (image bez zmian kodu). Bezpiecznie: `docker compose up -d --build gate games rps web`.
+
+**Testy (stan na koniec sesji):** jednostkowe zielone (`npm test` — gate/web/games/catalog-rps/sdk/hmac/image; poprawione stale testy: role-based-visibility, subscriptions-manager). Integracyjne: `npm run test:integration` (root, dodany) = **games + image** (`--if-present`; web NIE ma test:integration). Wymaga: mongo RS na **27140** (games, transakcje) + mongo na **27133** (image; z `docker compose`). `games` przeszło po ostatnim fixie (dodanie `winner` do eventu RPS) — POTWIERDŹ ostatnim przebiegiem. `rps-volume.bench` za `BENCH=1`.
+
+**Dług/uwagi Etapu 3:** legacy `games.store` (2c) wciąż init w `AppLayout` (nieszkodliwe, używane przez status Home); martwe klasy w `games.scss`; `rooms:start` to teraz martwy handler (mecz powstaje przy `rooms:create`); pełny N-graczy przetestowany tylko jednostkowo/integracyjnie — warto na żywo 3+ graczy.
 
 Monorepo `platform` (workspaces): `gate/` (brama/tożsamość/subskrypcje), `games/` (silnik meczów, kolekcje prywatne), `web/` (Vue3), `catalog/rps/` (RPS jako pierwsza gra first-party), `packages/{hmac,sdk}` (wspólny HMAC + SDK twórcy gry), `image/` (media). Zbudowane z fundamentu hydra.
 
@@ -72,11 +100,10 @@ Turowa piłka nożna (1v1, po 4 zawodników, strzałki=impulsy, fizyka konfiguro
 
 ## Następne kroki (w kolejności)
 
-1. **Domknąć Etap 2 formalnie:** przejść na żywo scenariusze awaryjne bramki (serwis RPS off w rundzie → Paused → powrót → dograne; restart games → dograne — testy są w `games/tests/integration/`, warto też kliknąć na żywo), oraz gość grający towarzysko przez link. Potem **testy regresji** na bugi z live-testu (sekcja „Dług" w `ETAP2.md`).
-2. **Etap 3 — Znajdowanie współgraczy** (`docs/IMPLEMENTATION_PLAN.md`): kolejka szybkiego meczu (FIFO + accept, bez ELO), katalog gier, presence, opcje meczu w lobby (generyczny renderer ze schematu manifestu — tu wchodzi też pełne wpięcie `planningPhaseMs`/opcji per gra), toast manager, kwoty równoległych meczów. Bramka: katalog → szybki mecz → gra → wynik → rewanż.
-   - Uwaga UX z sesji: wejście do gry ma być bez wpisywania cudzego `_id`. Model „otwarty slot + pierwszy dołączający = przeciwnik" JEST już zrobiony jako pokoje (2d). „Lista otwartych meczów na /play" (create open match → join) to naturalny kawałek Etapu 3, gdyby Piotr chciał drugą ścieżkę obok pokoi.
-3. **Etap 4:** ranked + ELO, zaufany hosting bundli UI (CSP, blokada WebRTC — dopiero tu S3 ma pełny sens), znajomi, czat. **Etap 5:** judge + trust. **Etap 6:** arrowsoccer + tutorial.
-4. Otwarte wątki dokumentacyjne (bez zmian): dokument projektowy snajperów (przed etapem 5); pozostałe ślepe zaułki arrowsoccera od Piotra; `docs/UNKNOWNS.md` utrzymywać.
+1. **Fala 3 — i18n całej aplikacji (pl/en)** — JEDYNE duże otwarte zadanie z Etapu 3 (task nie zrobiony). Infrastruktura gotowa: `usePrefsStore().language` (`'pl'|'en'`, localStorage `hydra-language`, default `pl`) + przełącznik w `/preferences`. Do zrobienia: wpiąć vue-i18n, wyekstrahować WSZYSTKIE stringi web do pl/en, podpiąć pod `usePrefsStore().language`. To dotyka każdego pliku .vue — najlepiej jeden skupiony przelot (nie da się sensownie zrównoleglić), po ustabilizowaniu ekranów Etapu 3.
+2. **Weryfikacja na żywo Etapu 3** (po `docker compose up -d --build gate games rps web`): założenie gry → drugi/trzeci gracz przez kafelek → „Rozpocznij" u wszystkich (lub auto-start po timeoucie) → rozgrywka N-graczy → tablica wyników → „X" kasuje zepsute/zakończone. Upload obrazków w admin/images (po rebuildzie web; firewall 5279). Potwierdź ostatni przebieg `npm run test:integration` (miał być zielony po fixie `winner`).
+3. **Możliwe następne (pomysły Piotra):** bot dołączający do gry, gdy brak przeciwnika (wspomniane jako przyszłość); presence/kolejka szybkiego meczu (oryginalny Etap 3 z `IMPLEMENTATION_PLAN.md`, częściowo zastąpiony modelem „lista otwartych gier na Home").
+4. **Dalej wg planu:** **Etap 4** ranked + ELO, hosting bundli UI (CSP/WebRTC), znajomi, czat. **Etap 5** judge + trust. **Etap 6** arrowsoccer + tutorial. Otwarte wątki dok.: snajperzy (przed etapem 5); ślepe zaułki arrowsoccera; `docs/UNKNOWNS.md`.
 
 ## Jak pracowaliśmy w sesjach implementacyjnych (Etap 2)
 
