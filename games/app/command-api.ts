@@ -20,7 +20,8 @@ import logger from './logger'
 
 export interface EngineCommands {
   createMatch(input: CreateMatchInput): Promise<string>
-  start(matchId: string): Promise<void>
+  /** Brama gotowości lobby (Etap 3 pkt 5): Planning startuje po komplecie rosteru. */
+  playerReady(matchId: string, playerId: string): Promise<void>
   submitMove(matchId: string, playerId: string, move: unknown): Promise<'accepted' | 'rejected'>
   revealDone(matchId: string): Promise<void>
 }
@@ -140,12 +141,12 @@ export function createCommandRouter(deps: CommandDeps): express.Router {
   })
 
   router.post('/start', async (req, res) => {
-    const { matchId } = req.body ?? {}
-    if (typeof matchId !== 'string') {
-      res.status(400).json({ error: 'matchId required' })
+    const { matchId, playerId } = req.body ?? {}
+    if (typeof matchId !== 'string' || typeof playerId !== 'string') {
+      res.status(400).json({ error: 'matchId and playerId required' })
       return
     }
-    await deps.engine.start(matchId)
+    await deps.engine.playerReady(matchId, playerId)
     res.json({ ok: true })
   })
 

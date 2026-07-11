@@ -74,14 +74,22 @@ describe('games-client', () => {
       throw new Error('ECONNREFUSED')
     }) as unknown as typeof fetch
     const client = createGamesClient({ baseUrl: 'http://g', internalSecret: 's', fetchImpl: impl })
-    const res = await client.start('m1')
+    const res = await client.start('m1', 'p1')
     expect(res).toEqual({ ok: false, status: 0, error: 'games unreachable' })
   })
 
   it('start and revealDone map 200 to ok', async () => {
     const client = createGamesClient({ baseUrl: 'http://g', internalSecret: 's', fetchImpl: fakeFetch(200, { ok: true }).impl })
-    expect(await client.start('m')).toEqual({ ok: true, data: {} })
+    expect(await client.start('m', 'p1')).toEqual({ ok: true, data: {} })
     expect(await client.revealDone('m')).toEqual({ ok: true, data: {} })
+  })
+
+  it('start posts { matchId, playerId } (brama gotowości lobby)', async () => {
+    const f = fakeFetch(200, { ok: true })
+    const client = createGamesClient({ baseUrl: 'http://g', internalSecret: 's', fetchImpl: f.impl })
+    await client.start('m1', 'p1')
+    expect(f.calls[0].url).toBe('http://g/command/start')
+    expect(JSON.parse(f.calls[0].init.body)).toEqual({ matchId: 'm1', playerId: 'p1' })
   })
 
   it('getMatch maps 200 to match info and posts matchId', async () => {

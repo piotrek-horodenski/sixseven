@@ -160,11 +160,43 @@ describe('games:start and games:reveal-done', () => {
     expect(socket.emit).toHaveBeenCalledWith('games:start-error', { message: 'matchId required' })
   })
 
-  it('start emits complete', async () => {
+  it('start emits complete, playerId z tożsamości JWT (user)', async () => {
     const client = fakeClient()
     await handlerFor('games:start', client).handler(socket, { matchId: 'm1' })
-    expect(client.start).toHaveBeenCalledWith('m1')
+    expect(client.start).toHaveBeenCalledWith('m1', 'u1')
     expect(socket.emit).toHaveBeenCalledWith('games:start-complete', { matchId: 'm1' })
+  })
+
+  it('start: playerId z tożsamości NIGDY z payloadu (próba podszycia)', async () => {
+    const client = fakeClient()
+    await handlerFor('games:start', client).handler(socket, { matchId: 'm1', playerId: 'attacker' })
+    expect(client.start).toHaveBeenCalledWith('m1', 'u1')
+  })
+
+  it('start: playerId z tokenu meczu (matchScope), gdy brak user', async () => {
+    const client = fakeClient()
+    socket.user = null
+    socket.match = { matchId: 'm1', playerId: 'match-player-1' }
+    await handlerFor('games:start', client).handler(socket, { matchId: 'm1' })
+    expect(client.start).toHaveBeenCalledWith('m1', 'match-player-1')
+    expect(socket.emit).toHaveBeenCalledWith('games:start-complete', { matchId: 'm1' })
+  })
+
+  it('start: odrzuca niezgodność scope tokenu meczu', async () => {
+    const client = fakeClient()
+    socket.user = null
+    socket.match = { matchId: 'm1', playerId: 'match-player-1' }
+    await handlerFor('games:start', client).handler(socket, { matchId: 'm2' })
+    expect(client.start).not.toHaveBeenCalled()
+    expect(socket.emit).toHaveBeenCalledWith('games:start-error', { message: 'match token scope mismatch' })
+  })
+
+  it('start: returns silently when neither user nor match scope', async () => {
+    const client = fakeClient()
+    socket.user = null
+    await handlerFor('games:start', client).handler(socket, { matchId: 'm1' })
+    expect(socket.emit).not.toHaveBeenCalled()
+    expect(client.start).not.toHaveBeenCalled()
   })
 
   it('reveal-done emits complete', async () => {

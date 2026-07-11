@@ -85,6 +85,7 @@ export class MatchEngine {
       round: 0,
       deadline: now + settings.lobbyTimeoutMs,
       ready: {},
+      lobbyReady: {},
       score: {},
       createdAt: now,
       updatedAt: now,
@@ -101,13 +102,42 @@ export class MatchEngine {
     return String(match._id)
   }
 
-  /** Lobby → Planning (komplet graczy gotowy). */
+  /** Lobby → Planning (komplet graczy gotowy). Wewnętrzny wyzwalacz, idempotentny. */
   async start(matchId: string): Promise<void> {
     const match = await Match.findById(matchId)
     if (!match) return
     const res = transition(readFsm(match), { type: 'start' }, { retryMax: settings.resolveRetryMax })
     if (!res.changed) return
     await this.openPlanning(matchId, res.next.round)
+  }
+
+  /**
+   * Brama gotowości lobby (Etap 3 pkt 5): gracz zgłasza, że jest gotowy zacząć.
+   * Planning (i timer) startuje dopiero, gdy KAŻDY uczestnik rosteru
+   * (`players ∪ guestIds`) zgłosił gotowość — nie przy pierwszym kliknięciu.
+   * No-op poza fazą `lobby` i dla playerId spoza rosteru (idempotentne/bezpieczne).
+   */
+  async playerReady(matchId: string, playerId: string): Promise<void> {
+    const match = await Match.findById(matchId)
+    if (!match || match.phase !== 'lobby') return
+    const roster = [...match.players, ...match.guestIds]
+    if (!roster.includes(playerId)) return
+
+    await Match.updateOne(
+      { _id: matchId, phase: 'lobby' },
+      { $set: { [`lobbyReady.${playerId}`]: true, updatedAt: this.now() } },
+    )
+
+    // Policz gotowych z rosteru (odczyt świeżego stanu — inny gracz mógł dopisać
+    // się równolegle). Wyścig dwóch „ready" naraz jest bezpieczny: `start()` jest
+    // idempotentny (guard maszyny stanów na fazę `lobby`).
+    const fresh = await Match.findById(matchId)
+    if (!fresh || fresh.phase !== 'lobby') return
+    const lobbyReady = (fresh.lobbyReady ?? {}) as Record<string, boolean>
+    const allReady = roster.every((pid) => lobbyReady[pid] === true)
+    if (allReady) {
+      await this.start(matchId)
+    }
   }
 
   /**

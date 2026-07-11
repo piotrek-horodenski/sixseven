@@ -95,9 +95,10 @@ export function createGamesHandlers(client: GamesClient, deps: GamesHandlersDeps
     event: 'games:start',
     handler: async (socket: AuthenticatedSocket, payload: MatchIdPayload = {}) => {
       const matchScope = socket.match
-      // Start (lobby→planning) wywołuje albo zalogowany user (ekran 2c), albo
-      // gracz z aplikacji gry tokenem meczu (2d). Gość gra tokenem match.
-      if (!matchScope && !socket.user) return
+      const user = socket.user
+      // Gotowość lobby (Etap 3 pkt 5) zgłasza albo zalogowany user (ekran 2c),
+      // albo gracz z aplikacji gry tokenem meczu (2d). Gość gra tokenem match.
+      if (!matchScope && !user) return
       const { matchId } = payload
       if (typeof matchId !== 'string' || !matchId) {
         socket.emit('games:start-error', { message: 'matchId required' })
@@ -108,7 +109,10 @@ export function createGamesHandlers(client: GamesClient, deps: GamesHandlersDeps
         return
       }
 
-      const result = await client.start(matchId)
+      // playerId ZAWSZE z tożsamości tokenu — NIGDY z payloadu (jak submit-move).
+      const playerId = matchScope?.playerId ?? String(user!._id)
+
+      const result = await client.start(matchId, playerId)
       if (!result.ok) {
         socket.emit('games:start-error', { message: result.error })
         return

@@ -212,4 +212,86 @@ describe('MatchEngine (integration)', () => {
     // Mecz już nie jest w planowaniu → kolejny ruch odrzucony.
     expect(await engine.submitMove(id, 'p1', { pick: 'rock' })).toBe('rejected')
   })
+
+  describe('playerReady — brama gotowości lobby (Etap 3 pkt 5)', () => {
+    it('pojedyncze zgłoszenie gotowości: mecz zostaje w lobby (nie startuje Planning)', async () => {
+      const { engine } = await makeEngine(() => ({ kind: 'ok', response: makeResp() }))
+      const id = await engine.createMatch({
+        gameId: GAME,
+        manifestVersion: VERSION,
+        players: ['p1', 'p2'],
+        initialState: { tick: 0 },
+      })
+
+      await engine.playerReady(id, 'p1')
+
+      const match = await Match.findById(id)
+      expect(match?.phase).toBe('lobby')
+      expect((match?.lobbyReady as any).p1).toBe(true)
+      expect((match?.lobbyReady as any).p2).toBeUndefined()
+    })
+
+    it('komplet rosteru (players ∪ guestIds) gotowy → Lobby przechodzi w Planning', async () => {
+      const { engine } = await makeEngine(() => ({ kind: 'ok', response: makeResp() }))
+      const id = await engine.createMatch({
+        gameId: GAME,
+        manifestVersion: VERSION,
+        players: ['p1'],
+        guestIds: ['g_2'],
+        initialState: { tick: 0 },
+      })
+
+      await engine.playerReady(id, 'p1')
+      let match = await Match.findById(id)
+      expect(match?.phase).toBe('lobby')
+
+      await engine.playerReady(id, 'g_2')
+      match = await Match.findById(id)
+      expect(match?.phase).toBe('planning')
+      expect(match?.round).toBe(1)
+    })
+
+    it('ignoruje playerId spoza rosteru (no-op, mecz zostaje w lobby)', async () => {
+      const { engine } = await makeEngine(() => ({ kind: 'ok', response: makeResp() }))
+      const id = await engine.createMatch({
+        gameId: GAME,
+        manifestVersion: VERSION,
+        players: ['p1', 'p2'],
+        initialState: { tick: 0 },
+      })
+
+      await engine.playerReady(id, 'intruder')
+
+      const match = await Match.findById(id)
+      expect(match?.phase).toBe('lobby')
+      expect(match?.lobbyReady ?? {}).toEqual({})
+    })
+
+    it('no-op poza fazą lobby (mecz już w planning)', async () => {
+      const { engine } = await makeEngine(() => ({ kind: 'ok', response: makeResp() }))
+      const id = await newMatch(engine) // helper wywołuje engine.start bezpośrednio → planning
+
+      await engine.playerReady(id, 'p1')
+
+      const match = await Match.findById(id)
+      expect(match?.phase).toBe('planning')
+      expect(match?.lobbyReady ?? {}).toEqual({})
+    })
+
+    it('wyścig dwóch „ready" naraz jest bezpieczny (start idempotentny)', async () => {
+      const { engine } = await makeEngine(() => ({ kind: 'ok', response: makeResp() }))
+      const id = await engine.createMatch({
+        gameId: GAME,
+        manifestVersion: VERSION,
+        players: ['p1', 'p2'],
+        initialState: { tick: 0 },
+      })
+
+      await Promise.all([engine.playerReady(id, 'p1'), engine.playerReady(id, 'p2')])
+
+      const match = await Match.findById(id)
+      expect(match?.phase).toBe('planning')
+      expect(match?.round).toBe(1)
+    })
+  })
 })

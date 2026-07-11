@@ -24,6 +24,8 @@ export interface Match extends CollectionDoc {
   round: number
   deadline: number | null
   ready: Record<string, boolean>
+  /** Gotowość w fazie lobby (Etap 3 pkt 5) — mapa playerId->bool, brama startu Planning. */
+  lobbyReady?: Record<string, boolean>
   score: Record<string, number>
   options: Record<string, unknown>
   endReason: string | null

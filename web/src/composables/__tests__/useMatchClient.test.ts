@@ -92,6 +92,16 @@ describe('useMatchClient — wymiana handoff → token meczu', () => {
     expect(tokenSocket.call).toHaveBeenCalledWith('games:reveal-done', { matchId: 'm1' })
   })
 
+  it('startMatch emituje games:start tylko z matchId (playerId dokłada gate z tożsamości tokenu)', async () => {
+    const fetchFn = makeFetch({ ok: true, body: OK_PAYLOAD })
+    const client = useMatchClient(fetchFn)
+    await client.start('HANDOFF1')
+
+    client.startMatch()
+
+    expect(tokenSocket.call).toHaveBeenCalledWith('games:start', { matchId: 'm1' })
+  })
+
   it('błąd HTTP (4xx) ustawia status error i komunikat z body.message', async () => {
     const fetchFn = makeFetch({ ok: false, body: { message: 'Kod wygasł' } })
     const client = useMatchClient(fetchFn)

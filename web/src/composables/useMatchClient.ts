@@ -121,8 +121,11 @@ export function useMatchClient(fetchFn: typeof fetch = fetch) {
     client?.call('games:reveal-done', { matchId: matchId.value })
   }
 
-  // Start rundy (lobby→planning). W przepływie pokoi mecz powstaje w fazie lobby;
-  // dowolny gracz w aplikacji gry rozpoczyna rundę (engine.start jest idempotentny).
+  // Zgłoszenie gotowości w lobby (Etap 3 pkt 5). W przepływie pokoi mecz powstaje
+  // w fazie lobby; gate dokłada playerId z tożsamości tokenu i woła
+  // `engine.playerReady`. Planning (i timer) startuje dopiero, gdy KAŻDY
+  // uczestnik rosteru zgłosi gotowość — jedno kliknięcie już NIE odpala rundy
+  // u obu graczy.
   function startMatch() {
     client?.call('games:start', { matchId: matchId.value })
   }

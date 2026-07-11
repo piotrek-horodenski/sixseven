@@ -51,6 +51,10 @@ export const MatchSchema = new Schema({
 
   // Mapa playerId -> bool. Emitowana jako fakt „złożył ruch", nigdy treść (I1, I3).
   ready: { type: Schema.Types.Mixed, default: {} },
+  // Mapa playerId -> bool. Gotowość w fazie lobby (brama startu, Etap 3 pkt 5):
+  // Planning startuje dopiero, gdy KAŻDY z rosteru (players ∪ guestIds) zgłosi
+  // gotowość. Jawne pole, bez treści ruchów — jak `ready`.
+  lobbyReady: { type: Schema.Types.Mixed, default: {} },
   score: { type: Schema.Types.Mixed, default: {} },
   options: { type: Schema.Types.Mixed, default: {} },
 

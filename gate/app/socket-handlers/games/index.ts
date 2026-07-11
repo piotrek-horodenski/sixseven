@@ -24,7 +24,7 @@ function getClient(): GamesClient {
 // Handlery delegują do leniwego klienta — bez efektu ubocznego przy imporcie.
 const lazyClient: GamesClient = {
   createMatch: (input) => getClient().createMatch(input),
-  start: (matchId) => getClient().start(matchId),
+  start: (matchId, playerId) => getClient().start(matchId, playerId),
   submitMove: (matchId, playerId, move) => getClient().submitMove(matchId, playerId, move),
   revealDone: (matchId) => getClient().revealDone(matchId),
   getMatch: (matchId) => getClient().getMatch(matchId),

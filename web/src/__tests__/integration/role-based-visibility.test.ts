@@ -23,6 +23,7 @@ import { routes } from '@/router/routes'
 import { guards } from '@/router/guards'
 import { useGateStore } from '@/stores/gate/gate.store'
 import MainMenu from '@/modules/layout/MainMenu.vue'
+import AppMenu from '@/modules/layout/AppMenu.vue'
 import AdminSubmenu from '@/modules/admin/AdminSubmenu.vue'
 
 // Minimal stubs
@@ -79,6 +80,22 @@ async function mountMenu(router: Router, permissions: string[]) {
   })
 }
 
+// AppMenu = pasek górny (logo + MainMenu + dropdown profilu). Admin/Images
+// wróciły do MainMenu; dropdown profilu ma już tylko Profile/Logout.
+async function mountAppMenuWithProfileOpen(router: Router, permissions: string[]) {
+  loginAs(permissions)
+  router.push('/')
+  await router.isReady()
+  const wrapper = mount(AppMenu, {
+    global: {
+      plugins: [router],
+      ...globalConfig,
+    },
+  })
+  await wrapper.find('.app-menu__profile-link').trigger('click')
+  return wrapper
+}
+
 async function mountAdminSubmenu(router: Router, permissions: string[]) {
   loginAs(permissions)
   router.push('/admin/users')
@@ -101,37 +118,58 @@ describe('role-based visibility', () => {
   })
 
   describe('MainMenu visibility', () => {
-    it('admin with all permissions sees all menu items', async () => {
+    // Menu górne = Home + (guardowane) Images/Admin (Etap 3, pkt 2+3, korekta).
+    // Controls/Typography usunięte na stałe.
+    it('admin with all permissions sees Home, Images and Admin', async () => {
       const wrapper = await mountMenu(router, [
         'view-admin', 'access-images',
         'manage-users', 'manage-roles', 'manage-settings',
       ])
 
+      expect(wrapper.find('a[href="/"]').exists()).toBe(true)
       expect(wrapper.find('a[href="/images"]').exists()).toBe(true)
       expect(wrapper.find('a[href="/admin"]').exists()).toBe(true)
+      expect(wrapper.findAll('a')).toHaveLength(3)
     })
 
-    it('user with only access-images sees Images but not Admin', async () => {
+    it('user with no special permissions sees only Home', async () => {
+      const wrapper = await mountMenu(router, [])
+
+      expect(wrapper.find('a[href="/"]').exists()).toBe(true)
+      expect(wrapper.findAll('a')).toHaveLength(1)
+      expect(wrapper.find('a[href="/controls"]').exists()).toBe(false)
+      expect(wrapper.find('a[href="/typo"]').exists()).toBe(false)
+      expect(wrapper.find('a[href="/images"]').exists()).toBe(false)
+      expect(wrapper.find('a[href="/admin"]').exists()).toBe(false)
+    })
+
+    it('user with only access-images sees Home + Images, not Admin', async () => {
       const wrapper = await mountMenu(router, ['access-images'])
 
       expect(wrapper.find('a[href="/images"]').exists()).toBe(true)
       expect(wrapper.find('a[href="/admin"]').exists()).toBe(false)
     })
 
-    it('user with no special permissions sees only base items', async () => {
-      const wrapper = await mountMenu(router, [])
-
-      expect(wrapper.find('a[href="/"]').exists()).toBe(true)
-      expect(wrapper.find('a[href="/controls"]').exists()).toBe(true)
-      expect(wrapper.find('a[href="/typo"]').exists()).toBe(true)
-      expect(wrapper.find('a[href="/images"]').exists()).toBe(false)
-      expect(wrapper.find('a[href="/admin"]').exists()).toBe(false)
-    })
-
-    it('user with view-admin sees Admin link', async () => {
+    it('user with only view-admin sees Home + Admin, not Images', async () => {
       const wrapper = await mountMenu(router, ['view-admin'])
 
       expect(wrapper.find('a[href="/admin"]').exists()).toBe(true)
+      expect(wrapper.find('a[href="/images"]').exists()).toBe(false)
+    })
+  })
+
+  describe('AppMenu profile dropdown', () => {
+    // Dropdown profilu ma już tylko Profile/Logout — Images/Admin wróciły do MainMenu.
+    it('does not contain Images or Admin even with all permissions', async () => {
+      const wrapper = await mountAppMenuWithProfileOpen(router, [
+        'view-admin', 'access-images',
+        'manage-users', 'manage-roles', 'manage-settings',
+      ])
+
+      expect(wrapper.text()).toContain('Profile')
+      expect(wrapper.text()).toContain('Logout')
+      expect(wrapper.find('.app-menu__profile-menu-buttons').text()).not.toContain('Images')
+      expect(wrapper.find('.app-menu__profile-menu-buttons').text()).not.toContain('Admin')
     })
   })
 
@@ -243,7 +281,7 @@ describe('role-based visibility', () => {
   })
 
   describe('cross-permission combinations', () => {
-    it('user with images sees Images but not admin', async () => {
+    it('user with images sees Images but not Admin (main menu)', async () => {
       const wrapper = await mountMenu(router, ['access-images'])
 
       expect(wrapper.find('a[href="/images"]').exists()).toBe(true)

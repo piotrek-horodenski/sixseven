@@ -9,8 +9,14 @@
 .fade-enter-active {
   position: absolute;
   top: 0;
+  // left+right zamiast width:100% — dla elementu position:absolute margines auto
+  // centruje tylko przy podanych left i right. Dzięki temu treść centrowana
+  // (`margin:0 auto; max-width`, np. `.rooms-hub`, `.room-detail`) nie „odkleja
+  // się" do lewej w trakcie przejścia; treść pełnej szerokości i tak wypełnia
+  // obszar (auto width + left:0 + right:0).
+  left: 0;
+  right: 0;
   transition: opacity .5s ease;
-  width: 100%;
 }
 
 .fade-leave-to,

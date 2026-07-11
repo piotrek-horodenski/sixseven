@@ -142,7 +142,7 @@ onUnmounted(() => {
       <fa icon="times-circle" class="room-join__glyph room-join__glyph--error" />
       <h1 class="room-join__title">Nie udało się dołączyć</h1>
       <p class="room-join__text">{{ roomsError }}</p>
-      <RouterLink to="/rooms" class="room-join__link">Do listy pokoi</RouterLink>
+      <RouterLink to="/" class="room-join__link">Do Home</RouterLink>
     </template>
     <template v-else>
       <fa icon="circle-notch" class="rotate room-join__glyph" />

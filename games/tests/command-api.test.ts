@@ -10,7 +10,7 @@ function makeDeps(over: Partial<CommandDeps> = {}): CommandDeps {
   return {
     engine: {
       createMatch: vi.fn(async () => 'generated-id'),
-      start: vi.fn(async () => {}),
+      playerReady: vi.fn(async () => {}),
       submitMove: vi.fn(async () => 'accepted' as const),
       revealDone: vi.fn(async () => {}),
     },
@@ -114,10 +114,28 @@ describe('command API', () => {
     expect(res.status).toBe(409)
   })
 
-  it('start i reveal-done wołają silnik', async () => {
+  it('start (lobby-ready) woła engine.playerReady(matchId, playerId)', async () => {
     await start(makeDeps())
-    expect((await post('/start', { matchId: 'm1' }, auth)).status).toBe(200)
-    expect(deps.engine.start).toHaveBeenCalledWith('m1')
+    expect((await post('/start', { matchId: 'm1', playerId: 'p1' }, auth)).status).toBe(200)
+    expect(deps.engine.playerReady).toHaveBeenCalledWith('m1', 'p1')
+  })
+
+  it('start: brak playerId → 400 (nie woła silnika)', async () => {
+    await start(makeDeps())
+    const res = await post('/start', { matchId: 'm1' }, auth)
+    expect(res.status).toBe(400)
+    expect(deps.engine.playerReady).not.toHaveBeenCalled()
+  })
+
+  it('start: brak matchId → 400', async () => {
+    await start(makeDeps())
+    const res = await post('/start', { playerId: 'p1' }, auth)
+    expect(res.status).toBe(400)
+    expect(deps.engine.playerReady).not.toHaveBeenCalled()
+  })
+
+  it('reveal-done woła silnik', async () => {
+    await start(makeDeps())
     expect((await post('/reveal-done', { matchId: 'm1' }, auth)).status).toBe(200)
     expect(deps.engine.revealDone).toHaveBeenCalledWith('m1')
   })

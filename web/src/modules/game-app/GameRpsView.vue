@@ -22,7 +22,7 @@ const returnUrl = computed(() => {
   // schematu). Blokuje open-redirect i nawigacyjny kanał eksfiltracji (S3) —
   // złośliwy link pokoju nie przekieruje gracza na obcy origin.
   if (typeof r === 'string' && /^\/(?![/\\])/.test(r)) return r
-  return '/rooms'
+  return '/'
 })
 
 const match = client.match
@@ -75,9 +75,12 @@ function pick(move: RpsMove) {
   client.submitMove(move)
 }
 
-// Mecz powstaje w fazie lobby (rooms:start tylko go tworzy). Dowolny gracz
-// rozpoczyna rundę z aplikacji gry — engine.start jest idempotentny, więc drugie
-// kliknięcie/gracz nie szkodzi.
+// Brama gotowości lobby (Etap 3 pkt 5): mecz powstaje w fazie lobby
+// (rooms:start tylko go tworzy); Planning (i timer) startuje dopiero, gdy
+// KAŻDY uczestnik rosteru zgłosi gotowość — jedno kliknięcie już NIE odpala
+// rundy u obu graczy.
+const iAmLobbyReady = computed(() => (meId.value ? !!match.value?.lobbyReady?.[meId.value] : false))
+const oppLobbyReady = computed(() => (oppId.value ? !!match.value?.lobbyReady?.[oppId.value] : false))
 const starting = ref(false)
 function startMatch() {
   starting.value = true
@@ -204,7 +207,17 @@ onUnmounted(() => {
           <fa icon="hand-scissors" class="rps-state__glyph" />
           <h2 class="rps-state__title">Mecz gotowy</h2>
           <p class="rps-state__text">Grasz z {{ oppLabel }} do {{ target }} zwycięstw.</p>
-          <UiButton icon="play" :loading="starting" @click="startMatch">Rozpocznij</UiButton>
+          <UiButton v-if="!iAmLobbyReady" icon="play" :loading="starting" @click="startMatch">Rozpocznij</UiButton>
+          <template v-else>
+            <p class="rps-planning__waiting">
+              <fa icon="circle-notch" class="rotate" />
+              Czekam aż {{ oppLabel }} rozpocznie…
+            </p>
+            <p class="rps-planning__opponent">
+              <span class="rps-dot" :class="{ 'rps-dot--on': oppLobbyReady }" />
+              {{ oppLobbyReady ? `${oppLabel} też jest gotowy` : `${oppLabel} jeszcze nie kliknął Rozpocznij` }}
+            </p>
+          </template>
         </div>
 
         <!-- PLANNING -->

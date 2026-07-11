@@ -28,46 +28,6 @@ function onSelect() {
       <span class="label">Home</span>
     </RouterLink>
   </li>
-  <li>
-    <RouterLink
-      to="/play"
-      :tabindex="props.tabindex"
-      @click="onSelect"
-    >
-      <span class="icon"><fa icon="gamepad" /></span>
-      <span class="label">Graj</span>
-    </RouterLink>
-  </li>
-  <li>
-    <RouterLink
-      to="/rooms"
-      :tabindex="props.tabindex"
-      @click="onSelect"
-    >
-      <span class="icon"><fa icon="door-open" /></span>
-      <span class="label">Pokoje</span>
-    </RouterLink>
-  </li>
-  <li>
-    <RouterLink
-      to="/controls"
-      :tabindex="props.tabindex"
-      @click="onSelect"
-    >
-      <span class="icon"><fa icon="network-wired" /></span>
-      <span class="label">Controls</span>
-    </RouterLink>
-  </li>
-  <li>
-    <RouterLink
-      to="/typo"
-      :tabindex="props.tabindex"
-      @click="onSelect"
-    >
-      <span class="icon"><fa icon="robot" /></span>
-      <span class="label">Typography</span>
-    </RouterLink>
-  </li>
   <li v-if="hasPermission('access-images')">
     <RouterLink
       to="/images"

@@ -46,7 +46,8 @@ export interface MatchInfo {
 
 export interface GamesClient {
   createMatch(input: CreateMatchInput): Promise<CommandResult<{ matchId: string }>>
-  start(matchId: string): Promise<CommandResult>
+  /** Gracz zgłasza gotowość w lobby (Etap 3 pkt 5) — Planning startuje po komplecie rosteru. */
+  start(matchId: string, playerId: string): Promise<CommandResult>
   submitMove(
     matchId: string,
     playerId: string,
@@ -125,8 +126,8 @@ export function createGamesClient(config: GamesClientConfig): GamesClient {
       return { ok: false, status, error: errorOf(status, body) }
     },
 
-    async start(matchId) {
-      const { status, body } = await guardedCall('/start', { matchId })
+    async start(matchId, playerId) {
+      const { status, body } = await guardedCall('/start', { matchId, playerId })
       if (status === 200) return { ok: true, data: {} }
       return { ok: false, status, error: errorOf(status, body) }
     },

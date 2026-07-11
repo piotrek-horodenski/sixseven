@@ -1,5 +1,11 @@
+<script setup lang="ts">
+</script>
 <template>
-<div class="pt-1 pb-1 pl-3 pr-3">
-  <h1>Home</h1>
+<div class="rooms-intro">
+  <h1 class="rooms-intro__title">
+    <fa icon="home" class="rooms-intro__icon" />
+    Home
+  </h1>
+  <p class="rooms-intro__subtitle">Twoje pokoje i otwarte gry — dołącz albo zacznij nową.</p>
 </div>
 </template>

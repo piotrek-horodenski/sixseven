@@ -43,6 +43,15 @@ const canStart = computed(
 )
 const isMatched = computed(() => room.value?.status === 'matched' && !!room.value?.matchId)
 
+// Jeden przycisk "Graj": host tworzy mecz i od razu wchodzi, nie-host wchodzi
+// tylko gdy mecz już istnieje (host musi kliknąć pierwszy — `rooms:start` jest
+// host-only w backendzie).
+const canPlay = computed(() => {
+  if (!room.value || !iAmMember.value) return false
+  if (isMatched.value) return true
+  return canStart.value
+})
+
 // ---- kopiowanie linku --------------------------------------------------
 const copied = ref(false)
 let copyTimer: number | undefined
@@ -59,17 +68,32 @@ async function copyLink() {
 }
 
 // ---- akcje -------------------------------------------------------------
-function start() {
-  if (!room.value) return
-  rooms.start(room.value._id)
+const goingToGame = ref(false)
+function goToGame(matchId: string) {
+  goingToGame.value = true
+  rooms.requestHandoff(matchId)
 }
 
-const goingToGame = ref(false)
-function play() {
-  if (!room.value?.matchId) return
-  goingToGame.value = true
-  rooms.requestHandoff(room.value.matchId)
+// Czeka na `room.status === 'matched'` po tym, jak host wystartował mecz,
+// żeby od razu (bez drugiego kliknięcia) przejść do gry.
+const awaitingMatch = ref(false)
+function playClick() {
+  if (!room.value) return
+  if (isMatched.value && room.value.matchId) {
+    goToGame(room.value.matchId)
+    return
+  }
+  if (canStart.value) {
+    awaitingMatch.value = true
+    rooms.start(room.value._id)
+  }
 }
+watch(room, (r) => {
+  if (r && awaitingMatch.value && r.status === 'matched' && r.matchId) {
+    awaitingMatch.value = false
+    goToGame(r.matchId)
+  }
+})
 
 // Po handoff-complete: pełne przeładowanie do aplikacji gry (osobny socket meczu).
 watch(lastHandoff, (h) => {
@@ -88,7 +112,7 @@ function leave() {
 watch(lastLeftRoomId, (id) => {
   if (id && id === roomId.value && leaving.value) {
     leaving.value = false
-    router.push('/rooms')
+    router.push('/')
   }
 })
 
@@ -98,8 +122,8 @@ onUnmounted(() => {
 </script>
 <template>
 <div class="room-detail">
-  <RouterLink to="/rooms" class="room-detail__back">
-    <fa icon="caret-left" /> Pokoje
+  <RouterLink to="/" class="room-detail__back">
+    <fa icon="caret-left" /> Home
   </RouterLink>
 
   <template v-if="room">
@@ -110,15 +134,6 @@ onUnmounted(() => {
         :class="`room-card__badge--${room.status}`"
       >{{ room.status === 'open' ? 'Otwarty' : room.status === 'matched' ? 'Mecz trwa' : 'Zamknięty' }}</span>
     </header>
-
-    <section class="room-detail__share">
-      <label class="room-detail__share-label">Zaproś linkiem</label>
-      <div class="room-detail__share-row">
-        <input class="room-detail__share-input" :value="shareLink" readonly @focus="($event.target as HTMLInputElement).select()" />
-        <UiButton icon="copy" @click="copyLink">{{ copied ? 'Skopiowano' : 'Kopiuj' }}</UiButton>
-      </div>
-      <p class="room-detail__code">Kod: <strong>{{ room.code }}</strong></p>
-    </section>
 
     <section class="room-detail__members">
       <h2 class="room-detail__subhead">
@@ -144,35 +159,34 @@ onUnmounted(() => {
 
     <section class="room-detail__actions">
       <UiButton
-        v-if="isMatched"
         icon="gamepad"
-        :loading="goingToGame"
-        @click="play"
+        :disabled="!canPlay || goingToGame || awaitingMatch"
+        :loading="goingToGame || awaitingMatch"
+        @click="playClick"
       >Graj</UiButton>
 
-      <template v-else-if="iAmHost">
-        <UiButton
-          icon="play"
-          :disabled="!canStart"
-          @click="start"
-        >Start</UiButton>
-        <p v-if="!canStart" class="room-detail__hint">
-          Potrzeba co najmniej 2 graczy, żeby wystartować.
-        </p>
-      </template>
-
-      <template v-else-if="room.status === 'open'">
-        <p v-if="!iAmMember" class="room-detail__hint">
-          <fa icon="circle-notch" class="rotate" /> Dołączam do pokoju…
-        </p>
-        <p v-else class="room-detail__hint">
-          Czekaj, aż host wystartuje mecz.
-        </p>
-      </template>
+      <p v-if="!iAmMember" class="room-detail__hint">
+        <fa icon="circle-notch" class="rotate" /> Dołączam do pokoju…
+      </p>
+      <p v-else-if="!isMatched && !canStart && iAmHost" class="room-detail__hint">
+        Potrzeba co najmniej 2 graczy, żeby zagrać.
+      </p>
+      <p v-else-if="!isMatched && !iAmHost" class="room-detail__hint">
+        Czekaj, aż host rozpocznie.
+      </p>
 
       <button class="room-detail__leave" type="button" :disabled="leaving" @click="leave">
         <fa icon="sign-out-alt" /> Opuść pokój
       </button>
+    </section>
+
+    <section class="room-detail__share room-detail__share--compact">
+      <label class="room-detail__share-label">Zaproś linkiem</label>
+      <div class="room-detail__share-row">
+        <input class="room-detail__share-input" :value="shareLink" readonly @focus="($event.target as HTMLInputElement).select()" />
+        <UiButton icon="copy" @click="copyLink">{{ copied ? 'Skopiowano' : 'Kopiuj' }}</UiButton>
+      </div>
+      <p class="room-detail__code">Kod: <strong>{{ room.code }}</strong></p>
     </section>
   </template>
 
@@ -183,7 +197,7 @@ onUnmounted(() => {
       <p class="room-detail__missing-hint">
         Jeśli to nie Twój pokój lub został zamknięty, nie zobaczysz go tutaj.
       </p>
-      <RouterLink to="/rooms" class="room-detail__missing-link">Wróć do listy</RouterLink>
+      <RouterLink to="/" class="room-detail__missing-link">Wróć do Home</RouterLink>
     </template>
   </div>
 </div>
