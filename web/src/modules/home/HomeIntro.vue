@@ -6,6 +6,6 @@
     <fa icon="home" class="rooms-intro__icon" />
     Home
   </h1>
-  <p class="rooms-intro__subtitle">Twoje pokoje i otwarte gry — dołącz albo zacznij nową.</p>
+  <p class="rooms-intro__subtitle">Twoje gry i otwarte gry innych — dołącz albo zacznij nową.</p>
 </div>
 </template>

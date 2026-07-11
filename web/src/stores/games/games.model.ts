@@ -19,6 +19,9 @@ export interface Match extends CollectionDoc {
   gameId: string
   players: string[]
   guestIds?: string[]
+  /** Docelowa liczba graczy (RPS=2). Mecz jest „otwarty" (czeka na przeciwnika), gdy
+   *  `players.length + (guestIds?.length||0) < capacity`. Backend Etap 3 pkt 1. */
+  capacity?: number
   ranked: boolean
   phase: MatchPhase
   round: number

@@ -28,6 +28,8 @@ export interface CreateMatchInput {
   gameId: string
   players: string[]
   guestIds?: string[]
+  /** Docelowa liczba graczy (Etap 3B pkt 1). Domyślnie 2 (schema games). */
+  capacity?: number
   ranked?: boolean
   options?: Record<string, unknown>
 }
@@ -56,6 +58,14 @@ export interface GamesClient {
   revealDone(matchId: string): Promise<CommandResult>
   /** Weryfikacja członkostwa (2d): odczyt meczu do handoffu i wymiany tokenu. */
   getMatch(matchId: string): Promise<CommandResult<MatchInfo>>
+  /** Dołączenie do meczu w lobby (Etap 3B pkt 2). `full` = slot się właśnie zapełnił. */
+  joinMatch(matchId: string, playerId: string, kind: 'user' | 'guest'): Promise<CommandResult<{ full: boolean }>>
+  /** Anulowanie meczu (Etap 3B pkt 6 — leave twórcy w lobby). Domyślny powód: cancelled_lobby. */
+  cancelMatch(matchId: string, reason?: 'cancelled_lobby' | 'cancelled_paused' | 'cancelled'): Promise<CommandResult>
+  /** Odczyt prefs per (gra, gracz) POZA meczem (Etap 3B pkt 5 — ekran preferencji). */
+  getPrefs(gameId: string, playerId: string): Promise<CommandResult<{ prefs: Record<string, unknown> }>>
+  /** Zapis prefs per (gra, gracz) POZA meczem. */
+  setPrefs(gameId: string, playerId: string, prefs: Record<string, unknown>): Promise<CommandResult>
 }
 
 const DEFAULT_TIMEOUT_MS = 5000
@@ -161,6 +171,37 @@ export function createGamesClient(config: GamesClientConfig): GamesClient {
           },
         }
       }
+      return { ok: false, status, error: errorOf(status, body) }
+    },
+
+    async joinMatch(matchId, playerId, kind) {
+      const { status, body } = await guardedCall('/join-match', { matchId, playerId, kind })
+      if (status === 200 && body.ok === true) {
+        return { ok: true, data: { full: body.full === true } }
+      }
+      return { ok: false, status, error: errorOf(status, body) }
+    },
+
+    async cancelMatch(matchId, reason) {
+      const { status, body } = await guardedCall('/cancel-match', { matchId, reason: reason ?? 'cancelled_lobby' })
+      if (status === 200) return { ok: true, data: {} }
+      return { ok: false, status, error: errorOf(status, body) }
+    },
+
+    async getPrefs(gameId, playerId) {
+      const { status, body } = await guardedCall('/get-prefs', { gameId, playerId })
+      if (status === 200) {
+        const prefs = body.prefs && typeof body.prefs === 'object' && !Array.isArray(body.prefs)
+          ? (body.prefs as Record<string, unknown>)
+          : {}
+        return { ok: true, data: { prefs } }
+      }
+      return { ok: false, status, error: errorOf(status, body) }
+    },
+
+    async setPrefs(gameId, playerId, prefs) {
+      const { status, body } = await guardedCall('/set-prefs', { gameId, playerId, prefs })
+      if (status === 200) return { ok: true, data: {} }
       return { ok: false, status, error: errorOf(status, body) }
     },
   }

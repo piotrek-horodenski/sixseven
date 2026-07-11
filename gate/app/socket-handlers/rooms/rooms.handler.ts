@@ -51,12 +51,18 @@ export interface RoomsStore {
   removeMember(roomId: string, memberId: string): Promise<void>
   setStatus(roomId: string, status: Room['status']): Promise<void>
   setMatched(roomId: string, matchId: string): Promise<void>
+  /**
+   * Wiąże matchId z pokojem BEZ zmiany statusu (Etap 3B pkt 1) — mecz powstaje od
+   * razu przy zakładaniu gry, ale pokój zostaje `open` (wciąż dołączalny), dopóki
+   * slot meczu jest wolny.
+   */
+  setMatchId(roomId: string, matchId: string): Promise<void>
   /** Zamyka wszystkie OTWARTE pokoje danego hosta (jeden aktywny pokój / user). */
   closeOpenByHost?(hostId: string): Promise<void>
 }
 
 export interface RoomsHandlerDeps {
-  client: Pick<GamesClient, 'createMatch'>
+  client: Pick<GamesClient, 'createMatch' | 'joinMatch' | 'getMatch' | 'cancelMatch'>
   store: RoomsStore
   /** Generuje kandydata na kod (6× [A-Z2-9]); kolizje rozwiązuje handler. */
   genCode: () => string
@@ -131,8 +137,28 @@ export function createRoomsHandlers(deps: RoomsHandlerDeps): HandlerObject[] {
         members: [{ id: uid, kind: 'user', nick: user.username }],
       })
 
-      logger.info({ roomId: room._id, code: room.code, by: user._id }, 'room created')
-      socket.emit('rooms:create-complete', { roomId: room._id, code: room.code })
+      // Etap 3B pkt 1: mecz powstaje OD RAZU (twórca ląduje na ekranie gry i czeka
+      // na przeciwnika). Pokój zostaje `open` — nadal dołączalny, dopóki slot wolny.
+      let matchId: string | null = null
+      const matchResult = await deps.client.createMatch({
+        gameId,
+        players: [uid],
+        capacity: 2,
+        options: { target: 2 },
+      })
+      if (matchResult.ok) {
+        matchId = matchResult.data.matchId
+        await deps.store.setMatchId(room._id, matchId)
+      } else {
+        // Bez meczu pokój jest bezużyteczny (UI oczekuje matchId) — zamykamy go.
+        logger.warn({ roomId: room._id, status: matchResult.status }, 'rooms:create match creation failed')
+        await deps.store.setStatus(room._id, 'closed')
+        socket.emit('rooms:create-error', { message: matchResult.error })
+        return
+      }
+
+      logger.info({ roomId: room._id, code: room.code, matchId, by: user._id }, 'room created')
+      socket.emit('rooms:create-complete', { roomId: room._id, code: room.code, matchId })
     },
   }
 
@@ -158,11 +184,26 @@ export function createRoomsHandlers(deps: RoomsHandlerDeps): HandlerObject[] {
         return
       }
 
+      const uid = String(user._id)
       // Idempotentne: powtórny join tego samego usera nie duplikuje membera.
-      await deps.store.addMember(room._id, { id: String(user._id), kind: 'user', nick: user.username })
+      await deps.store.addMember(room._id, { id: uid, kind: 'user', nick: user.username })
 
-      logger.info({ roomId: room._id, by: String(user._id) }, 'room joined')
-      socket.emit('rooms:join-complete', { roomId: room._id })
+      // Etap 3B pkt 2: dołączenie do ROOMU dopisuje gracza także do MECZU (re-init).
+      // Gdy slot się zapełnił — pokój przechodzi na `matched` (znika z listy otwartych).
+      if (room.matchId) {
+        const joinResult = await deps.client.joinMatch(room.matchId, uid, 'user')
+        if (!joinResult.ok) {
+          logger.warn({ roomId: room._id, matchId: room.matchId, status: joinResult.status }, 'rooms:join match join failed')
+          socket.emit('rooms:join-error', { message: joinResult.error })
+          return
+        }
+        if (joinResult.data.full) {
+          await deps.store.setMatched(room._id, room.matchId)
+        }
+      }
+
+      logger.info({ roomId: room._id, matchId: room.matchId, by: uid }, 'room joined')
+      socket.emit('rooms:join-complete', { roomId: room._id, matchId: room.matchId })
     },
   }
 
@@ -185,7 +226,24 @@ export function createRoomsHandlers(deps: RoomsHandlerDeps): HandlerObject[] {
         // Host wychodzi → pokój zamknięty (nie da się już do niego dołączyć).
         if (room.hostId === uid) {
           await deps.store.setStatus(roomId, 'closed')
+          // Etap 3B pkt 6: twórca wychodzi przed startem → anuluj mecz, JEŚLI wciąż
+          // w lobby (nikt jeszcze nie zaczął grać). Sprawdzamy fazę przez getMatch,
+          // żeby nie ubić meczu, który już wystartował. `cancelMatch`/`engine.cancel`
+          // jest samo-guardowane (no-op poza lobby/planning/resolving/paused), więc
+          // to dodatkowe sprawdzenie jest ostrożnością, nie wymogiem poprawności.
+          if (room.matchId) {
+            const info = await deps.client.getMatch(room.matchId)
+            if (info.ok && info.data.phase === 'lobby') {
+              const cancelResult = await deps.client.cancelMatch(room.matchId, 'cancelled_lobby')
+              if (!cancelResult.ok) {
+                logger.warn({ roomId, matchId: room.matchId, status: cancelResult.status }, 'rooms:leave cancel match failed')
+              }
+            }
+          }
         }
+        // MVP (Etap 3B pkt 6): dołączający wychodzący z lobby NIE jest usuwany z
+        // meczu (slot nie wraca) — re-init przy leave nie jest wymagany do MVP.
+        // Prostsze i bezpieczne: gracz zostaje w rosterze, może wrócić przez handoff.
       }
 
       logger.info({ roomId, by: uid }, 'room left')

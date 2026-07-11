@@ -29,6 +29,8 @@ export interface CreateMatchInput {
   manifestVersion: string
   players: string[]
   guestIds?: string[]
+  /** Docelowa liczba graczy (Etap 3B pkt 1). Default 2 (schema). */
+  capacity?: number
   ranked?: boolean
   options?: Record<string, unknown>
   /** Stan początkowy gry (z /init; w testach podawany wprost). */
@@ -36,6 +38,9 @@ export interface CreateMatchInput {
   /** Opcjonalny z góry ustalony _id meczu (command API generuje go przed /init). */
   matchId?: string
 }
+
+/** Wynik `addPlayer` (Etap 3B pkt 2): dołączenie gracza do meczu w lobby. */
+export type AddPlayerResult = 'added' | 'not-found' | 'not-lobby' | 'duplicate' | 'full'
 
 function readFsm(match: any): MatchFsm {
   return {
@@ -79,11 +84,14 @@ export class MatchEngine {
       manifestVersion: input.manifestVersion,
       players: input.players,
       guestIds: input.guestIds ?? [],
+      capacity: input.capacity ?? 2,
       ranked: input.ranked ?? false,
       options: input.options ?? {},
       phase: 'lobby',
       round: 0,
-      deadline: now + settings.lobbyTimeoutMs,
+      // Etap 3B pkt 3: czekanie na przeciwnika BEZ limitu czasu (nie lobbyTimeoutMs).
+      // Deadline lobby startuje dopiero przy pierwszym playerReady.
+      deadline: null,
       ready: {},
       lobbyReady: {},
       score: {},
@@ -123,9 +131,18 @@ export class MatchEngine {
     const roster = [...match.players, ...match.guestIds]
     if (!roster.includes(playerId)) return
 
+    // Etap 3B pkt 3: PIERWSZE zgłoszenie gotowości w lobby uzbraja deadline
+    // auto-startu (planningPhaseMs) — do tej pory lobby czeka bez limitu.
+    const existingReady = (match.lobbyReady ?? {}) as Record<string, boolean>
+    const isFirstReady = !Object.values(existingReady).some((v) => v === true)
+    const setFields: Record<string, unknown> = { [`lobbyReady.${playerId}`]: true, updatedAt: this.now() }
+    if (isFirstReady) {
+      setFields.deadline = this.now() + this.planningMs(match)
+    }
+
     await Match.updateOne(
       { _id: matchId, phase: 'lobby' },
-      { $set: { [`lobbyReady.${playerId}`]: true, updatedAt: this.now() } },
+      { $set: setFields },
     )
 
     // Policz gotowych z rosteru (odczyt świeżego stanu — inny gracz mógł dopisać
@@ -138,6 +155,38 @@ export class MatchEngine {
     if (allReady) {
       await this.start(matchId)
     }
+  }
+
+  /**
+   * Dołączenie gracza do meczu w lobby (Etap 3B pkt 2). Guardy: mecz istnieje,
+   * faza `lobby`, gracz jeszcze nie w składzie, jest wolny slot (capacity).
+   * Dopisuje do `players` (user) lub `guestIds` (guest) i nadpisuje stan wejściowy
+   * rundy 1 (`match_states`, sealed:false) świeżym `initialState` (re-init) — mecz
+   * w lobby nie ma jeszcze żadnych ruchów, więc nadpisanie jest bezpieczne.
+   * `initialState` jest dostarczany przez wywołującego (command-api woła /init z
+   * pełnym rosterem, tak jak przy `createMatch`) — engine samo nie zna gry.
+   */
+  async addPlayer(matchId: string, playerId: string, kind: 'user' | 'guest', initialState: unknown): Promise<AddPlayerResult> {
+    const match = await Match.findById(matchId)
+    if (!match) return 'not-found'
+    if (match.phase !== 'lobby') return 'not-lobby'
+    if (match.players.includes(playerId) || match.guestIds.includes(playerId)) return 'duplicate'
+    const capacity = (match.capacity as number) ?? 2
+    const size = match.players.length + match.guestIds.length
+    if (size >= capacity) return 'full'
+
+    const field = kind === 'guest' ? 'guestIds' : 'players'
+    const upd = await Match.updateOne(
+      { _id: matchId, phase: 'lobby' },
+      { $addToSet: { [field]: playerId }, $set: { updatedAt: this.now() } },
+    )
+    if (upd.modifiedCount === 0) return 'not-lobby' // wyścig: faza zmieniła się w międzyczasie
+
+    await MatchState.updateOne(
+      { matchId, round: 1 },
+      { $set: { sealed: false, state: initialState, updatedAt: this.now() } },
+    )
+    return 'added'
   }
 
   /**

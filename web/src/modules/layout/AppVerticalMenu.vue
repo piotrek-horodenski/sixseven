@@ -82,6 +82,10 @@ const isExpanded = computed({
           @click="profileOpen = false; $router.push('/profile')"
         >Profile</UiButton>
         <UiButton
+          :tabindex="isMenuVertical ? 3 : -1"
+          @click="profileOpen = false; $router.push('/preferences')"
+        >Preferencje</UiButton>
+        <UiButton
           :loading="logoutLoading"
           :tabindex="isMenuVertical ? 3 : -1"
           @click="logout"

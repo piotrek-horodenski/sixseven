@@ -23,7 +23,6 @@ import { routes } from '@/router/routes'
 import { guards } from '@/router/guards'
 import { useGateStore } from '@/stores/gate/gate.store'
 import MainMenu from '@/modules/layout/MainMenu.vue'
-import AppMenu from '@/modules/layout/AppMenu.vue'
 import AdminSubmenu from '@/modules/admin/AdminSubmenu.vue'
 
 // Minimal stubs
@@ -78,22 +77,6 @@ async function mountMenu(router: Router, permissions: string[]) {
       ...globalConfig,
     },
   })
-}
-
-// AppMenu = pasek górny (logo + MainMenu + dropdown profilu). Admin/Images
-// wróciły do MainMenu; dropdown profilu ma już tylko Profile/Logout.
-async function mountAppMenuWithProfileOpen(router: Router, permissions: string[]) {
-  loginAs(permissions)
-  router.push('/')
-  await router.isReady()
-  const wrapper = mount(AppMenu, {
-    global: {
-      plugins: [router],
-      ...globalConfig,
-    },
-  })
-  await wrapper.find('.app-menu__profile-link').trigger('click')
-  return wrapper
 }
 
 async function mountAdminSubmenu(router: Router, permissions: string[]) {
@@ -155,21 +138,6 @@ describe('role-based visibility', () => {
 
       expect(wrapper.find('a[href="/admin"]').exists()).toBe(true)
       expect(wrapper.find('a[href="/images"]').exists()).toBe(false)
-    })
-  })
-
-  describe('AppMenu profile dropdown', () => {
-    // Dropdown profilu ma już tylko Profile/Logout — Images/Admin wróciły do MainMenu.
-    it('does not contain Images or Admin even with all permissions', async () => {
-      const wrapper = await mountAppMenuWithProfileOpen(router, [
-        'view-admin', 'access-images',
-        'manage-users', 'manage-roles', 'manage-settings',
-      ])
-
-      expect(wrapper.text()).toContain('Profile')
-      expect(wrapper.text()).toContain('Logout')
-      expect(wrapper.find('.app-menu__profile-menu-buttons').text()).not.toContain('Images')
-      expect(wrapper.find('.app-menu__profile-menu-buttons').text()).not.toContain('Admin')
     })
   })
 

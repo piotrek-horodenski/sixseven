@@ -5,18 +5,26 @@ import { useCollection } from '@/composables/useCollection'
 import { RPS_GAME_ID, type Room, type RoomVisibility } from './rooms.model'
 
 /**
- * Store pokoi (Etap 2d). Jedno źródło prawdy: kolekcja `rooms`, subskrybowana
- * przez `useCollection` (row-level: gate oddaje publiczne otwarte + własne).
+ * Store gier/pokoi (Etap 3b — „nie ma pokojów, są gry"). Jedno źródło prawdy:
+ * kolekcja `rooms` (rejestr otwartych gier), subskrybowana przez
+ * `useCollection` (row-level: gate oddaje publiczne otwarte + własne).
  *
- * Komendy (`rooms:create/join/leave/start`) i `games:request-handoff` idą
- * socketem usera do gate; wynik przychodzi ackiem (`*-complete` / `*-error`)
- * używanym wyłącznie do UX (nawigacja, błąd), a stan pokoju aktualizuje osobno
- * subskrypcja. Wzorzec 1:1 jak `stores/games/games.store.ts`.
+ * Mecz powstaje OD RAZU przy `rooms:create` (ack zwraca też `matchId`) —
+ * `rooms:start` jest martwe i zostało usunięte. `rooms:join` dokłada gracza
+ * do istniejącego meczu (ack zwraca `matchId`). Komendy i
+ * `games:request-handoff` idą socketem usera do gate; wynik przychodzi ackiem
+ * (`*-complete` / `*-error`) używanym wyłącznie do UX (nawigacja, błąd), a stan
+ * pokoju aktualizuje osobno subskrypcja. Wzorzec 1:1 jak
+ * `stores/games/games.store.ts`.
  *
- * Cykl życia liczymy referencyjnie (`mounts`), bo init/cleanup wołają DWA
- * widoki (RoomsView i RoomDetail) — nakładające się mount/unmount przy nawigacji
- * nie może ubić subskrypcji. AppLayout jest współdzielony, więc nie inicjujemy
- * tam (inaczej niż games w 2c).
+ * `createAndPlay` / `joinAndPlay` / `enterGame` chainują
+ * create-lub-join → `games:request-handoff` → (komponent robi redirect przez
+ * `watch(lastHandoff)`, bo to pełne przeładowanie strony do `/game/rps`).
+ *
+ * Cykl życia liczymy referencyjnie (`mounts`), bo init/cleanup mogą wołać
+ * WIĘCEJ NIŻ JEDEN widok naraz (Home + ekran tworzenia gry) — nakładające się
+ * mount/unmount przy nawigacji nie może ubić subskrypcji. AppLayout jest
+ * współdzielony, więc nie inicjujemy tam (inaczej niż games w 2c).
  */
 export const useRoomsStore = defineStore('rooms', () => {
   const gate = useGateStore()
@@ -30,11 +38,14 @@ export const useRoomsStore = defineStore('rooms', () => {
   const creating = ref(false)
   const lastCreatedRoomId = ref<string | null>(null)
   const lastCreatedCode = ref<string | null>(null)
+  const lastCreatedMatchId = ref<string | null>(null)
   const lastJoinedRoomId = ref<string | null>(null)
+  const lastJoinedMatchId = ref<string | null>(null)
   const lastLeftRoomId = ref<string | null>(null)
-  const lastStartedMatchId = ref<string | null>(null)
   /** Kod handoffu przechwycony po `games:handoff-complete` — do redirectu na grę. */
   const lastHandoff = ref<{ code: string; gameId: string; playerId: string } | null>(null)
+  /** Ustawiane przez `createAndPlay`/`joinAndPlay` — po acku od razu odpal handoff. */
+  const pendingAutoHandoff = ref(false)
 
   const currentUserId = computed<string | null>(() => gate.user?._id ?? null)
 
@@ -68,32 +79,37 @@ export const useRoomsStore = defineStore('rooms', () => {
 
   // ---- acki (UX) --------------------------------------------------------
 
-  function onCreateComplete({ roomId, code }: { roomId: string; code: string }) {
+  function onCreateComplete({ roomId, code, matchId }: { roomId: string; code: string; matchId?: string }) {
     creating.value = false
     lastError.value = null
     lastCreatedRoomId.value = roomId
     lastCreatedCode.value = code
+    lastCreatedMatchId.value = matchId ?? null
+    if (pendingAutoHandoff.value) {
+      pendingAutoHandoff.value = false
+      if (matchId) requestHandoff(matchId)
+    }
   }
   function onCreateError({ message }: { message?: string }) {
     creating.value = false
-    lastError.value = message || 'Nie udało się utworzyć pokoju'
+    pendingAutoHandoff.value = false
+    lastError.value = message || 'Nie udało się utworzyć gry'
   }
-  function onJoinComplete({ roomId }: { roomId: string }) {
+  function onJoinComplete({ roomId, matchId }: { roomId: string; matchId?: string }) {
     lastError.value = null
     lastJoinedRoomId.value = roomId
+    lastJoinedMatchId.value = matchId ?? null
+    if (pendingAutoHandoff.value) {
+      pendingAutoHandoff.value = false
+      if (matchId) requestHandoff(matchId)
+    }
   }
   function onJoinError({ message }: { message?: string }) {
-    lastError.value = message || 'Nie udało się dołączyć do pokoju'
+    pendingAutoHandoff.value = false
+    lastError.value = message || 'Nie udało się dołączyć do gry'
   }
   function onLeaveComplete({ roomId }: { roomId: string }) {
     lastLeftRoomId.value = roomId
-  }
-  function onStartComplete({ matchId }: { matchId: string }) {
-    lastError.value = null
-    lastStartedMatchId.value = matchId
-  }
-  function onStartError({ message }: { message?: string }) {
-    lastError.value = message || 'Nie udało się wystartować meczu'
   }
   function onHandoffComplete(payload: { code: string; gameId: string; playerId: string }) {
     lastHandoff.value = payload
@@ -108,8 +124,6 @@ export const useRoomsStore = defineStore('rooms', () => {
     ['rooms:join-complete', onJoinComplete],
     ['rooms:join-error', onJoinError],
     ['rooms:leave-complete', onLeaveComplete],
-    ['rooms:start-complete', onStartComplete],
-    ['rooms:start-error', onStartError],
     ['games:handoff-complete', onHandoffComplete],
     ['games:handoff-error', onHandoffError],
   ]
@@ -162,6 +176,7 @@ export const useRoomsStore = defineStore('rooms', () => {
     lastError.value = null
     lastCreatedRoomId.value = null
     lastCreatedCode.value = null
+    lastCreatedMatchId.value = null
     creating.value = true
     gate.call('rooms:create', { gameId, name, visibility })
   }
@@ -169,6 +184,7 @@ export const useRoomsStore = defineStore('rooms', () => {
   function join(code: string) {
     lastError.value = null
     lastJoinedRoomId.value = null
+    lastJoinedMatchId.value = null
     gate.call('rooms:join', { code })
   }
 
@@ -177,16 +193,27 @@ export const useRoomsStore = defineStore('rooms', () => {
     gate.call('rooms:leave', { roomId })
   }
 
-  function start(roomId: string) {
-    lastError.value = null
-    lastStartedMatchId.value = null
-    gate.call('rooms:start', { roomId })
-  }
-
   function requestHandoff(matchId: string) {
     lastError.value = null
     lastHandoff.value = null
     gate.call('games:request-handoff', { matchId })
+  }
+
+  /** Zakłada grę i od razu prosi o handoff, gdy tylko przyjdzie `matchId`. */
+  function createAndPlay(name: string, visibility: RoomVisibility, gameId = RPS_GAME_ID) {
+    pendingAutoHandoff.value = true
+    createRoom(name, visibility, gameId)
+  }
+
+  /** Dołącza do gry po kodzie i od razu prosi o handoff, gdy przyjdzie `matchId`. */
+  function joinAndPlay(code: string) {
+    pendingAutoHandoff.value = true
+    join(code)
+  }
+
+  /** Wchodzi ponownie do gry, w której już jestem członkiem (mam `matchId`). */
+  function enterGame(matchId: string) {
+    requestHandoff(matchId)
   }
 
   return {
@@ -198,9 +225,10 @@ export const useRoomsStore = defineStore('rooms', () => {
     creating,
     lastCreatedRoomId,
     lastCreatedCode,
+    lastCreatedMatchId,
     lastJoinedRoomId,
+    lastJoinedMatchId,
     lastLeftRoomId,
-    lastStartedMatchId,
     lastHandoff,
     currentUserId,
     // gettery
@@ -217,7 +245,9 @@ export const useRoomsStore = defineStore('rooms', () => {
     createRoom,
     join,
     leave,
-    start,
     requestHandoff,
+    createAndPlay,
+    joinAndPlay,
+    enterGame,
   }
 })

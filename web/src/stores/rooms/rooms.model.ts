@@ -38,5 +38,5 @@ export interface Room extends CollectionDoc {
 
 export const RPS_GAME_ID = 'rps'
 
-/** Domyślny cel meczu RPS zakładanego z pokoju (por. rooms:start options). */
+/** Domyślny cel meczu RPS zakładanego z grą (mecz powstaje od razu przy `rooms:create`). */
 export const DEFAULT_TARGET = 2

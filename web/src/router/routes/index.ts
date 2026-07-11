@@ -4,9 +4,10 @@ import profileRoute from './profile.route'
 import loginRoute from './login.route'
 import registerRoute from './register.route'
 import imagesRoute from './images.route'
-import roomsRoute from './rooms.route'
+import newGameRoute from './new-game.route'
 import roomJoinRoute from './room-join.route'
 import gameRpsRoute from './game-rps.route'
+import preferencesRoute from './preferences.route'
 
 export const routes = [
   loginRoute,
@@ -15,7 +16,8 @@ export const routes = [
   adminRoute,
   profileRoute,
   imagesRoute,
-  roomsRoute,
+  newGameRoute,
   roomJoinRoute,
   gameRpsRoute,
+  preferencesRoute,
 ]

@@ -105,4 +105,43 @@ describe('games-client', () => {
     const client = createGamesClient({ baseUrl: 'http://g', internalSecret: 's', fetchImpl: fakeFetch(404, { error: 'match not found' }).impl })
     expect(await client.getMatch('gone')).toEqual({ ok: false, status: 404, error: 'match not found' })
   })
+
+  it('joinMatch posts { matchId, playerId, kind } and maps ok+full', async () => {
+    const f = fakeFetch(200, { ok: true, matchId: 'm1', playerId: 'p2', full: true })
+    const client = createGamesClient({ baseUrl: 'http://g', internalSecret: 's', fetchImpl: f.impl })
+    const res = await client.joinMatch('m1', 'p2', 'user')
+    expect(f.calls[0].url).toBe('http://g/command/join-match')
+    expect(JSON.parse(f.calls[0].init.body)).toEqual({ matchId: 'm1', playerId: 'p2', kind: 'user' })
+    expect(res).toEqual({ ok: true, data: { full: true } })
+  })
+
+  it('joinMatch maps 409 (full/duplicate/not-lobby) to error', async () => {
+    const client = createGamesClient({ baseUrl: 'http://g', internalSecret: 's', fetchImpl: fakeFetch(409, { error: 'match is full' }).impl })
+    expect(await client.joinMatch('m1', 'p2', 'user')).toEqual({ ok: false, status: 409, error: 'match is full' })
+  })
+
+  it('cancelMatch posts { matchId, reason } (default cancelled_lobby)', async () => {
+    const f = fakeFetch(200, { ok: true })
+    const client = createGamesClient({ baseUrl: 'http://g', internalSecret: 's', fetchImpl: f.impl })
+    await client.cancelMatch('m1')
+    expect(f.calls[0].url).toBe('http://g/command/cancel-match')
+    expect(JSON.parse(f.calls[0].init.body)).toEqual({ matchId: 'm1', reason: 'cancelled_lobby' })
+  })
+
+  it('getPrefs posts { gameId, playerId } and maps prefs', async () => {
+    const f = fakeFetch(200, { prefs: { fallbackMove: 'rock' } })
+    const client = createGamesClient({ baseUrl: 'http://g', internalSecret: 's', fetchImpl: f.impl })
+    const res = await client.getPrefs('rps', 'u1')
+    expect(f.calls[0].url).toBe('http://g/command/get-prefs')
+    expect(JSON.parse(f.calls[0].init.body)).toEqual({ gameId: 'rps', playerId: 'u1' })
+    expect(res).toEqual({ ok: true, data: { prefs: { fallbackMove: 'rock' } } })
+  })
+
+  it('setPrefs posts { gameId, playerId, prefs }', async () => {
+    const f = fakeFetch(200, { ok: true })
+    const client = createGamesClient({ baseUrl: 'http://g', internalSecret: 's', fetchImpl: f.impl })
+    await client.setPrefs('rps', 'u1', { fallbackMove: 'paper' })
+    expect(f.calls[0].url).toBe('http://g/command/set-prefs')
+    expect(JSON.parse(f.calls[0].init.body)).toEqual({ gameId: 'rps', playerId: 'u1', prefs: { fallbackMove: 'paper' } })
+  })
 })

@@ -50,7 +50,6 @@ describe('rooms store', () => {
     it('rejestruje handlery acków', () => {
       expect(mockOn).toHaveBeenCalledWith('rooms:create-complete', expect.any(Function))
       expect(mockOn).toHaveBeenCalledWith('rooms:join-complete', expect.any(Function))
-      expect(mockOn).toHaveBeenCalledWith('rooms:start-complete', expect.any(Function))
       expect(mockOn).toHaveBeenCalledWith('games:handoff-complete', expect.any(Function))
     })
 
@@ -81,24 +80,54 @@ describe('rooms store', () => {
       expect(store.creating).toBe(true)
     })
 
-    it('join / leave / start / requestHandoff wołają właściwe eventy', () => {
+    it('join / leave / requestHandoff wołają właściwe eventy', () => {
       store.join('ABC234')
       store.leave('room1')
-      store.start('room1')
       store.requestHandoff('match1')
       expect(mockCall).toHaveBeenCalledWith('rooms:join', { code: 'ABC234' })
       expect(mockCall).toHaveBeenCalledWith('rooms:leave', { roomId: 'room1' })
-      expect(mockCall).toHaveBeenCalledWith('rooms:start', { roomId: 'room1' })
       expect(mockCall).toHaveBeenCalledWith('games:request-handoff', { matchId: 'match1' })
+    })
+
+    it('enterGame woła od razu request-handoff', () => {
+      store.enterGame('match9')
+      expect(mockCall).toHaveBeenCalledWith('games:request-handoff', { matchId: 'match9' })
+    })
+
+    it('createAndPlay: po create-complete z matchId sam woła request-handoff', () => {
+      store.createAndPlay('Gra x', 'public')
+      expect(mockCall).toHaveBeenCalledWith('rooms:create', {
+        gameId: 'rps',
+        name: 'Gra x',
+        visibility: 'public',
+      })
+      ack('rooms:create-complete', { roomId: 'r1', code: 'ABC234', matchId: 'm1' })
+      expect(store.lastCreatedMatchId).toBe('m1')
+      expect(mockCall).toHaveBeenCalledWith('games:request-handoff', { matchId: 'm1' })
+    })
+
+    it('joinAndPlay: po join-complete z matchId sam woła request-handoff', () => {
+      store.joinAndPlay('ABC234')
+      expect(mockCall).toHaveBeenCalledWith('rooms:join', { code: 'ABC234' })
+      ack('rooms:join-complete', { roomId: 'r9', matchId: 'm2' })
+      expect(store.lastJoinedMatchId).toBe('m2')
+      expect(mockCall).toHaveBeenCalledWith('games:request-handoff', { matchId: 'm2' })
+    })
+
+    it('zwykłe createRoom/join (bez *AndPlay) NIE odpalają automatycznego handoffu', () => {
+      store.createRoom('Gra y', 'public')
+      ack('rooms:create-complete', { roomId: 'r2', code: 'DEF456', matchId: 'm3' })
+      expect(mockCall).not.toHaveBeenCalledWith('games:request-handoff', { matchId: 'm3' })
     })
   })
 
   describe('acki', () => {
-    it('create-complete ustawia roomId + code i gasi creating', () => {
+    it('create-complete ustawia roomId + code + matchId i gasi creating', () => {
       store.createRoom('x', 'private')
-      ack('rooms:create-complete', { roomId: 'r1', code: 'ABC234' })
+      ack('rooms:create-complete', { roomId: 'r1', code: 'ABC234', matchId: 'm1' })
       expect(store.lastCreatedRoomId).toBe('r1')
       expect(store.lastCreatedCode).toBe('ABC234')
+      expect(store.lastCreatedMatchId).toBe('m1')
       expect(store.creating).toBe(false)
     })
 
@@ -109,14 +138,10 @@ describe('rooms store', () => {
       expect(store.creating).toBe(false)
     })
 
-    it('join-complete ustawia lastJoinedRoomId', () => {
-      ack('rooms:join-complete', { roomId: 'r9' })
+    it('join-complete ustawia lastJoinedRoomId + lastJoinedMatchId', () => {
+      ack('rooms:join-complete', { roomId: 'r9', matchId: 'm9' })
       expect(store.lastJoinedRoomId).toBe('r9')
-    })
-
-    it('start-complete zapamiętuje matchId', () => {
-      ack('rooms:start-complete', { roomId: 'r1', matchId: 'm42' })
-      expect(store.lastStartedMatchId).toBe('m42')
+      expect(store.lastJoinedMatchId).toBe('m9')
     })
 
     it('handoff-complete zapamiętuje kod handoffu', () => {

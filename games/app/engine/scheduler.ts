@@ -59,9 +59,17 @@ export class Scheduler {
         const id = String(m._id)
         try {
           switch (m.phase) {
-            case 'lobby':
-              await this.engine.cancel(id, 'cancelled_lobby')
+            case 'lobby': {
+              // Etap 3B pkt 3: brak auto-cancel lobby. Deadline w lobby powstaje
+              // dopiero po 1. `playerReady` (planningPhaseMs) — jeśli go minęliśmy,
+              // to znaczy, że KTOŚ jest gotowy: auto-startujemy mecz mimo
+              // niekompletnego rosteru (pozostali dostaną defaultMove w grze).
+              const lobbyReady = (m.lobbyReady ?? {}) as Record<string, boolean>
+              if (Object.values(lobbyReady).some((v) => v === true)) {
+                await this.engine.start(id)
+              }
               break
+            }
             case 'planning':
               await this.engine.closePhase(id)
               break

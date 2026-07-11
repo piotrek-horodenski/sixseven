@@ -87,6 +87,38 @@ function startMatch() {
   client.startMatch()
 }
 
+// ---- lobby: czekanie na przeciwnika / komplet / auto-start (Etap 3B) --
+// Mecz powstaje OD RAZU przy zakładaniu gry (twórca w players, wolny slot).
+// Slot wolny <=> jeszcze nie ma kompletu rosteru wg `capacity` (backend pkt 1).
+const capacity = computed(() => match.value?.capacity ?? 2)
+const rosterCount = computed(
+  () => (match.value?.players?.length ?? 0) + (match.value?.guestIds?.length ?? 0),
+)
+const lobbyFull = computed(() => rosterCount.value >= capacity.value)
+
+// Odliczanie auto-startu: backend stawia `deadline` przy PIERWSZYM lobbyReady
+// (planningPhaseMs). Reużywamy istniejącego zegara `now`.
+const lobbyRemainingMs = computed(() => {
+  const m = match.value
+  if (!m || m.phase !== 'lobby' || !m.deadline) return 0
+  return Math.max(0, m.deadline - now.value)
+})
+const lobbyRemainingSec = computed(() => Math.ceil(lobbyRemainingMs.value / 1000))
+
+// Zabezpieczenie klienckie: jeśli licznik dobiegł zera a scheduler jeszcze nie
+// wystartował meczu (np. opóźnienie ticku), wołamy `games:start` ponownie —
+// `engine.playerReady`/`start` jest idempotentny po stronie backendu, więc to
+// tylko „popchnięcie", nie duplikuje efektów.
+let autoStartFiredForDeadline: number | null = null
+watch(lobbyRemainingMs, (ms) => {
+  const m = match.value
+  if (!m || m.phase !== 'lobby' || !m.deadline || !meId.value) return
+  if (ms <= 0 && autoStartFiredForDeadline !== m.deadline) {
+    autoStartFiredForDeadline = m.deadline
+    client.startMatch()
+  }
+})
+
 watch(
   () => match.value?.round,
   () => {
@@ -188,7 +220,7 @@ onUnmounted(() => {
 
     <template v-else>
       <header class="game-app__header">
-        <div v-if="match" class="match-screen__scoreboard">
+        <div v-if="match && lobbyFull" class="match-screen__scoreboard">
           <div class="score-chip score-chip--me">
             <span class="score-chip__name">Ty</span>
             <span class="score-chip__val">{{ myScore }}</span>
@@ -204,18 +236,36 @@ onUnmounted(() => {
       <div v-if="match" class="rps-board">
         <!-- LOBBY -->
         <div v-if="match.phase === 'lobby'" class="rps-state rps-lobby">
-          <fa icon="hand-scissors" class="rps-state__glyph" />
-          <h2 class="rps-state__title">Mecz gotowy</h2>
-          <p class="rps-state__text">Grasz z {{ oppLabel }} do {{ target }} zwycięstw.</p>
-          <UiButton v-if="!iAmLobbyReady" icon="play" :loading="starting" @click="startMatch">Rozpocznij</UiButton>
-          <template v-else>
-            <p class="rps-planning__waiting">
-              <fa icon="circle-notch" class="rotate" />
-              Czekam aż {{ oppLabel }} rozpocznie…
+          <!-- czekanie na przeciwnika: slot wolny, jestem sam w rosterze -->
+          <template v-if="!lobbyFull">
+            <fa icon="circle-notch" class="rotate rps-state__glyph" />
+            <h2 class="rps-state__title">Czekam na przeciwnika…</h2>
+            <p class="rps-state__text">
+              Gra RPS do {{ target }} zwycięstw ruszy, gdy ktoś dołączy do meczu.
             </p>
-            <p class="rps-planning__opponent">
-              <span class="rps-dot" :class="{ 'rps-dot--on': oppLobbyReady }" />
-              {{ oppLobbyReady ? `${oppLabel} też jest gotowy` : `${oppLabel} jeszcze nie kliknął Rozpocznij` }}
+          </template>
+
+          <!-- komplet graczy -->
+          <template v-else>
+            <fa icon="hand-scissors" class="rps-state__glyph" />
+            <h2 class="rps-state__title">Mecz gotowy</h2>
+            <p class="rps-state__text">Grasz z {{ oppLabel }} do {{ target }} zwycięstw.</p>
+            <UiButton v-if="!iAmLobbyReady" icon="play" :loading="starting" @click="startMatch">Rozpocznij</UiButton>
+            <template v-else>
+              <p class="rps-planning__waiting">
+                <fa icon="circle-notch" class="rotate" />
+                Czekam aż {{ oppLabel }} rozpocznie…
+              </p>
+              <p class="rps-planning__opponent">
+                <span class="rps-dot" :class="{ 'rps-dot--on': oppLobbyReady }" />
+                {{ oppLobbyReady ? `${oppLabel} też jest gotowy` : `${oppLabel} jeszcze nie kliknął Rozpocznij` }}
+              </p>
+            </template>
+
+            <!-- odliczanie auto-startu: ktoś już kliknął Rozpocznij (deadline ustawiony) -->
+            <p v-if="match.deadline" class="rps-lobby__countdown">
+              <fa icon="hourglass-half" />
+              Gra ruszy automatycznie za {{ lobbyRemainingSec }}s
             </p>
           </template>
         </div>

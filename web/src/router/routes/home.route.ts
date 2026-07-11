@@ -1,7 +1,8 @@
 import Home from '@/modules/home/HomeView.vue'
 import HomeIntro from '@/modules/home/HomeIntro.vue'
 
-// Home = pełny hub (kafelki pokoi/gier + „Nowa gra"), scala dawne /rooms i /play.
+// Home = grid kwadratowych kafelków: „Nowa gra" (→ /new) + otwarte gry innych
+// + moje gry w toku. Scala dawne /rooms i /play.
 export default {
   path: '/',
   name: 'home',

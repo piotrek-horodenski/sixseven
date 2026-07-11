@@ -294,4 +294,129 @@ describe('MatchEngine (integration)', () => {
       expect(match?.round).toBe(1)
     })
   })
+
+  describe('playerReady ustawia deadline (Etap 3B pkt 3)', () => {
+    it('createMatch: lobby czeka BEZ limitu (deadline null) do 1. ready', async () => {
+      const { engine } = await makeEngine(() => ({ kind: 'ok', response: makeResp() }))
+      const id = await engine.createMatch({
+        gameId: GAME, manifestVersion: VERSION, players: ['p1', 'p2'], initialState: { tick: 0 },
+      })
+      const match = await Match.findById(id)
+      expect(match?.phase).toBe('lobby')
+      expect(match?.deadline).toBeNull()
+    })
+
+    it('PIERWSZE ready uzbraja deadline = now + planningPhaseMs; kolejne ready tego samego gracza go nie przestawia', async () => {
+      const { engine } = await makeEngine(() => ({ kind: 'ok', response: makeResp() }))
+      const id = await engine.createMatch({
+        gameId: GAME, manifestVersion: VERSION, players: ['p1', 'p2'],
+        options: { planningPhaseMs: 5000 }, initialState: { tick: 0 },
+      })
+      const t0 = clock.t
+
+      await engine.playerReady(id, 'p1')
+      let match = await Match.findById(id)
+      expect(match?.deadline).toBe(t0 + 5000)
+
+      clock.t += 100
+      await engine.playerReady(id, 'p1') // powtórka (idempotentna) — deadline JUŻ uzbrojony, bez zmian
+      match = await Match.findById(id)
+      expect(match?.deadline).toBe(t0 + 5000)
+    })
+  })
+
+  describe('addPlayer — dołączenie do meczu w lobby (Etap 3B pkt 2)', () => {
+    it('dopisuje gracza do players, re-init nadpisuje match_states rundy 1, faza zostaje lobby', async () => {
+      const { engine } = await makeEngine(() => ({ kind: 'ok', response: makeResp() }))
+      const id = await engine.createMatch({
+        gameId: GAME, manifestVersion: VERSION, players: ['p1'], capacity: 2, initialState: { tick: 0 },
+      })
+
+      const result = await engine.addPlayer(id, 'p2', 'user', { tick: 99, reinit: true })
+      expect(result).toBe('added')
+
+      const match = await Match.findById(id)
+      expect(match?.phase).toBe('lobby')
+      expect(match?.players).toEqual(['p1', 'p2'])
+
+      const state = await MatchState.findOne({ matchId: id, round: 1 })
+      expect(state?.state).toEqual({ tick: 99, reinit: true })
+      expect(state?.sealed).toBe(false)
+    })
+
+    it('dopisuje gościa do guestIds (kind=guest)', async () => {
+      const { engine } = await makeEngine(() => ({ kind: 'ok', response: makeResp() }))
+      const id = await engine.createMatch({
+        gameId: GAME, manifestVersion: VERSION, players: ['p1'], capacity: 2, initialState: {},
+      })
+      await engine.addPlayer(id, 'g_2', 'guest', { tick: 1 })
+      const match = await Match.findById(id)
+      expect(match?.guestIds).toEqual(['g_2'])
+      expect(match?.players).toEqual(['p1'])
+    })
+
+    it('guard: mecz nie istnieje → not-found', async () => {
+      const { engine } = await makeEngine(() => ({ kind: 'ok', response: makeResp() }))
+      expect(await engine.addPlayer('does-not-exist', 'p2', 'user', {})).toBe('not-found')
+    })
+
+    it('guard: mecz poza lobby (już planning) → not-lobby', async () => {
+      const { engine } = await makeEngine(() => ({ kind: 'ok', response: makeResp() }))
+      const id = await newMatch(engine) // helper: createMatch + start → planning
+      expect(await engine.addPlayer(id, 'p3', 'user', {})).toBe('not-lobby')
+    })
+
+    it('guard: gracz już w składzie → duplicate (bez zmian w rosterze)', async () => {
+      const { engine } = await makeEngine(() => ({ kind: 'ok', response: makeResp() }))
+      const id = await engine.createMatch({
+        gameId: GAME, manifestVersion: VERSION, players: ['p1', 'p2'], capacity: 2, initialState: {},
+      })
+      expect(await engine.addPlayer(id, 'p2', 'user', {})).toBe('duplicate')
+      const match = await Match.findById(id)
+      expect(match?.players).toEqual(['p1', 'p2'])
+    })
+
+    it('guard: brak wolnego slotu (capacity osiągnięta) → full', async () => {
+      const { engine } = await makeEngine(() => ({ kind: 'ok', response: makeResp() }))
+      const id = await engine.createMatch({
+        gameId: GAME, manifestVersion: VERSION, players: ['p1', 'p2'], capacity: 2, initialState: {},
+      })
+      expect(await engine.addPlayer(id, 'p3', 'user', {})).toBe('full')
+    })
+  })
+
+  describe('scheduler: auto-start lobby po planningPhaseMs, brak auto-cancel (Etap 3B pkt 3)', () => {
+    it('deadline lobby minął i jest co najmniej jedno lobbyReady → auto-start mimo niekompletnego rosteru', async () => {
+      const { engine, scheduler } = await makeEngine(() => ({ kind: 'ok', response: makeResp() }))
+      const id = await engine.createMatch({
+        gameId: GAME, manifestVersion: VERSION, players: ['p1', 'p2'],
+        options: { planningPhaseMs: 1000 }, initialState: { tick: 0 },
+      })
+      await engine.playerReady(id, 'p1') // tylko jeden gotowy — uzbraja deadline
+
+      let match = await Match.findById(id)
+      expect(match?.phase).toBe('lobby')
+
+      clock.t += 1000 + 10
+      await scheduler.tick()
+
+      match = await Match.findById(id)
+      expect(match?.phase).toBe('planning') // auto-start mimo braku ready od p2
+      expect(match?.round).toBe(1)
+    })
+
+    it('lobby bez żadnego ready nie ma deadline → scheduler nigdy go nie rusza (brak auto-cancel)', async () => {
+      const { engine, scheduler } = await makeEngine(() => ({ kind: 'ok', response: makeResp() }))
+      const id = await engine.createMatch({
+        gameId: GAME, manifestVersion: VERSION, players: ['p1', 'p2'], initialState: { tick: 0 },
+      })
+
+      clock.t += 10_000_000
+      await scheduler.tick()
+
+      const match = await Match.findById(id)
+      expect(match?.phase).toBe('lobby')
+      expect(match?.endReason).toBeNull()
+    })
+  })
 })

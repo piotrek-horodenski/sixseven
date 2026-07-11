@@ -1,6 +1,8 @@
 // ===========================================================================
-// Moduł „Pokoje" (2d) — hub pokoi, wejście z linku (gość), aplikacja gry.
-// Mobile-first, motyw przez zmienne CSS. Reużywa klas .rps-* / .match-* z games.
+// Moduł „Gry" (dawne „Pokoje", Etap 3b) — ekran tworzenia gry, wejście z
+// linku (gość), aplikacja gry. Grid otwartych/moich gier ma własny plik —
+// zobacz `home.scss`. Mobile-first, motyw przez zmienne CSS. Reużywa klas
+// .rps-* / .match-* z games.
 // ===========================================================================
 
 .rooms-intro {
@@ -23,60 +25,16 @@
   }
 }
 
-// --- Hub -------------------------------------------------------------------
-.rooms-hub {
-  display: flex;
-  flex-direction: column;
-  gap: 1.5rem;
-  margin: 0 auto;
-  max-width: 40rem;
-  padding: 1.25rem;
-
-  &__heading {
-    align-items: center;
-    color: var(--neutral-color);
-    display: flex;
-    font-size: 1.05rem;
-    gap: .5rem;
-    margin: 0 0 .75rem;
-
-    svg {
-      color: var(--primary-color);
-    }
-  }
-
-  &__count {
-    background-color: var(--neutral-color-soft);
-    border-radius: 999px;
-    color: var(--background-color);
-    font-size: .8rem;
-    padding: .05rem .55rem;
-  }
-
-  &__empty {
-    color: var(--neutral-color-soft);
-    font-style: italic;
-    margin: 0;
-  }
-
-  &__list {
-    display: flex;
-    flex-direction: column;
-    gap: .6rem;
-    list-style: none;
-    margin: 0;
-    padding: 0;
-  }
-}
-
-// --- Formularz tworzenia ---------------------------------------------------
-.create-room {
+// --- Ekran tworzenia gry (`/new`) -------------------------------------------
+.create-game {
   background-color: var(--background-color-soft);
   border: 1px solid var(--neutral-color-soft);
   border-radius: 12px;
   display: flex;
   flex-direction: column;
-  gap: 1rem;
+  gap: 1.25rem;
+  margin: 0 auto;
+  max-width: 30rem;
   padding: 1.25rem;
 
   &__title {
@@ -86,292 +44,53 @@
   &__field {
     display: flex;
     flex-direction: column;
-    gap: .35rem;
-
-    &--inline {
-      align-items: center;
-      flex-direction: row;
-      justify-content: space-between;
-    }
+    gap: .5rem;
   }
 
   &__label {
     color: var(--neutral-color);
     font-size: .9rem;
+    font-weight: 600;
   }
 
-  &__hint-inline {
+  &__options {
+    display: flex;
+    flex-wrap: wrap;
+    gap: .5rem;
+  }
+
+  &__option {
+    align-items: center;
+    background-color: var(--background-color);
+    border: 1px solid var(--neutral-color-soft);
+    border-radius: 8px;
+    color: var(--neutral-color);
+    display: inline-flex;
+    font-size: .85rem;
+    gap: .4rem;
+    padding: .5rem .8rem;
+
+    &--active {
+      border-color: var(--primary-color);
+      color: var(--primary-color);
+      font-weight: 600;
+    }
+
+    &:disabled {
+      cursor: default;
+      opacity: .85;
+    }
+  }
+
+  &__hint {
     color: var(--neutral-color-soft);
-    display: block;
     font-size: .78rem;
+    margin: 0;
   }
 
   &__actions {
     display: flex;
     justify-content: flex-end;
-  }
-}
-
-// --- Karta pokoju ----------------------------------------------------------
-.room-card {
-  align-items: center;
-  background-color: var(--background-color-soft);
-  border: 1px solid transparent;
-  border-left: 4px solid var(--neutral-color-soft);
-  border-radius: 10px;
-  color: inherit;
-  display: flex;
-  gap: 1rem;
-  justify-content: space-between;
-  padding: .85rem 1rem;
-  text-decoration: none;
-  transition: transform .15s ease, border-color .2s ease, box-shadow .2s ease;
-
-  &--mine {
-    border-left-color: var(--primary-color);
-  }
-
-  &:hover {
-    border-color: var(--primary-color);
-    box-shadow: 0 3px 12px var(--shadow-color);
-    transform: translateY(-2px);
-  }
-
-  &__main {
-    display: flex;
-    flex-direction: column;
-    gap: .3rem;
-    min-width: 0;
-  }
-
-  &__name {
-    align-items: center;
-    display: flex;
-    font-weight: 600;
-    gap: .5rem;
-  }
-
-  &__game-icon {
-    color: var(--primary-color);
-  }
-
-  &__meta {
-    align-items: center;
-    color: var(--neutral-color-soft);
-    display: flex;
-    font-size: .8rem;
-    gap: .35rem;
-  }
-
-  &__meta-icon {
-    font-size: .72rem;
-  }
-
-  &__code {
-    font-variant-numeric: tabular-nums;
-    letter-spacing: .05em;
-  }
-
-  &__dot-sep {
-    opacity: .6;
-  }
-
-  &__side {
-    align-items: flex-end;
-    display: flex;
-    flex-direction: column;
-    gap: .3rem;
-  }
-
-  &__join {
-    color: var(--primary-color);
-    font-size: .85rem;
-    font-weight: 600;
-  }
-
-  &__go {
-    color: var(--neutral-color-soft);
-  }
-
-  &__badge {
-    background-color: var(--neutral-color-soft);
-    border-radius: 999px;
-    color: var(--background-color);
-    font-size: .72rem;
-    padding: .1rem .5rem;
-
-    &--open {
-      background-color: var(--success-color);
-      color: #fff;
-    }
-
-    &--matched {
-      background-color: var(--primary-color);
-      color: var(--background-color);
-    }
-
-    &--closed {
-      background-color: var(--neutral-color-soft);
-    }
-  }
-}
-
-// --- Szczegóły pokoju ------------------------------------------------------
-.room-detail {
-  display: flex;
-  flex-direction: column;
-  gap: 1.25rem;
-  margin: 0 auto;
-  max-width: 34rem;
-  padding: 1.25rem;
-
-  &__back {
-    align-items: center;
-    color: var(--neutral-color-soft);
-    display: inline-flex;
-    gap: .35rem;
-    text-decoration: none;
-    width: fit-content;
-
-    &:hover {
-      color: var(--primary-color);
-    }
-  }
-
-  &__header {
-    align-items: center;
-    display: flex;
-    gap: .75rem;
-    justify-content: space-between;
-  }
-
-  &__name {
-    margin: 0;
-  }
-
-  &__subhead {
-    align-items: center;
-    color: var(--neutral-color);
-    display: flex;
-    font-size: 1rem;
-    gap: .5rem;
-    margin: 0 0 .6rem;
-
-    svg {
-      color: var(--primary-color);
-    }
-  }
-
-  &__share {
-    background-color: var(--background-color-soft);
-    border: 1px solid var(--neutral-color-soft);
-    border-radius: 12px;
-    display: flex;
-    flex-direction: column;
-    gap: .6rem;
-    padding: 1rem;
-  }
-
-  &__share-label {
-    color: var(--neutral-color);
-    font-size: .9rem;
-    font-weight: 600;
-  }
-
-  &__share--compact {
-    gap: .4rem;
-    padding: .65rem .85rem;
-
-    .room-detail__share-label {
-      color: var(--neutral-color-soft);
-      font-size: .78rem;
-      font-weight: 500;
-    }
-  }
-
-  &__share-row {
-    align-items: stretch;
-    display: flex;
-    gap: .5rem;
-  }
-
-  &__share-input {
-    background-color: var(--background-color);
-    border: 1px solid var(--neutral-color-soft);
-    border-radius: 8px;
-    color: var(--neutral-color);
-    flex: 1 1 auto;
-    font-size: .85rem;
-    min-width: 0;
-    padding: .5rem .6rem;
-  }
-
-  &__code {
-    color: var(--neutral-color-soft);
-    font-size: .85rem;
-    margin: 0;
-
-    strong {
-      color: var(--neutral-color);
-      font-variant-numeric: tabular-nums;
-      letter-spacing: .08em;
-    }
-  }
-
-  &__member-list {
-    display: flex;
-    flex-direction: column;
-    gap: .4rem;
-    list-style: none;
-    margin: 0;
-    padding: 0;
-  }
-
-  &__actions {
-    align-items: flex-start;
-    display: flex;
-    flex-direction: column;
-    gap: .75rem;
-  }
-
-  &__hint {
-    color: var(--neutral-color-soft);
-    font-size: .85rem;
-    margin: 0;
-  }
-
-  &__leave {
-    align-items: center;
-    background: none;
-    border: none;
-    color: var(--neutral-color-soft);
-    cursor: pointer;
-    display: inline-flex;
-    font-size: .85rem;
-    gap: .4rem;
-    padding: 0;
-
-    &:hover:not(:disabled) {
-      color: var(--error-color);
-    }
-  }
-
-  &__missing {
-    align-items: center;
-    color: var(--neutral-color-soft);
-    display: flex;
-    flex-direction: column;
-    gap: .5rem;
-    padding: 3rem 1rem;
-    text-align: center;
-  }
-
-  &__missing-hint {
-    font-size: .85rem;
-  }
-
-  &__missing-link {
-    color: var(--primary-color);
   }
 }
 
@@ -472,6 +191,15 @@
 
   &__members {
     margin: .25rem 0;
+  }
+
+  &__member-list {
+    display: flex;
+    flex-direction: column;
+    gap: .4rem;
+    list-style: none;
+    margin: 0;
+    padding: 0;
   }
 
   &__alt,

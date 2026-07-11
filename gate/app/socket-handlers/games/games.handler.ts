@@ -34,6 +34,15 @@ interface SubmitMovePayload {
   move?: unknown
 }
 
+interface GetPrefsPayload {
+  gameId?: unknown
+}
+
+interface SetPrefsPayload {
+  gameId?: unknown
+  prefs?: unknown
+}
+
 export interface GamesHandlersDeps {
   /**
    * Wystawia jednorazowy kod handoff dla (matchId, subjectId). Wstrzykiwalny
@@ -224,5 +233,64 @@ export function createGamesHandlers(client: GamesClient, deps: GamesHandlersDeps
     },
   }
 
-  return [createMatchHandler, startHandler, submitMoveHandler, revealDoneHandler, requestHandoffHandler]
+  // Odczyt/zapis prefs per (user, gra) POZA meczem (Etap 3B pkt 5 — ekran preferencji,
+  // fala 2B). `playerId` ZAWSZE z `socket.user._id` — NIGDY z payloadu. Gość nie ma
+  // sesji `user`, więc nie zapisuje/czyta prefs (wymagany pełny user).
+  const getPrefsHandler: HandlerObject = {
+    event: 'games:get-prefs',
+    handler: async (socket: AuthenticatedSocket, payload: GetPrefsPayload = {}) => {
+      const user = socket.user
+      if (!user) return
+      const uid = String(user._id)
+
+      const { gameId } = payload
+      if (typeof gameId !== 'string' || !gameId) {
+        socket.emit('games:get-prefs-error', { message: 'gameId required' })
+        return
+      }
+
+      const result = await client.getPrefs(gameId, uid)
+      if (!result.ok) {
+        socket.emit('games:get-prefs-error', { message: result.error })
+        return
+      }
+      socket.emit('games:get-prefs-complete', { gameId, prefs: result.data.prefs })
+    },
+  }
+
+  const setPrefsHandler: HandlerObject = {
+    event: 'games:set-prefs',
+    handler: async (socket: AuthenticatedSocket, payload: SetPrefsPayload = {}) => {
+      const user = socket.user
+      if (!user) return
+      const uid = String(user._id)
+
+      const { gameId, prefs } = payload
+      if (typeof gameId !== 'string' || !gameId) {
+        socket.emit('games:set-prefs-error', { message: 'gameId required' })
+        return
+      }
+      if (typeof prefs !== 'object' || prefs === null || Array.isArray(prefs)) {
+        socket.emit('games:set-prefs-error', { message: 'prefs must be an object' })
+        return
+      }
+
+      const result = await client.setPrefs(gameId, uid, prefs as Record<string, unknown>)
+      if (!result.ok) {
+        socket.emit('games:set-prefs-error', { message: result.error })
+        return
+      }
+      socket.emit('games:set-prefs-complete', { gameId })
+    },
+  }
+
+  return [
+    createMatchHandler,
+    startHandler,
+    submitMoveHandler,
+    revealDoneHandler,
+    requestHandoffHandler,
+    getPrefsHandler,
+    setPrefsHandler,
+  ]
 }

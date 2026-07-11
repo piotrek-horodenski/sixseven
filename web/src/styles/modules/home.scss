@@ -1,0 +1,108 @@
+// ===========================================================================
+// Home (Etap 3b) — grid kwadratowych kafelków: „Nowa gra" + otwarte gry +
+// moje gry w toku. Mobile-first: 1 kolumna → 3 (tablet) → 9 (desktop) →
+// więcej na bardzo szerokich ekranach. Motyw przez zmienne CSS.
+// ===========================================================================
+
+.home-grid {
+  display: grid;
+  gap: 1rem;
+  grid-template-columns: repeat(1, 1fr);
+  margin: 0 auto;
+  max-width: 72rem;
+  padding: 1.25rem;
+
+  @media (min-width: 640px) {
+    grid-template-columns: repeat(3, 1fr);
+  }
+
+  @media (min-width: 1024px) {
+    grid-template-columns: repeat(9, 1fr);
+  }
+
+  @media (min-width: 1600px) {
+    grid-template-columns: repeat(12, 1fr);
+  }
+}
+
+.home-tile {
+  align-items: center;
+  appearance: none;
+  aspect-ratio: 1;
+  background-color: var(--background-color-soft);
+  border: 1px solid var(--neutral-color-soft);
+  border-radius: 12px;
+  color: inherit;
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  font-family: inherit;
+  gap: .4rem;
+  justify-content: center;
+  padding: .75rem;
+  text-align: center;
+  text-decoration: none;
+  transition: transform .15s ease, border-color .2s ease, box-shadow .2s ease;
+
+  &:hover:not(:disabled) {
+    border-color: var(--primary-color);
+    box-shadow: 0 3px 12px var(--shadow-color);
+    transform: translateY(-2px);
+  }
+
+  &:disabled {
+    cursor: progress;
+    opacity: .6;
+  }
+
+  &__icon {
+    color: var(--primary-color);
+    font-size: 1.6rem;
+  }
+
+  &__label {
+    font-size: .82rem;
+    font-weight: 600;
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  &__meta {
+    color: var(--neutral-color-soft);
+    font-size: .7rem;
+  }
+
+  &--new {
+    background-color: var(--background-color);
+    border-color: var(--primary-color);
+    border-style: dashed;
+    border-width: 2px;
+    color: var(--primary-color);
+
+    .home-tile__icon {
+      font-size: 2rem;
+    }
+  }
+
+  &--mine {
+    outline: 2px solid var(--primary-color);
+    outline-offset: -2px;
+  }
+}
+
+.home-empty {
+  color: var(--neutral-color-soft);
+  font-style: italic;
+  margin: 0 auto;
+  max-width: 72rem;
+  padding: 0 1.25rem 1.25rem;
+  text-align: center;
+}
+
+.home-error {
+  margin: 0 auto 1.25rem;
+  max-width: 72rem;
+  padding: 0 1.25rem;
+}

@@ -90,6 +90,13 @@ const mongoStore: RoomsStore = {
       { $set: { matchId, status: 'matched', updatedAt: Date.now() } },
     )
   },
+  async setMatchId(roomId, matchId) {
+    // Etap 3B pkt 1: wiąże matchId BEZ zmiany statusu — pokój zostaje `open`.
+    await getRoomModel().updateOne(
+      { _id: roomId },
+      { $set: { matchId, updatedAt: Date.now() } },
+    )
+  },
 }
 
 let client: GamesClient | null = null
@@ -100,8 +107,11 @@ function getClient(): GamesClient {
   }
   return client
 }
-const lazyClient: Pick<GamesClient, 'createMatch'> = {
+const lazyClient: Pick<GamesClient, 'createMatch' | 'joinMatch' | 'getMatch' | 'cancelMatch'> = {
   createMatch: (input) => getClient().createMatch(input),
+  joinMatch: (matchId, playerId, kind) => getClient().joinMatch(matchId, playerId, kind),
+  getMatch: (matchId) => getClient().getMatch(matchId),
+  cancelMatch: (matchId, reason) => getClient().cancelMatch(matchId, reason),
 }
 
 export const roomsHandlers: HandlerObject[] = createRoomsHandlers({

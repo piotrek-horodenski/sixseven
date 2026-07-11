@@ -18,6 +18,10 @@ function fakeClient(overrides: Partial<GamesClient> = {}): GamesClient {
       ok: true,
       data: { matchId: 'm1', gameId: 'rps', players: ['u1', 'u2'], guestIds: [], phase: 'planning' },
     }),
+    joinMatch: vi.fn().mockResolvedValue({ ok: true, data: { full: false } }),
+    cancelMatch: vi.fn().mockResolvedValue({ ok: true, data: {} }),
+    getPrefs: vi.fn().mockResolvedValue({ ok: true, data: { prefs: {} } }),
+    setPrefs: vi.fn().mockResolvedValue({ ok: true, data: {} }),
     ...overrides,
   }
 }
@@ -212,5 +216,69 @@ describe('games:start and games:reveal-done', () => {
     await handlerFor('games:reveal-done', client).handler(socket, { matchId: 'm1' })
     expect(socket.emit).not.toHaveBeenCalled()
     expect(client.revealDone).not.toHaveBeenCalled()
+  })
+})
+
+describe('games:get-prefs / games:set-prefs (Etap 3B pkt 5)', () => {
+  let socket: any
+  beforeEach(() => {
+    socket = makeSocket()
+    vi.clearAllMocks()
+  })
+
+  it('get-prefs: playerId ZAWSZE z JWT (nigdy z payloadu), zwraca prefs', async () => {
+    const client = fakeClient({ getPrefs: vi.fn().mockResolvedValue({ ok: true, data: { prefs: { fallbackMove: 'rock' } } }) })
+    await handlerFor('games:get-prefs', client).handler(socket, { gameId: 'rps', playerId: 'attacker' })
+    expect(client.getPrefs).toHaveBeenCalledWith('rps', 'u1')
+    expect(socket.emit).toHaveBeenCalledWith('games:get-prefs-complete', { gameId: 'rps', prefs: { fallbackMove: 'rock' } })
+  })
+
+  it('get-prefs: returns silently when not authenticated (guest bez sesji user)', async () => {
+    const client = fakeClient()
+    socket.user = null
+    await handlerFor('games:get-prefs', client).handler(socket, { gameId: 'rps' })
+    expect(socket.emit).not.toHaveBeenCalled()
+    expect(client.getPrefs).not.toHaveBeenCalled()
+  })
+
+  it('get-prefs: errors when gameId missing', async () => {
+    const client = fakeClient()
+    await handlerFor('games:get-prefs', client).handler(socket, {})
+    expect(client.getPrefs).not.toHaveBeenCalled()
+    expect(socket.emit).toHaveBeenCalledWith('games:get-prefs-error', { message: 'gameId required' })
+  })
+
+  it('get-prefs: propagates client error', async () => {
+    const client = fakeClient({ getPrefs: vi.fn().mockResolvedValue({ ok: false, status: 500, error: 'boom' }) })
+    await handlerFor('games:get-prefs', client).handler(socket, { gameId: 'rps' })
+    expect(socket.emit).toHaveBeenCalledWith('games:get-prefs-error', { message: 'boom' })
+  })
+
+  it('set-prefs: playerId ZAWSZE z JWT (nigdy z payloadu)', async () => {
+    const client = fakeClient()
+    await handlerFor('games:set-prefs', client).handler(socket, { gameId: 'rps', prefs: { fallbackMove: 'paper' }, playerId: 'attacker' })
+    expect(client.setPrefs).toHaveBeenCalledWith('rps', 'u1', { fallbackMove: 'paper' })
+    expect(socket.emit).toHaveBeenCalledWith('games:set-prefs-complete', { gameId: 'rps' })
+  })
+
+  it('set-prefs: returns silently when not authenticated', async () => {
+    const client = fakeClient()
+    socket.user = null
+    await handlerFor('games:set-prefs', client).handler(socket, { gameId: 'rps', prefs: {} })
+    expect(socket.emit).not.toHaveBeenCalled()
+    expect(client.setPrefs).not.toHaveBeenCalled()
+  })
+
+  it('set-prefs: errors when prefs is not an object', async () => {
+    const client = fakeClient()
+    await handlerFor('games:set-prefs', client).handler(socket, { gameId: 'rps', prefs: ['x'] })
+    expect(client.setPrefs).not.toHaveBeenCalled()
+    expect(socket.emit).toHaveBeenCalledWith('games:set-prefs-error', { message: 'prefs must be an object' })
+  })
+
+  it('set-prefs: propagates client error', async () => {
+    const client = fakeClient({ setPrefs: vi.fn().mockResolvedValue({ ok: false, status: 413, error: 'prefs too large' }) })
+    await handlerFor('games:set-prefs', client).handler(socket, { gameId: 'rps', prefs: {} })
+    expect(socket.emit).toHaveBeenCalledWith('games:set-prefs-error', { message: 'prefs too large' })
   })
 })

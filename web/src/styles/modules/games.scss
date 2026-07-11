@@ -453,6 +453,19 @@
   }
 }
 
+// --- Lobby (czekanie na przeciwnika / komplet / auto-start) ----------------
+.rps-lobby {
+  &__countdown {
+    align-items: center;
+    color: var(--warning-color);
+    display: flex;
+    font-variant-numeric: tabular-nums;
+    font-weight: 600;
+    gap: .5rem;
+    margin: 0;
+  }
+}
+
 .rps-dot {
   background-color: var(--neutral-color-soft);
   border-radius: 50%;

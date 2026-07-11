@@ -61,6 +61,9 @@ export async function boot(): Promise<void> {
           players: (m.players as string[]) ?? [],
           guestIds: (m.guestIds as string[]) ?? [],
           phase: m.phase as string,
+          capacity: (m.capacity as number) ?? 2,
+          options: (m.options as Record<string, unknown>) ?? {},
+          manifestVersion: m.manifestVersion as string,
         }
       },
     }),

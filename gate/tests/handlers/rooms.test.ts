@@ -47,11 +47,21 @@ function makeStore(seed: Room[] = []): RoomsStore & { rooms: Map<string, Room> }
       const r = rooms.get(id)
       if (r) { r.matchId = matchId; r.status = 'matched' }
     },
+    async setMatchId(id, matchId) {
+      const r = rooms.get(id)
+      if (r) { r.matchId = matchId } // status NIEZMIENIONY (Etap 3B pkt 1)
+    },
   }
 }
 
 function fakeClient(over: any = {}) {
-  return { createMatch: vi.fn().mockResolvedValue({ ok: true, data: { matchId: 'match-99' } }), ...over }
+  return {
+    createMatch: vi.fn().mockResolvedValue({ ok: true, data: { matchId: 'match-99' } }),
+    joinMatch: vi.fn().mockResolvedValue({ ok: true, data: { full: false } }),
+    getMatch: vi.fn().mockResolvedValue({ ok: true, data: { matchId: 'match-99', gameId: 'rps', players: [], guestIds: [], phase: 'lobby' } }),
+    cancelMatch: vi.fn().mockResolvedValue({ ok: true, data: {} }),
+    ...over,
+  }
 }
 
 function handlerFor(event: string, deps: any) {
@@ -75,17 +85,21 @@ describe('generateRoomCode', () => {
 describe('rooms:create', () => {
   beforeEach(() => vi.clearAllMocks())
 
-  it('creates a room with the host as first member and returns roomId + code', async () => {
+  it('creates a room with the host as first member, creates a match right away, and returns roomId + code + matchId', async () => {
     const store = makeStore()
+    const client = fakeClient()
     const socket = userSocket('u1', 'alice')
-    await handlerFor('rooms:create', { client: fakeClient(), store, genCode: () => 'ABC234' })
+    await handlerFor('rooms:create', { client, store, genCode: () => 'ABC234' })
       .handler(socket, { gameId: 'rps', name: 'Fun', visibility: 'public' })
 
     const room = store.rooms.get('room-1')!
     expect(room.code).toBe('ABC234')
     expect(room.hostId).toBe('u1')
     expect(room.members).toEqual([{ id: 'u1', kind: 'user', nick: 'alice' }])
-    expect(socket.emit).toHaveBeenCalledWith('rooms:create-complete', { roomId: 'room-1', code: 'ABC234' })
+    expect(client.createMatch).toHaveBeenCalledWith({ gameId: 'rps', players: ['u1'], capacity: 2, options: { target: 2 } })
+    expect(room.matchId).toBe('match-99')
+    expect(room.status).toBe('open') // wciąż dołączalny (Etap 3B pkt 1)
+    expect(socket.emit).toHaveBeenCalledWith('rooms:create-complete', { roomId: 'room-1', code: 'ABC234', matchId: 'match-99' })
   })
 
   it('errors without gameId', async () => {
@@ -112,6 +126,18 @@ describe('rooms:create', () => {
       .handler(socket, { gameId: 'rps' })
     expect(socket.emit).not.toHaveBeenCalled()
   })
+
+  it('closes the room and emits an error when match creation fails', async () => {
+    const store = makeStore()
+    const client = fakeClient({ createMatch: vi.fn().mockResolvedValue({ ok: false, status: 502, error: 'games unreachable' }) })
+    const socket = userSocket('u1')
+    await handlerFor('rooms:create', { client, store, genCode: () => 'ABC234' })
+      .handler(socket, { gameId: 'rps' })
+
+    expect(store.rooms.get('room-1')!.status).toBe('closed')
+    expect(socket.emit).toHaveBeenCalledWith('rooms:create-error', { message: 'games unreachable' })
+    expect(socket.emit).not.toHaveBeenCalledWith('rooms:create-complete', expect.anything())
+  })
 })
 
 describe('rooms:join', () => {
@@ -122,14 +148,16 @@ describe('rooms:join', () => {
     visibility: 'public', status: 'open', members: [{ id: 'host', kind: 'user', nick: 'host' }], matchId: null,
   })
 
-  it('adds the user as a member (idempotent) and acks', async () => {
+  it('adds the user as a member (idempotent) and acks — no matchId, no games join call', async () => {
     const store = makeStore([openRoom()])
+    const client = fakeClient()
     const socket = userSocket('u2', 'bob')
-    const h = handlerFor('rooms:join', { client: fakeClient(), store, genCode: () => 'x' })
+    const h = handlerFor('rooms:join', { client, store, genCode: () => 'x' })
     await h.handler(socket, { code: 'join22' }) // lowercase — normalized
     await h.handler(socket, { code: 'JOIN22' }) // repeat — no duplicate
     expect(store.rooms.get('room-1')!.members.filter(m => m.id === 'u2')).toHaveLength(1)
-    expect(socket.emit).toHaveBeenCalledWith('rooms:join-complete', { roomId: 'room-1' })
+    expect(client.joinMatch).not.toHaveBeenCalled()
+    expect(socket.emit).toHaveBeenCalledWith('rooms:join-complete', { roomId: 'room-1', matchId: null })
   })
 
   it('errors on unknown code', async () => {
@@ -145,6 +173,44 @@ describe('rooms:join', () => {
     await handlerFor('rooms:join', { client: fakeClient(), store: makeStore([room]), genCode: () => 'x' })
       .handler(socket, { code: 'JOIN22' })
     expect(socket.emit).toHaveBeenCalledWith('rooms:join-error', { message: 'room is not open' })
+  })
+
+  it('joins the linked match (Etap 3B pkt 2) and stays open when the slot is not yet full', async () => {
+    const room = openRoom(); room.matchId = 'match-99'
+    const store = makeStore([room])
+    const client = fakeClient({ joinMatch: vi.fn().mockResolvedValue({ ok: true, data: { full: false } }) })
+    const socket = userSocket('u2', 'bob')
+    await handlerFor('rooms:join', { client, store, genCode: () => 'x' })
+      .handler(socket, { code: 'JOIN22' })
+
+    expect(client.joinMatch).toHaveBeenCalledWith('match-99', 'u2', 'user')
+    expect(store.rooms.get('room-1')!.status).toBe('open')
+    expect(socket.emit).toHaveBeenCalledWith('rooms:join-complete', { roomId: 'room-1', matchId: 'match-99' })
+  })
+
+  it('sets the room to matched when joining fills the last slot', async () => {
+    const room = openRoom(); room.matchId = 'match-99'
+    const store = makeStore([room])
+    const client = fakeClient({ joinMatch: vi.fn().mockResolvedValue({ ok: true, data: { full: true } }) })
+    const socket = userSocket('u2', 'bob')
+    await handlerFor('rooms:join', { client, store, genCode: () => 'x' })
+      .handler(socket, { code: 'JOIN22' })
+
+    const stored = store.rooms.get('room-1')!
+    expect(stored.status).toBe('matched')
+    expect(stored.matchId).toBe('match-99')
+  })
+
+  it('errors when the match join fails (room member is already added, best-effort)', async () => {
+    const room = openRoom(); room.matchId = 'match-99'
+    const store = makeStore([room])
+    const client = fakeClient({ joinMatch: vi.fn().mockResolvedValue({ ok: false, status: 409, error: 'match is full' }) })
+    const socket = userSocket('u2', 'bob')
+    await handlerFor('rooms:join', { client, store, genCode: () => 'x' })
+      .handler(socket, { code: 'JOIN22' })
+
+    expect(socket.emit).toHaveBeenCalledWith('rooms:join-error', { message: 'match is full' })
+    expect(socket.emit).not.toHaveBeenCalledWith('rooms:join-complete', expect.anything())
   })
 })
 
@@ -174,6 +240,53 @@ describe('rooms:leave', () => {
     await handlerFor('rooms:leave', { client: fakeClient(), store, genCode: () => 'x' })
       .handler(socket, { roomId: 'room-1' })
     expect(store.rooms.get('room-1')!.status).toBe('open')
+  })
+
+  it('Etap 3B pkt 6: host leaves with a linked match still in lobby → cancels the match', async () => {
+    const store = makeStore([{
+      _id: 'room-1', code: 'C', gameId: 'rps', name: '', hostId: 'host', hostKind: 'user',
+      visibility: 'public', status: 'open', members: [{ id: 'host', kind: 'user' }], matchId: 'match-99',
+    }])
+    const client = fakeClient({
+      getMatch: vi.fn().mockResolvedValue({ ok: true, data: { matchId: 'match-99', gameId: 'rps', players: ['host'], guestIds: [], phase: 'lobby' } }),
+      cancelMatch: vi.fn().mockResolvedValue({ ok: true, data: {} }),
+    })
+    const socket = userSocket('host')
+    await handlerFor('rooms:leave', { client, store, genCode: () => 'x' })
+      .handler(socket, { roomId: 'room-1' })
+
+    expect(client.getMatch).toHaveBeenCalledWith('match-99')
+    expect(client.cancelMatch).toHaveBeenCalledWith('match-99', 'cancelled_lobby')
+  })
+
+  it('Etap 3B pkt 6: host leaves but the match already started → does NOT cancel it', async () => {
+    const store = makeStore([{
+      _id: 'room-1', code: 'C', gameId: 'rps', name: '', hostId: 'host', hostKind: 'user',
+      visibility: 'public', status: 'matched', members: [{ id: 'host', kind: 'user' }, { id: 'u2', kind: 'user' }], matchId: 'match-99',
+    }])
+    const client = fakeClient({
+      getMatch: vi.fn().mockResolvedValue({ ok: true, data: { matchId: 'match-99', gameId: 'rps', players: ['host', 'u2'], guestIds: [], phase: 'planning' } }),
+      cancelMatch: vi.fn().mockResolvedValue({ ok: true, data: {} }),
+    })
+    const socket = userSocket('host')
+    await handlerFor('rooms:leave', { client, store, genCode: () => 'x' })
+      .handler(socket, { roomId: 'room-1' })
+
+    expect(client.cancelMatch).not.toHaveBeenCalled()
+  })
+
+  it('non-host leaving does not touch the match', async () => {
+    const store = makeStore([{
+      _id: 'room-1', code: 'C', gameId: 'rps', name: '', hostId: 'host', hostKind: 'user',
+      visibility: 'public', status: 'open', members: [{ id: 'host', kind: 'user' }, { id: 'u2', kind: 'user' }], matchId: 'match-99',
+    }])
+    const client = fakeClient()
+    const socket = userSocket('u2')
+    await handlerFor('rooms:leave', { client, store, genCode: () => 'x' })
+      .handler(socket, { roomId: 'room-1' })
+
+    expect(client.getMatch).not.toHaveBeenCalled()
+    expect(client.cancelMatch).not.toHaveBeenCalled()
   })
 })
 

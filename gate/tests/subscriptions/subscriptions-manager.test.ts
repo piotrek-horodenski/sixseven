@@ -301,7 +301,7 @@ describe('SubscriptionsManager', () => {
       expect(socket.emit).toHaveBeenCalledWith('collection-delete', 'messages', '1')
     })
 
-    it('emits collection-add when doc starts matching filter after update', () => {
+    it('emits collection-update when doc starts matching filter after update (klient robi update-or-add; pre-images wyłączone)', () => {
       const socket: any = { emit: vi.fn(), id: 's1' }
       const realManager = new SubscriptionsManager()
       realManager.subscribe('user1', [{ collection: 'messages', filter: { active: true }, socket }])
@@ -312,7 +312,10 @@ describe('SubscriptionsManager', () => {
         fullDocument: { _id: '1', active: true },
       })
 
-      expect(socket.emit).toHaveBeenCalledWith('collection-add', 'messages', { _id: '1', active: true })
+      // Handler `update` NIE polega na fullDocumentBeforeChange (pre-images off).
+      // Gdy dokument po zmianie pasuje do filtra → `collection-update`, a klient
+      // robi update-or-add. `collection-add` leci wyłącznie na `insert`.
+      expect(socket.emit).toHaveBeenCalledWith('collection-update', 'messages', { _id: '1', active: true })
     })
 
     it('logs warning for unhandled operation types', () => {

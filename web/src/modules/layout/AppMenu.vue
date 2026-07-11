@@ -134,6 +134,7 @@ onUnmounted(() => {
       </div>
       <div class="app-menu__profile-menu-buttons">
         <UiButton @click="profileOpen = false; $router.push('/profile')">Profile</UiButton>
+        <UiButton @click="profileOpen = false; $router.push('/preferences')">Preferencje</UiButton>
         <UiButton @click="logout">Logout</UiButton>
       </div>
     </div>

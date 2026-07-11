@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, ref, watch, onMounted, onUnmounted } from 'vue'
-import { useRoute, useRouter } from 'vue-router'
+import { useRoute } from 'vue-router'
 import { storeToRefs } from 'pinia'
 import { useGateStore } from '@/stores/gate/gate.store'
 import { useRoomsStore } from '@/stores/rooms/rooms.store'
@@ -10,20 +10,21 @@ import { EMessageType } from '@/controls/controls.model'
 
 /**
  * Wejście z linku `/r/:code` (publiczne, poza AppLayout).
- *  - Zalogowany  → `rooms:join { code }` socketem usera → `/rooms/:id`.
+ *  - Zalogowany  → `rooms.joinAndPlay(code)` (join + auto request-handoff) →
+ *    pełne przeładowanie do `/game/rps` (ten sam kontrakt URL co reszta gry).
  *  - Niezalogowany → formularz nicku → `POST /rooms/join-guest` → guest token
  *    (osobny klucz localStorage) → cienki socket gościa (`useTokenSocket`)
- *    subskrybuje `rooms` i renderuje widok pokoju gościa.
+ *    subskrybuje `rooms`; gdy tylko subskrypcja przyniesie `matchId`, gość
+ *    dostaje handoff automatycznie (bez dodatkowego klikania).
  */
 
 const GUEST_TOKEN_KEY = 'hydra_guest_token'
 const httpBase = import.meta.env.VITE_GATE_HTTP_URL || 'https://localhost:4114'
 
 const route = useRoute()
-const router = useRouter()
 const gate = useGateStore()
 const rooms = useRoomsStore()
-const { lastJoinedRoomId, lastError: roomsError } = storeToRefs(rooms)
+const { lastError: roomsError } = storeToRefs(rooms)
 
 const code = computed(() => String(route.params.code || '').toUpperCase())
 const isUser = computed(() => gate.isAuthenticated)
@@ -34,15 +35,18 @@ const isUser = computed(() => gate.isAuthenticated)
 onMounted(() => {
   if (isUser.value) {
     rooms.init()
-    rooms.join(code.value)
+    rooms.joinAndPlay(code.value)
   }
 })
 
-watch(lastJoinedRoomId, (id) => {
-  if (id && isUser.value) {
-    router.replace(`/rooms/${id}`)
-  }
-})
+watch(
+  () => rooms.lastHandoff,
+  (h) => {
+    if (h && isUser.value) {
+      window.location.href = `/game/rps?handoff=${encodeURIComponent(h.code)}&return=/`
+    }
+  },
+)
 
 // =====================================================================
 // Ścieżka gościa
@@ -58,9 +62,6 @@ let guestClient: TokenSocket | null = null
 const guestRooms = ref<Room[]>([])
 
 const guestRoom = computed(() => guestRooms.value.find((r) => r._id === guestRoomId.value) ?? null)
-const guestMatched = computed(
-  () => guestRoom.value?.status === 'matched' && !!guestRoom.value?.matchId,
-)
 
 const nickValid = () => nick.value.trim().length >= 2
 
@@ -76,7 +77,7 @@ async function joinAsGuest() {
     })
     if (!res.ok) {
       const data = await res.json().catch(() => ({}))
-      throw new Error(data.message || 'Nie udało się dołączyć do pokoju')
+      throw new Error(data.message || 'Nie udało się dołączyć do gry')
     }
     const data = (await res.json()) as {
       token: string
@@ -101,7 +102,7 @@ async function joinAsGuest() {
     guestPhase.value = 'joined'
   } catch (e: any) {
     guestPhase.value = 'error'
-    guestError.value = e?.message || 'Nie udało się dołączyć do pokoju'
+    guestError.value = e?.message || 'Nie udało się dołączyć do gry'
   }
 }
 
@@ -119,7 +120,7 @@ function connectGuest(token: string) {
 
 const goingToGame = ref(false)
 function guestPlay() {
-  if (!guestRoom.value?.matchId) return
+  if (!guestRoom.value?.matchId || goingToGame.value) return
   goingToGame.value = true
   guestClient?.call('games:request-handoff', { matchId: guestRoom.value.matchId })
 }
@@ -127,6 +128,15 @@ function onGuestHandoff(h: { code: string; gameId: string; playerId: string }) {
   goingToGame.value = false
   window.location.href = `/game/rps?handoff=${encodeURIComponent(h.code)}&return=${encodeURIComponent(`/r/${code.value}`)}`
 }
+
+// Mecz istnieje od razu (host go założył przy tworzeniu gry) — jak tylko
+// subskrypcja przyniesie `matchId`, gość dostaje handoff automatycznie, bez
+// dodatkowego klikania „Graj" (spójne z kaflem na Home).
+watch(guestRoom, (r) => {
+  if (r?.matchId && guestPhase.value === 'joined' && !goingToGame.value) {
+    guestPlay()
+  }
+})
 
 onUnmounted(() => {
   if (isUser.value) rooms.cleanup()
@@ -136,7 +146,7 @@ onUnmounted(() => {
 </script>
 <template>
 <div class="room-join">
-  <!-- Zalogowany user: dołączamy w tle i przechodzimy do pokoju. -->
+  <!-- Zalogowany user: dołączamy w tle i przechodzimy do gry. -->
   <div v-if="isUser" class="room-join__panel room-join__panel--center">
     <template v-if="roomsError">
       <fa icon="times-circle" class="room-join__glyph room-join__glyph--error" />
@@ -146,7 +156,7 @@ onUnmounted(() => {
     </template>
     <template v-else>
       <fa icon="circle-notch" class="rotate room-join__glyph" />
-      <p class="room-join__text">Dołączam do pokoju <strong>{{ code }}</strong>…</p>
+      <p class="room-join__text">Dołączam do gry <strong>{{ code }}</strong>…</p>
     </template>
   </div>
 
@@ -154,7 +164,7 @@ onUnmounted(() => {
   <div v-else-if="guestPhase === 'form' || guestPhase === 'joining' || guestPhase === 'error'" class="room-join__panel">
     <fa icon="door-open" class="room-join__glyph" />
     <h1 class="room-join__title">Dołącz do gry</h1>
-    <p class="room-join__text">Zaproszono Cię do pokoju <strong>{{ code }}</strong>. Podaj nick, żeby zagrać.</p>
+    <p class="room-join__text">Zaproszono Cię do gry <strong>{{ code }}</strong>. Podaj nick, żeby zagrać.</p>
 
     <form class="room-join__form" @submit.prevent="joinAsGuest">
       <UiInput
@@ -181,15 +191,15 @@ onUnmounted(() => {
     <RouterLink to="/login" class="room-join__alt">Masz konto? Zaloguj się</RouterLink>
   </div>
 
-  <!-- Gość: widok pokoju -->
+  <!-- Gość: widok gry (dołączam → od razu handoff, bez dodatkowego klikania) -->
   <div v-else class="room-join__panel">
     <template v-if="guestRoom">
       <h1 class="room-join__title">{{ guestRoom.name }}</h1>
       <p class="room-join__text">
-        Kod pokoju: <strong>{{ guestRoom.code }}</strong>
+        Kod gry: <strong>{{ guestRoom.code }}</strong>
       </p>
 
-      <ul class="room-detail__member-list room-join__members">
+      <ul class="room-join__member-list room-join__members">
         <li
           v-for="m in guestRoom.members"
           :key="m.id"
@@ -204,21 +214,20 @@ onUnmounted(() => {
       </ul>
 
       <UiMessage v-if="guestError" :type="EMessageType.error">{{ guestError }}</UiMessage>
-
       <UiButton
-        v-if="guestMatched"
+        v-if="guestError"
         icon="gamepad"
         :loading="goingToGame"
         @click="guestPlay"
-      >Graj</UiButton>
+      >Spróbuj ponownie</UiButton>
       <p v-else class="room-join__text room-join__waiting">
         <fa icon="circle-notch" class="rotate" />
-        Czekaj, aż host wystartuje mecz…
+        Łączę z grą…
       </p>
     </template>
     <div v-else class="room-join__panel--center">
       <fa icon="circle-notch" class="rotate room-join__glyph" />
-      <p class="room-join__text">Ładuję pokój…</p>
+      <p class="room-join__text">Ładuję grę…</p>
     </div>
   </div>
 </div>
