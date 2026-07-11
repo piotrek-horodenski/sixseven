@@ -23,6 +23,11 @@ export interface InitRequest {
 /** Wyjście z `/init`. */
 export interface InitResponse {
   state: unknown
+  /** Manifest gry (twórca ustawia m.in. planningPhaseMs). Opcjonalny wstecznie. */
+  manifest?: {
+    planningPhaseMs?: number
+    [key: string]: unknown
+  }
 }
 
 /** Ruch jednego gracza przekazany do logiki po zamknięciu fazy (stan 4). */

@@ -15,6 +15,8 @@ import logger from '../logger'
 export interface InitCallResult {
   ok: boolean
   state: unknown | null
+  /** Manifest zwrócony przez grę (np. planningPhaseMs). Null gdy brak. */
+  manifest?: InitResponse['manifest'] | null
 }
 
 export interface InitCallOptions {
@@ -90,5 +92,5 @@ export async function callInit(
   if (!isInitResponse(parsed)) {
     return { ok: false, state: null }
   }
-  return { ok: true, state: parsed.state }
+  return { ok: true, state: parsed.state, manifest: parsed.manifest ?? null }
 }

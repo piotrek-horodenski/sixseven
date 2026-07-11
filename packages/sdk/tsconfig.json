@@ -6,6 +6,7 @@
     "module": "commonjs",
     "target": "ES2021",
     "lib": ["ES2021"],
+    "types": ["node"],
     "declaration": true,
     "rootDir": "./src",
     "outDir": "./dist",

@@ -41,6 +41,8 @@ export interface InitRequest extends InitInput {
 /** Wyjście z `/init`: stan początkowy meczu. */
 export interface InitResponse {
   state: unknown
+  /** Manifest gry — platforma czyta z niego m.in. planningPhaseMs do opcji meczu. */
+  manifest?: GameManifest
 }
 
 /** Ruch jednego gracza w żądaniu (treść nieznana typom — waliduje ją gra). */

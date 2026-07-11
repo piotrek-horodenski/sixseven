@@ -56,6 +56,7 @@ export function createGamesHandlers(client: GamesClient, deps: GamesHandlersDeps
     handler: async (socket: AuthenticatedSocket, payload: CreateMatchPayload = {}) => {
       const user = socket.user
       if (!user) return
+      const uid = String(user._id) // user._id to ObjectId — normalizujemy do stringa
 
       const { gameId, players, ranked, options } = payload
       if (typeof gameId !== 'string' || !gameId) {
@@ -66,7 +67,7 @@ export function createGamesHandlers(client: GamesClient, deps: GamesHandlersDeps
       // Lista graczy z payloadu; twórca (uwierzytelniony) zawsze wchodzi jako
       // pierwszy. 2c bez pokoi/matchmakingu — dobór graczy uszczelnia 2d/Etap 3.
       const requested = Array.isArray(players) ? players.filter((p): p is string => typeof p === 'string') : []
-      const playerList = requested.includes(user._id) ? requested : [user._id, ...requested]
+      const playerList = requested.includes(uid) ? requested : [uid, ...requested]
       if (playerList.length < 2) {
         socket.emit('games:create-match-error', { message: 'need at least two players' })
         return
@@ -93,10 +94,17 @@ export function createGamesHandlers(client: GamesClient, deps: GamesHandlersDeps
   const startHandler: HandlerObject = {
     event: 'games:start',
     handler: async (socket: AuthenticatedSocket, payload: MatchIdPayload = {}) => {
-      if (!socket.user) return
+      const matchScope = socket.match
+      // Start (lobby→planning) wywołuje albo zalogowany user (ekran 2c), albo
+      // gracz z aplikacji gry tokenem meczu (2d). Gość gra tokenem match.
+      if (!matchScope && !socket.user) return
       const { matchId } = payload
       if (typeof matchId !== 'string' || !matchId) {
         socket.emit('games:start-error', { message: 'matchId required' })
+        return
+      }
+      if (matchScope && matchId !== matchScope.matchId) {
+        socket.emit('games:start-error', { message: 'match token scope mismatch' })
         return
       }
 
@@ -134,7 +142,7 @@ export function createGamesHandlers(client: GamesClient, deps: GamesHandlersDeps
         }
         playerId = matchScope.playerId
       } else {
-        playerId = user!._id
+        playerId = String(user!._id)
       }
 
       const result = await client.submitMove(matchId, playerId, move)
@@ -185,7 +193,7 @@ export function createGamesHandlers(client: GamesClient, deps: GamesHandlersDeps
         socket.emit('games:handoff-error', { message: 'not allowed for match token' })
         return
       }
-      const subjectId = socket.user?._id ?? socket.guest?.guestId
+      const subjectId = socket.user ? String(socket.user._id) : socket.guest?.guestId
       if (!subjectId) return
 
       const { matchId } = payload

@@ -78,6 +78,12 @@ const mongoStore: RoomsStore = {
   async setStatus(roomId, status) {
     await getRoomModel().updateOne({ _id: roomId }, { $set: { status, updatedAt: Date.now() } })
   },
+  async closeOpenByHost(hostId) {
+    await getRoomModel().updateMany(
+      { hostId, status: 'open' },
+      { $set: { status: 'closed', updatedAt: Date.now() } },
+    )
+  },
   async setMatched(roomId, matchId) {
     await getRoomModel().updateOne(
       { _id: roomId },

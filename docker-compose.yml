@@ -77,9 +77,11 @@ services:
     environment:
       - NODE_ENV=production
       - GATE_PORT=4114
-      - WEB_URL=http://localhost:5273
+      - WEB_URL=http://${HOST_IP:-localhost}:5273
       - MONGODB_URI=mongodb://hydra-mongo1:27017/hydra?directConnection=true
       - REDIS_URL=
+      # Dev/LAN: bez TLS (telefon nie musi akceptowac self-signed). Prod: true + certy.
+      - GATE_TLS=${GATE_TLS:-false}
       - CERT_KEY_PATH=/certs/key.pem
       - CERT_PATH=/certs/cert.pem
       # Sekret wspoldzielony gate<->image; podstawiany z .env (patrz .env.example).
@@ -105,9 +107,11 @@ services:
     build:
       context: ./web
       args:
-        VITE_GATE_URL: wss://localhost:4214
+        # HOST_IP w .env = adres LAN maszyny (żeby telefon w sieci trafił w gate).
+        # Domyślnie localhost (desktop). GATE_TLS=false → ws/http (bez certów).
+        VITE_GATE_URL: ws://${HOST_IP:-localhost}:4214
         # REST bramki (2d): aplikacja gry /game/rps wymienia handoff->token meczu.
-        VITE_GATE_HTTP_URL: https://localhost:4214
+        VITE_GATE_HTTP_URL: http://${HOST_IP:-localhost}:4214
     container_name: hydra-web
     ports:
       - "5273:80"
@@ -144,11 +148,19 @@ services:
       - GAMES_PORT=4120
       # Replica set (transakcje A2) - games laczy sie do wszystkich wezlow po
       # nazwach docker (dziala wewnatrz sieci, w przeciwienstwie do testow z hosta).
-      - MONGODB_URI=mongodb://hydra-mongo1:27017,hydra-mongo2:27017,hydra-mongo3:27017/games?replicaSet=h2dbs
+      # WAZNE: ta SAMA baza co gate (hydra). Gate subskrybuje kolekcje przez
+      # change-stream na SWOJEJ bazie, wiec matches/match_views musza tam byc.
+      # Prywatne kolekcje games (moves, ...) chroni warstwa polityk, nie osobna baza.
+      - MONGODB_URI=mongodb://hydra-mongo1:27017,hydra-mongo2:27017,hydra-mongo3:27017/hydra?replicaSet=h2dbs
+      # Ten sam JWT_SECRET co gate - games weryfikuje nim tokeny meczu (2d).
+      - JWT_SECRET=${JWT_SECRET:?ustaw JWT_SECRET w .env - patrz .env.example}
       - INTERNAL_SECRET=${INTERNAL_SECRET:?ustaw INTERNAL_SECRET w .env - patrz .env.example}
       # RPS jest na sieci docker (adres prywatny) - w dev dopuszczamy prywatne cele
       # /resolve (SSRF-guard C1). PROD: RPS na publicznym originie -> zostaw false.
       - RESOLVE_ALLOW_PRIVATE=true
+      # Czas planowania NIE jest tu ustawiany — pochodzi z manifestu gry
+      # (catalog/rps: planningPhaseMs), przenoszony do opcji meczu przez /init.
+      # PLANNING_MIN_MS pozostaje domyslnym progiem (2000).
     depends_on:
       mongo-init:
         condition: service_completed_successfully

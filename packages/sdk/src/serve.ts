@@ -118,7 +118,7 @@ export function handleInit(
       playerData: parsed.playerData ?? {},
       options: parsed.options,
     })
-    const response: InitResponse = { state }
+    const response: InitResponse = { state, manifest: def.manifest }
     return { status: 200, body: JSON.stringify(response) }
   } catch {
     return err(500, 'init threw')

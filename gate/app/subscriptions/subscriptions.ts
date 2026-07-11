@@ -270,13 +270,26 @@ export class SubscriptionsManager {
 
   async emitInitialDataForTicket(ticket: SubscriptionTicket) {
     try {
+      const settings = SettingsService()
       const model = models.find(model => model.name === ticket.collection)?.model
 
-      const settings = SettingsService()
-      const elements = model!.find(ticket.filter).limit(settings.subscriptionQueryLimit)
-      const array = []
-      for await (const doc of elements) {
-        array.push(doc)
+      let array: any[] = []
+      if (model) {
+        // Kolekcje z modelem gate (users, roles, color-presets, rooms...).
+        const elements = model.find(ticket.filter).limit(settings.subscriptionQueryLimit)
+        for await (const doc of elements) {
+          array.push(doc)
+        }
+      } else {
+        // Kolekcje bez modelu gate — pisane przez games (matches, match_views).
+        // Czytamy surowym sterownikiem (jak change-stream), bez rejestrowania
+        // modelu i bez ryzyka rzutowania _id. Row-level filtr wstrzyknięty przez
+        // politykę i tak zawęża wynik.
+        array = await mongoose.connection
+          .collection(ticket.collection)
+          .find(ticket.filter as any)
+          .limit(settings.subscriptionQueryLimit)
+          .toArray()
       }
       ticket.socket!.emit('collection-init', ticket.collection, array.map(doc => sanitizeDoc(ticket.collection, doc)))
     } catch (err) {
@@ -328,22 +341,27 @@ export class SubscriptionsManager {
             })
           },
           update: () => {
-            const docBefore = next.fullDocumentBeforeChange
+            // fullDocumentBeforeChange bywa NULL — pre-images change-streamu sa
+            // domyslnie wylaczone w mongo. Nie polegamy na nim: jesli dokument po
+            // zmianie pasuje do filtra subskrybenta -> collection-update (klient
+            // robi update-or-add), w przeciwnym razie collection-delete (klient
+            // usuwa, jesli mial). Dzieki temu member-y pokoju, fazy meczu i wyniki
+            // propaguja sie NA ZYWO bez wlaczania pre-images.
             const docAfter = next.fullDocument
+            const fallbackId = docAfter?._id
+              ?? next.fullDocumentBeforeChange?._id
+              ?? next.documentKey?._id
 
             sub.filters.forEach(({ filter, tickets }: { filter: SubscriptionTicketFilter, tickets: SubscriptionTicket[] }) => {
-              const matchesBefore = this.matches(docBefore, filter)
-              const matchesAfter = this.matches(docAfter, filter)
+              const matchesAfter = docAfter ? this.matches(docAfter, filter) : false
+              const sanitizedAfter = docAfter ? sanitizeDoc(collection, docAfter) : null
 
-              const sanitizedAfter = sanitizeDoc(collection, docAfter)
               tickets.forEach((ticket: SubscriptionTicket) => {
                 try {
-                  if (matchesBefore && !matchesAfter) {
-                    ticket.socket!.emit('collection-delete', collection, docBefore._id)
-                  } else if (!matchesBefore && matchesAfter) {
-                    ticket.socket!.emit('collection-add', collection, sanitizedAfter)
-                  } else if (matchesBefore && matchesAfter) {
+                  if (matchesAfter && sanitizedAfter) {
                     ticket.socket!.emit('collection-update', collection, sanitizedAfter)
+                  } else if (fallbackId) {
+                    ticket.socket!.emit('collection-delete', collection, fallbackId)
                   }
                 } catch (e) {
                   logger.warn({ err: e, collection, socketId: ticket.socket?.id }, 'failed to emit collection update/delete')

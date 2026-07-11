@@ -12,6 +12,6 @@ export const unsubscribeHandler: HandlerObject = {
 
     // Socket-scoped so one device unsubscribing does not cut off the user's
     // other devices (multi-device correctness).
-    App.subManager.unsubscribeSocket(User._id, socket.id, collections)
+    App.subManager.unsubscribeSocket(String(User._id), socket.id, collections)
   }
 }

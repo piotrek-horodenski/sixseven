@@ -64,9 +64,14 @@ function handleUser(
     }
 
     // Inject the server-side filter, AND-ed with whatever the client asked for.
-    const policyFilter = policy.filter
-      ? policy.filter(User as unknown as PolicyUser)
-      : undefined
+    // User._id to ObjectId (mongoose); dane row-level (players, playerId,
+    // members.id) trzymamy jako stringi, wiec normalizujemy do stringa — inaczej
+    // filtr {players: ObjectId} nie trafia w string i subskrypcja zwraca pustke.
+    const policyUser: PolicyUser = {
+      _id: String((User as unknown as { _id: unknown })._id),
+      permissions: (User as unknown as { permissions?: string[] }).permissions,
+    }
+    const policyFilter = policy.filter ? policy.filter(policyUser) : undefined
     const mergedFilter = mergeFilters(policyFilter, ticket.filter)
 
     acc.push({
@@ -79,7 +84,7 @@ function handleUser(
 
   if (authorizedTickets.length === 0) return
 
-  App.subManager.subscribe(User._id, authorizedTickets)
+  App.subManager.subscribe(String(User._id), authorizedTickets)
 }
 
 function handleMatch(

@@ -29,7 +29,9 @@ export const rps: GameDefinition<RpsState, RpsMove> = {
     id: 'rps',
     name: 'Papier-kamień-nożyce',
     version: '1.0.0',
-    planningPhaseMs: 3000,
+    // Czas fazy planowania ustawia TWÓRCA gry w manifeście. Platforma przenosi
+    // to do opcji meczu (via /init), a silnik używa przy otwieraniu każdej rundy.
+    planningPhaseMs: 15000,
     badges: [
       { id: 'flawless', sentiment: 'positive' },
       { id: 'mind-reader', sentiment: 'positive' },

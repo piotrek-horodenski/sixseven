@@ -57,8 +57,10 @@ export const useRoomsStore = defineStore('rooms', () => {
     ),
   )
 
-  /** Pokoje, w których jestem członkiem (host lub dołączony). */
-  const myRooms = computed(() => sortedRooms.value.filter((r) => isMember(r)))
+  /** Pokoje, w których jestem członkiem (host lub dołączony) — bez zamkniętych. */
+  const myRooms = computed(() =>
+    sortedRooms.value.filter((r) => isMember(r) && r.status !== 'closed'),
+  )
 
   function roomById(id: string): Room | undefined {
     return rooms.value.find((r) => r._id === id)

@@ -16,6 +16,24 @@ onUnmounted(() => rooms.cleanup())
 const roomId = computed(() => String(route.params.id))
 const room = computed(() => rooms.roomById(roomId.value))
 const iAmHost = computed(() => rooms.isHost(room.value))
+const iAmMember = computed(
+  () => !!currentUserId.value && !!room.value?.members.some((m) => m.id === currentUserId.value),
+)
+
+// Auto-dołączanie: wejście do OTWARTEGO pokoju, którego nie jesteś członkiem
+// (klik "Dołącz" z listy publicznej albo z linku), od razu Cię do niego zapisuje.
+// Dzięki temu host widzi Cię na liście bez żadnego dodatkowego kroku.
+const joinAttempted = ref(false)
+watch(
+  room,
+  (r) => {
+    if (r && r.status === 'open' && !iAmMember.value && !joinAttempted.value) {
+      joinAttempted.value = true
+      rooms.join(r.code)
+    }
+  },
+  { immediate: true },
+)
 
 const shareLink = computed(() =>
   room.value ? `${window.location.origin}/r/${room.value.code}` : '',
@@ -143,9 +161,14 @@ onUnmounted(() => {
         </p>
       </template>
 
-      <p v-else-if="room.status === 'open'" class="room-detail__hint">
-        Czekaj, aż host wystartuje mecz.
-      </p>
+      <template v-else-if="room.status === 'open'">
+        <p v-if="!iAmMember" class="room-detail__hint">
+          <fa icon="circle-notch" class="rotate" /> Dołączam do pokoju…
+        </p>
+        <p v-else class="room-detail__hint">
+          Czekaj, aż host wystartuje mecz.
+        </p>
+      </template>
 
       <button class="room-detail__leave" type="button" :disabled="leaving" @click="leave">
         <fa icon="sign-out-alt" /> Opuść pokój

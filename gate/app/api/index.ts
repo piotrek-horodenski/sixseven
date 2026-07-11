@@ -31,6 +31,24 @@ export class Api {
   }
 
   init() {
+    // CORS dla REST bramki. Aplikacja gry (/game/rps) i wejście gościa wołają
+    // /auth/match-token oraz /rooms/join-guest z originu web (inny port), więc
+    // przeglądarka robi preflight OPTIONS i wymaga nagłówków CORS. socket.io ma
+    // własny CORS; REST dostaje go tutaj. Origin ograniczony do WEB_URL.
+    App.app.use((req: Request, res: Response, next) => {
+      // Odbijamy origin żądania (localhost i LAN IP naraz) — dev. W prod ograniczyć.
+      const origin = req.headers.origin
+      res.header('Access-Control-Allow-Origin', origin || SettingsService().webUrl)
+      res.header('Vary', 'Origin')
+      res.header('Access-Control-Allow-Methods', 'GET, POST, OPTIONS')
+      res.header('Access-Control-Allow-Headers', 'Content-Type')
+      if (req.method === 'OPTIONS') {
+        res.sendStatus(204)
+        return
+      }
+      next()
+    })
+
     App.app.use(express.json())
 
     App.app.get('/api/collections/:collection', (_req: Request, res: Response) => {

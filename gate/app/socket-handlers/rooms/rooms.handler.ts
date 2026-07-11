@@ -51,6 +51,8 @@ export interface RoomsStore {
   removeMember(roomId: string, memberId: string): Promise<void>
   setStatus(roomId: string, status: Room['status']): Promise<void>
   setMatched(roomId: string, matchId: string): Promise<void>
+  /** Zamyka wszystkie OTWARTE pokoje danego hosta (jeden aktywny pokój / user). */
+  closeOpenByHost?(hostId: string): Promise<void>
 }
 
 export interface RoomsHandlerDeps {
@@ -97,6 +99,9 @@ export function createRoomsHandlers(deps: RoomsHandlerDeps): HandlerObject[] {
     handler: async (socket: AuthenticatedSocket, payload: CreatePayload = {}) => {
       const user = socket.user
       if (!user) return
+      // user._id to ObjectId (mongoose) — normalizujemy do stringa, bo dane
+      // (members.id, hostId) trzymamy jako stringi i tak porownuje je klient.
+      const uid = String(user._id)
 
       const { gameId, name, visibility } = payload
       if (typeof gameId !== 'string' || !gameId) {
@@ -105,6 +110,10 @@ export function createRoomsHandlers(deps: RoomsHandlerDeps): HandlerObject[] {
       }
       const vis: Room['visibility'] = visibility === 'private' ? 'private' : 'public'
       const roomName = typeof name === 'string' && name.trim() ? name.trim() : `${user.username}'s room`
+
+      // Jeden aktywny pokój na użytkownika: zamykamy jego poprzednie otwarte pokoje,
+      // żeby lista publiczna nie zapełniała się porzuconymi lobby.
+      await deps.store.closeOpenByHost?.(uid)
 
       const code = await allocateCode()
       if (!code) {
@@ -116,10 +125,10 @@ export function createRoomsHandlers(deps: RoomsHandlerDeps): HandlerObject[] {
         code,
         gameId,
         name: roomName,
-        hostId: user._id,
+        hostId: uid,
         hostKind: 'user',
         visibility: vis,
-        members: [{ id: user._id, kind: 'user', nick: user.username }],
+        members: [{ id: uid, kind: 'user', nick: user.username }],
       })
 
       logger.info({ roomId: room._id, code: room.code, by: user._id }, 'room created')
@@ -150,9 +159,9 @@ export function createRoomsHandlers(deps: RoomsHandlerDeps): HandlerObject[] {
       }
 
       // Idempotentne: powtórny join tego samego usera nie duplikuje membera.
-      await deps.store.addMember(room._id, { id: user._id, kind: 'user', nick: user.username })
+      await deps.store.addMember(room._id, { id: String(user._id), kind: 'user', nick: user.username })
 
-      logger.info({ roomId: room._id, by: user._id }, 'room joined')
+      logger.info({ roomId: room._id, by: String(user._id) }, 'room joined')
       socket.emit('rooms:join-complete', { roomId: room._id })
     },
   }
@@ -169,16 +178,17 @@ export function createRoomsHandlers(deps: RoomsHandlerDeps): HandlerObject[] {
         return
       }
 
+      const uid = String(user._id)
       const room = await deps.store.findById(roomId)
       if (room) {
-        await deps.store.removeMember(roomId, user._id)
+        await deps.store.removeMember(roomId, uid)
         // Host wychodzi → pokój zamknięty (nie da się już do niego dołączyć).
-        if (room.hostId === user._id) {
+        if (room.hostId === uid) {
           await deps.store.setStatus(roomId, 'closed')
         }
       }
 
-      logger.info({ roomId, by: user._id }, 'room left')
+      logger.info({ roomId, by: uid }, 'room left')
       socket.emit('rooms:leave-complete', { roomId })
     },
   }
@@ -200,7 +210,7 @@ export function createRoomsHandlers(deps: RoomsHandlerDeps): HandlerObject[] {
         socket.emit('rooms:start-error', { message: 'room not found' })
         return
       }
-      if (room.hostId !== user._id) {
+      if (room.hostId !== String(user._id)) {
         socket.emit('rooms:start-error', { message: 'only the host can start' })
         return
       }

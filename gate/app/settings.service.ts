@@ -7,8 +7,11 @@ const envSchema = z.object({
   GATE_PORT:            z.string().min(1, 'GATE_PORT is required'),
   WEB_URL:              z.string().min(1, 'WEB_URL is required'),
   MONGODB_URI:          z.string().min(1, 'MONGODB_URI is required'),
-  CERT_KEY_PATH:        z.string().min(1, 'CERT_KEY_PATH is required'),
-  CERT_PATH:            z.string().min(1, 'CERT_PATH is required'),
+  // TLS domyślnie wł. GATE_TLS=false → zwykły HTTP/WS (dev/LAN, np. telefon w
+  // sieci lokalnej bez akceptowania self-signed certu). Certy wymagane tylko gdy TLS.
+  GATE_TLS:             z.string().default('true'),
+  CERT_KEY_PATH:        z.string().default(''),
+  CERT_PATH:            z.string().default(''),
   RATE_LIMIT_WINDOW_MS: z.string().default('60000'),
   RATE_LIMIT_API_MAX:   z.string().default('600'),
   RATE_LIMIT_UPLOAD_MAX: z.string().default('30'),
@@ -36,6 +39,7 @@ export const SettingsService = () => ({
   port:     env.GATE_PORT,
   webUrl:   env.WEB_URL,
   mongodb:  env.MONGODB_URI,
+  tls:      env.GATE_TLS !== 'false',
   certKey:  env.CERT_KEY_PATH,
   cert:     env.CERT_PATH,
   rateLimitWindowMs:  Number(env.RATE_LIMIT_WINDOW_MS),

@@ -14,6 +14,11 @@ import { model, Schema } from 'mongoose'
  * przeterminowane mecze jednym zapytaniem zamiast trzymać timery w pamięci (A5).
  */
 export const MatchSchema = new Schema({
+  // _id jest STRINGIEM (genId = 24-hex z command-api), nie ObjectId. Dzieki temu
+  // matchId jest tym samym stringiem wszedzie: token meczu, match_views.matchId,
+  // moves.matchId, klient — a gate moze subskrybowac `matches` po {_id: matchId}
+  // bez rzutowania string→ObjectId (surowy sterownik/silnik zapytan tego nie robi).
+  _id: { type: String },
   createdAt: { immutable: true, type: Number, default: () => Date.now() },
   updatedAt: { type: Number, default: () => Date.now() },
 

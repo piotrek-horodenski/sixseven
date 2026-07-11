@@ -119,3 +119,10 @@ Kod 2d (gate+web) + testy 2c-S2/2e są napisane; sandbox ich nie odpalił (rollu
 4. **Re-login** wszystkich userów po wdrożeniu wielotokenowych sesji (legacy `token` bez `sessions`).
 
 Po zielonych testach i przejściu bramki na żywo → Etap 2 zamknięty; wchodzi Etap 3.
+
+## Dług do domknięcia (wyszło przy live-teście bramki)
+
+- ~~**Czas planowania per gra z manifestu (nie env).**~~ ✅ ZROBIONE: `/init` w SDK zwraca `manifest`, `create-match` przenosi `manifest.planningPhaseMs` do `match.options`, silnik używa. RPS: `planningPhaseMs: 15000` w `catalog/rps/src/rps.ts`. Proteza env usunięta. Pozostaje na później: pełne opcje/presety z manifestu w lobby (generyczny renderer) — Etap 3; walidacja manifestu przy rejestracji self-service — Etap 5.
+- **Naprawy z live-testu bramki** (są w kodzie, warto pokryć testami w regresji): identyczność tożsamości string vs ObjectId (`socket.user._id`), `matches._id` jako string, propagacja update'ów bez pre-images change-streamu, initial-load kolekcji bez modelu gate, CORS na REST bramki, `rooms:start` NIE startuje rundy (robi to gracz z aplikacji gry), jeden aktywny pokój na hosta.
+- **Skrypty init replica setu** (`db/scripts/rs-init-docker.sh`, `init-db-data.js`) — powstały dopiero teraz; wcześniej compose montował nieistniejące pliki (Docker robił z nich puste katalogi).
+- **Prod-hardening (dev-owe skróty do zaostrzenia):** gate CORS odbija KAŻDY origin (`origin: true` + echo w REST) — w prod ograniczyć do listy; `GATE_TLS=false` domyślnie (dev/LAN) — w prod `true` lub TLS na reverse-proxy; `HOST_IP` → docelowo `WEB_ORIGIN`/`GATE_ORIGIN` (domena + 443).

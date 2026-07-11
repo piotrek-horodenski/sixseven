@@ -10,7 +10,7 @@ set -euo pipefail
 
 : "${RPS_HMAC_SECRET:?RPS_HMAC_SECRET nie ustawiony}"
 
-mongosh "mongodb://hydra-mongo1:27017/games?replicaSet=h2dbs" --quiet --eval "
+mongosh "mongodb://hydra-mongo1:27017/hydra?replicaSet=h2dbs" --quiet --eval "
   db.registrations.updateOne(
     { gameId: 'rps' },
     { \$set: {

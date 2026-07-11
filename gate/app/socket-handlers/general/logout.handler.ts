@@ -12,7 +12,7 @@ export const logoutHandler: HandlerObject = {
       return
     }
 
-    App.subManager.unsubscribe(LoggedUser._id, [])
+    App.subManager.unsubscribe(String(LoggedUser._id), [])
 
     const UserModel = App.models.find(item => item.name === 'users')?.model
     if (!UserModel) return

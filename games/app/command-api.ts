@@ -40,7 +40,7 @@ export type InitFn = (
     playerData: Record<string, unknown>
     options: Record<string, unknown>
   },
-) => Promise<{ ok: boolean; state: unknown | null }>
+) => Promise<{ ok: boolean; state: unknown | null; manifest?: { planningPhaseMs?: number; [key: string]: unknown } | null }>
 
 export interface MatchInfo {
   matchId: string
@@ -112,6 +112,16 @@ export function createCommandRouter(deps: CommandDeps): express.Router {
         res.status(502).json({ error: 'game init failed' })
         return
       }
+
+      // Czas fazy planowania jest atrybutem GRY (manifest, ustawiany przez twórcę).
+      // Przenosimy go z manifestu (zwróconego przez /init) do opcji meczu — silnik
+      // czyta `match.options.planningPhaseMs` przy otwieraniu każdej rundy.
+      const manifestPlanningMs = Number(initRes.manifest?.planningPhaseMs)
+      const mergedOptions = {
+        ...(options && typeof options === 'object' ? options : {}),
+        ...(Number.isFinite(manifestPlanningMs) ? { planningPhaseMs: manifestPlanningMs } : {}),
+      }
+
       await deps.engine.createMatch({
         matchId,
         gameId,
@@ -119,7 +129,7 @@ export function createCommandRouter(deps: CommandDeps): express.Router {
         players,
         guestIds,
         ranked,
-        options,
+        options: mergedOptions,
         initialState: initRes.state,
       })
       res.json({ ok: true, matchId })

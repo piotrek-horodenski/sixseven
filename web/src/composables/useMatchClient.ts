@@ -121,6 +121,12 @@ export function useMatchClient(fetchFn: typeof fetch = fetch) {
     client?.call('games:reveal-done', { matchId: matchId.value })
   }
 
+  // Start rundy (lobby→planning). W przepływie pokoi mecz powstaje w fazie lobby;
+  // dowolny gracz w aplikacji gry rozpoczyna rundę (engine.start jest idempotentny).
+  function startMatch() {
+    client?.call('games:start', { matchId: matchId.value })
+  }
+
   function cleanup() {
     client?.disconnect()
     client = null
@@ -142,6 +148,7 @@ export function useMatchClient(fetchFn: typeof fetch = fetch) {
     opponentId,
     // akcje
     start,
+    startMatch,
     submitMove,
     revealDone,
     cleanup,

@@ -75,6 +75,15 @@ function pick(move: RpsMove) {
   client.submitMove(move)
 }
 
+// Mecz powstaje w fazie lobby (rooms:start tylko go tworzy). Dowolny gracz
+// rozpoczyna rundę z aplikacji gry — engine.start jest idempotentny, więc drugie
+// kliknięcie/gracz nie szkodzi.
+const starting = ref(false)
+function startMatch() {
+  starting.value = true
+  client.startMatch()
+}
+
 watch(
   () => match.value?.round,
   () => {
@@ -194,7 +203,8 @@ onUnmounted(() => {
         <div v-if="match.phase === 'lobby'" class="rps-state rps-lobby">
           <fa icon="hand-scissors" class="rps-state__glyph" />
           <h2 class="rps-state__title">Mecz gotowy</h2>
-          <p class="rps-state__text">Grasz z {{ oppLabel }} do {{ target }} zwycięstw. Czekaj na start…</p>
+          <p class="rps-state__text">Grasz z {{ oppLabel }} do {{ target }} zwycięstw.</p>
+          <UiButton icon="play" :loading="starting" @click="startMatch">Rozpocznij</UiButton>
         </div>
 
         <!-- PLANNING -->

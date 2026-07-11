@@ -1,6 +1,7 @@
 import express, { Express, Request, Response } from 'express'
 import { readFileSync } from 'fs'
-import { createServer } from 'https'
+import { createServer as createHttpsServer } from 'https'
+import { createServer as createHttpServer } from 'http'
 import { Server } from 'socket.io'
 import jwt from 'jsonwebtoken'
 import { SettingsService } from './settings.service'
@@ -53,13 +54,22 @@ export class AppClass {
     this.db = new Db()
     await this.db.connect()
     this.api = new Api()
-    this.server = createServer({
-      key: readFileSync(this.settings.certKey),
-      cert: readFileSync(this.settings.cert),
-    }, this.app)
+    // TLS wł. (prod) → HTTPS/WSS z certami. GATE_TLS=false (dev/LAN) → zwykły
+    // HTTP/WS, żeby telefon w sieci lokalnej nie musiał akceptować self-signed.
+    if (this.settings.tls) {
+      this.server = createHttpsServer({
+        key: readFileSync(this.settings.certKey),
+        cert: readFileSync(this.settings.cert),
+      }, this.app)
+    } else {
+      logger.warn('GATE_TLS=false — serwer po zwykłym HTTP/WS (tylko dev/LAN)')
+      this.server = createHttpServer(this.app)
+    }
     this.io = new Server(this.server, {
       cors: {
-        origin: this.settings.webUrl,
+        // Odbijamy origin żądania (localhost i LAN IP jednocześnie) — dev.
+        // W prod ograniczyć do konkretnych originów.
+        origin: true,
         methods: [
           RequestMethod.GET,
           RequestMethod.POST,
