@@ -283,7 +283,12 @@
   &__scoreboard {
     align-items: center;
     display: flex;
+    flex-wrap: wrap;
     gap: .6rem;
+
+    &--grid {
+      justify-content: center;
+    }
   }
 
   &__target {
@@ -323,6 +328,10 @@
     outline: 2px solid var(--primary-color);
   }
 
+  &--lead {
+    background-color: var(--success-color-soft, var(--background-color-soft));
+  }
+
   &__name {
     color: var(--neutral-color-soft);
     font-size: .72rem;
@@ -332,6 +341,40 @@
     font-size: 1.4rem;
     font-variant-numeric: tabular-nums;
     font-weight: 700;
+  }
+}
+
+// --- Roster (lobby, N graczy) -----------------------------------------------
+.rps-roster {
+  display: flex;
+  flex-direction: column;
+  gap: .5rem;
+  list-style: none;
+  margin: 0;
+  max-width: 22rem;
+  padding: 0;
+  width: 100%;
+
+  &__item {
+    align-items: center;
+    background-color: var(--background-color-soft);
+    border-radius: 8px;
+    display: flex;
+    font-size: .9rem;
+    gap: .6rem;
+    padding: .5rem .75rem;
+
+    &--empty {
+      color: var(--neutral-color-soft);
+      font-style: italic;
+      opacity: .7;
+    }
+  }
+
+  &__ready {
+    color: var(--success-color);
+    font-size: .75rem;
+    margin-left: auto;
   }
 }
 
@@ -557,6 +600,51 @@
     width: 100%;
   }
 
+  // Siatka rąk N graczy — reużywa RpsHand per gracz. Auto-fit: 2 graczy obok
+  // siebie jak dawniej, więcej graczy zawija się w kolejne rzędy/kolumnę na
+  // wąskim ekranie.
+  &__grid {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 1.25rem 1rem;
+    justify-content: center;
+    width: 100%;
+  }
+
+  &__cell {
+    align-items: center;
+    display: flex;
+    flex-direction: column;
+    gap: .35rem;
+    padding: .35rem;
+    border-radius: 12px;
+    transition: background-color .3s ease, box-shadow .3s ease;
+
+    &--winner {
+      background-color: var(--success-color-soft, transparent);
+      box-shadow: 0 0 0 2px var(--success-color);
+    }
+  }
+
+  &__points {
+    font-size: .95rem;
+    font-variant-numeric: tabular-nums;
+    font-weight: 700;
+    min-height: 1.2rem;
+
+    &--win {
+      color: var(--success-color);
+    }
+
+    &--lose {
+      color: var(--error-color);
+    }
+
+    &--draw {
+      color: var(--neutral-color-soft);
+    }
+  }
+
   &__vs {
     color: var(--neutral-color-soft);
     font-size: 1rem;
@@ -663,6 +751,46 @@
     font-variant-numeric: tabular-nums;
     font-weight: 800;
     margin: 0;
+  }
+
+  // Końcowa tablica wyników N graczy (Etap 3C) — zastępuje pojedynczy
+  // wynik "x : y" gdy graczy jest więcej niż dwóch.
+  &__board {
+    display: flex;
+    flex-direction: column;
+    gap: .4rem;
+    list-style: none;
+    margin: 0;
+    max-width: 20rem;
+    padding: 0;
+    width: 100%;
+  }
+
+  &__row {
+    align-items: center;
+    background-color: var(--background-color-soft);
+    border-radius: 8px;
+    display: flex;
+    font-size: 1rem;
+    justify-content: space-between;
+    padding: .5rem .85rem;
+
+    &--me {
+      outline: 2px solid var(--primary-color);
+    }
+
+    &--winner {
+      font-weight: 700;
+    }
+  }
+
+  &__name {
+    color: var(--neutral-color);
+  }
+
+  &__val {
+    font-variant-numeric: tabular-nums;
+    font-weight: 700;
   }
 
   &__actions {

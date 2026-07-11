@@ -89,6 +89,32 @@ describe('rooms store', () => {
       expect(mockCall).toHaveBeenCalledWith('games:request-handoff', { matchId: 'match1' })
     })
 
+    it('close woła rooms:close z roomId', () => {
+      store.close('room1')
+      expect(mockCall).toHaveBeenCalledWith('rooms:close', { roomId: 'room1' })
+    })
+
+    it('createRoom z opts dokłada capacity/target do payloadu', () => {
+      store.createRoom('Gra N', 'public', 'rps', { capacity: 4, target: 7 })
+      expect(mockCall).toHaveBeenCalledWith('rooms:create', {
+        gameId: 'rps',
+        name: 'Gra N',
+        visibility: 'public',
+        capacity: 4,
+        target: 7,
+      })
+    })
+
+    it('createAndPlay przekazuje opts dalej do createRoom', () => {
+      store.createAndPlay('Gra N2', 'private', 'rps', { capacity: 3 })
+      expect(mockCall).toHaveBeenCalledWith('rooms:create', {
+        gameId: 'rps',
+        name: 'Gra N2',
+        visibility: 'private',
+        capacity: 3,
+      })
+    })
+
     it('enterGame woła od razu request-handoff', () => {
       store.enterGame('match9')
       expect(mockCall).toHaveBeenCalledWith('games:request-handoff', { matchId: 'match9' })
@@ -147,6 +173,19 @@ describe('rooms store', () => {
     it('handoff-complete zapamiętuje kod handoffu', () => {
       ack('games:handoff-complete', { code: 'HND123', gameId: 'rps', playerId: 'me' })
       expect(store.lastHandoff).toEqual({ code: 'HND123', gameId: 'rps', playerId: 'me' })
+    })
+
+    it('close-complete ustawia lastClosedRoomId', () => {
+      store.close('room1')
+      ack('rooms:close-complete', { roomId: 'room1' })
+      expect(store.lastClosedRoomId).toBe('room1')
+      expect(store.lastError).toBeNull()
+    })
+
+    it('close-error ustawia błąd', () => {
+      store.close('room1')
+      ack('rooms:close-error', { message: 'tylko host' })
+      expect(store.lastError).toBe('tylko host')
     })
   })
 

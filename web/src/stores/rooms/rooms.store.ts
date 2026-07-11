@@ -42,6 +42,7 @@ export const useRoomsStore = defineStore('rooms', () => {
   const lastJoinedRoomId = ref<string | null>(null)
   const lastJoinedMatchId = ref<string | null>(null)
   const lastLeftRoomId = ref<string | null>(null)
+  const lastClosedRoomId = ref<string | null>(null)
   /** Kod handoffu przechwycony po `games:handoff-complete` — do redirectu na grę. */
   const lastHandoff = ref<{ code: string; gameId: string; playerId: string } | null>(null)
   /** Ustawiane przez `createAndPlay`/`joinAndPlay` — po acku od razu odpal handoff. */
@@ -111,6 +112,13 @@ export const useRoomsStore = defineStore('rooms', () => {
   function onLeaveComplete({ roomId }: { roomId: string }) {
     lastLeftRoomId.value = roomId
   }
+  function onCloseComplete({ roomId }: { roomId: string }) {
+    lastError.value = null
+    lastClosedRoomId.value = roomId
+  }
+  function onCloseError({ message }: { message?: string }) {
+    lastError.value = message || 'Nie udało się zamknąć gry'
+  }
   function onHandoffComplete(payload: { code: string; gameId: string; playerId: string }) {
     lastHandoff.value = payload
   }
@@ -124,6 +132,8 @@ export const useRoomsStore = defineStore('rooms', () => {
     ['rooms:join-complete', onJoinComplete],
     ['rooms:join-error', onJoinError],
     ['rooms:leave-complete', onLeaveComplete],
+    ['rooms:close-complete', onCloseComplete],
+    ['rooms:close-error', onCloseError],
     ['games:handoff-complete', onHandoffComplete],
     ['games:handoff-error', onHandoffError],
   ]
@@ -172,13 +182,21 @@ export const useRoomsStore = defineStore('rooms', () => {
     lastError.value = null
   }
 
-  function createRoom(name: string, visibility: RoomVisibility, gameId = RPS_GAME_ID) {
+  function createRoom(
+    name: string,
+    visibility: RoomVisibility,
+    gameId = RPS_GAME_ID,
+    opts?: { capacity?: number; target?: number },
+  ) {
     lastError.value = null
     lastCreatedRoomId.value = null
     lastCreatedCode.value = null
     lastCreatedMatchId.value = null
     creating.value = true
-    gate.call('rooms:create', { gameId, name, visibility })
+    const payload: Record<string, unknown> = { gameId, name, visibility }
+    if (opts?.capacity != null) payload.capacity = opts.capacity
+    if (opts?.target != null) payload.target = opts.target
+    gate.call('rooms:create', payload)
   }
 
   function join(code: string) {
@@ -193,6 +211,12 @@ export const useRoomsStore = defineStore('rooms', () => {
     gate.call('rooms:leave', { roomId })
   }
 
+  /** Zamyka pokój (tylko host) — anuluje niezakończony mecz, znika dla wszystkich. */
+  function close(roomId: string) {
+    lastError.value = null
+    gate.call('rooms:close', { roomId })
+  }
+
   function requestHandoff(matchId: string) {
     lastError.value = null
     lastHandoff.value = null
@@ -200,9 +224,14 @@ export const useRoomsStore = defineStore('rooms', () => {
   }
 
   /** Zakłada grę i od razu prosi o handoff, gdy tylko przyjdzie `matchId`. */
-  function createAndPlay(name: string, visibility: RoomVisibility, gameId = RPS_GAME_ID) {
+  function createAndPlay(
+    name: string,
+    visibility: RoomVisibility,
+    gameId = RPS_GAME_ID,
+    opts?: { capacity?: number; target?: number },
+  ) {
     pendingAutoHandoff.value = true
-    createRoom(name, visibility, gameId)
+    createRoom(name, visibility, gameId, opts)
   }
 
   /** Dołącza do gry po kodzie i od razu prosi o handoff, gdy przyjdzie `matchId`. */
@@ -229,6 +258,7 @@ export const useRoomsStore = defineStore('rooms', () => {
     lastJoinedRoomId,
     lastJoinedMatchId,
     lastLeftRoomId,
+    lastClosedRoomId,
     lastHandoff,
     currentUserId,
     // gettery
@@ -245,6 +275,7 @@ export const useRoomsStore = defineStore('rooms', () => {
     createRoom,
     join,
     leave,
+    close,
     requestHandoff,
     createAndPlay,
     joinAndPlay,

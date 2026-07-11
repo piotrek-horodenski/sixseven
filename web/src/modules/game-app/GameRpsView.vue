@@ -3,7 +3,7 @@ import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
 import { useRoute } from 'vue-router'
 import { useMatchClient } from '@/composables/useMatchClient'
 import { RPS_MOVES, REVEAL_MS, playerLabel } from '@/modules/games/rps.consts'
-import type { RpsMove } from '@/stores/games/games.model'
+import type { RpsMove, RpsRevealedMove } from '@/stores/games/games.model'
 import RpsHand from '@/modules/games/RpsHand.vue'
 import RpsIcon from '@/modules/games/RpsIcon.vue'
 
@@ -11,6 +11,9 @@ import RpsIcon from '@/modules/games/RpsIcon.vue'
  * Aplikacja gry RPS (`/game/rps`) — standalone, poza AppLayout, BEZ `gate.store`
  * usera. Tożsamość bierze się z tokenu meczu wymienionego z `?handoff=`.
  * Prezentacja reużywa `RpsHand`, `rps.consts` i klas `.rps-*` z modułu 2c.
+ *
+ * Etap 3C: ekran obsługuje N graczy (2..N) — roster/tablica wyników/siatka
+ * rąk w reveal iterują po `client.players` zamiast zakładać jednego przeciwnika.
  */
 
 const route = useRoute()
@@ -27,8 +30,10 @@ const returnUrl = computed(() => {
 
 const match = client.match
 const meId = computed(() => client.playerId.value)
-const oppId = client.opponentId
-const oppLabel = computed(() => playerLabel(oppId.value, meId.value))
+/** Pełny roster meczu (gracze + goście), włącznie ze mną. */
+const roster = client.players
+/** Roster bez mnie — pozostali uczestnicy. */
+const others = client.opponents
 
 onMounted(() => {
   const handoff = route.query.handoff
@@ -66,8 +71,16 @@ const timeLow = computed(() => remainingMs.value > 0 && remainingMs.value <= 300
 // ---- ruch gracza -------------------------------------------------------
 const selectedMove = ref<RpsMove | null>(null)
 const iAmReady = computed(() => (meId.value ? !!match.value?.ready?.[meId.value] : false))
-const oppReady = computed(() => (oppId.value ? !!match.value?.ready?.[oppId.value] : false))
 const rejected = computed(() => client.rejected.value)
+
+// Gotowość pozostałych graczy w fazie planning (dla N: licznik zamiast
+// pojedynczego "przeciwnika jeszcze wybiera").
+const othersReadyCount = computed(
+  () => others.value.filter((id) => !!match.value?.ready?.[id]).length,
+)
+const allOthersReady = computed(
+  () => others.value.length > 0 && othersReadyCount.value === others.value.length,
+)
 
 function pick(move: RpsMove) {
   if (iAmReady.value) return
@@ -78,23 +91,21 @@ function pick(move: RpsMove) {
 // Brama gotowości lobby (Etap 3 pkt 5): mecz powstaje w fazie lobby
 // (rooms:start tylko go tworzy); Planning (i timer) startuje dopiero, gdy
 // KAŻDY uczestnik rosteru zgłosi gotowość — jedno kliknięcie już NIE odpala
-// rundy u obu graczy.
+// rundy u wszystkich graczy.
 const iAmLobbyReady = computed(() => (meId.value ? !!match.value?.lobbyReady?.[meId.value] : false))
-const oppLobbyReady = computed(() => (oppId.value ? !!match.value?.lobbyReady?.[oppId.value] : false))
 const starting = ref(false)
 function startMatch() {
   starting.value = true
   client.startMatch()
 }
 
-// ---- lobby: czekanie na przeciwnika / komplet / auto-start (Etap 3B) --
-// Mecz powstaje OD RAZU przy zakładaniu gry (twórca w players, wolny slot).
-// Slot wolny <=> jeszcze nie ma kompletu rosteru wg `capacity` (backend pkt 1).
+// ---- lobby: czekanie na graczy / komplet / auto-start (Etap 3B/3C) -----
+// Mecz powstaje OD RAZU przy zakładaniu gry (twórca w players, wolne sloty).
+// Sloty wolne <=> jeszcze nie ma kompletu rosteru wg `capacity` (backend pkt 1).
 const capacity = computed(() => match.value?.capacity ?? 2)
-const rosterCount = computed(
-  () => (match.value?.players?.length ?? 0) + (match.value?.guestIds?.length ?? 0),
-)
+const rosterCount = computed(() => roster.value.length)
 const lobbyFull = computed(() => rosterCount.value >= capacity.value)
+const emptySlots = computed(() => Math.max(0, capacity.value - rosterCount.value))
 
 // Odliczanie auto-startu: backend stawia `deadline` przy PIERWSZYM lobbyReady
 // (planningPhaseMs). Reużywamy istniejącego zegara `now`.
@@ -126,15 +137,29 @@ watch(
   },
 )
 
-// ---- reveal ------------------------------------------------------------
+// ---- reveal --------------------------------------------------------------
 const view = computed(() => client.latestView.value?.view ?? null)
-const myPick = computed(() => view.value?.moves.find((m) => m.playerId === meId.value) ?? null)
-const oppPick = computed(() => view.value?.moves.find((m) => m.playerId === oppId.value) ?? null)
 const roundWinner = computed(() => view.value?.roundWinner ?? null)
-const roundOutcome = computed<'win' | 'lose' | 'draw'>(() => {
-  if (!roundWinner.value) return 'draw'
-  return roundWinner.value === meId.value ? 'win' : 'lose'
-})
+
+function pickFor(pid: string): RpsRevealedMove | null {
+  return view.value?.moves.find((m) => m.playerId === pid) ?? null
+}
+function roundPointsFor(pid: string): number {
+  return view.value?.roundPoints?.[pid] ?? 0
+}
+function outcomeFor(pid: string): 'win' | 'lose' | 'draw' {
+  const pts = roundPointsFor(pid)
+  if (pts > 0) return 'win'
+  if (pts < 0) return 'lose'
+  return 'draw'
+}
+function formatPoints(pts: number): string {
+  if (pts > 0) return `+${pts}`
+  return String(pts)
+}
+const roundOutcome = computed<'win' | 'lose' | 'draw'>(() =>
+  meId.value ? outcomeFor(meId.value) : 'draw',
+)
 
 const revealed = ref(false)
 let revealFlip: number | undefined
@@ -170,14 +195,28 @@ watch(
   },
 )
 
-// ---- wynik meczu -------------------------------------------------------
-const myScore = computed(() => (meId.value ? match.value?.score?.[meId.value] ?? 0 : 0))
-const oppScore = computed(() => (oppId.value ? match.value?.score?.[oppId.value] ?? 0 : 0))
-const target = computed(() => Number(match.value?.options?.target) || 2)
-const matchOutcome = computed<'win' | 'lose' | 'draw'>(() => {
-  if (myScore.value === oppScore.value) return 'draw'
-  return myScore.value > oppScore.value ? 'win' : 'lose'
+// ---- tablica wyników / wynik meczu ---------------------------------------
+const target = computed(() => Number(match.value?.options?.target) || 5)
+const scoresMap = computed<Record<string, number>>(() => match.value?.score ?? {})
+function scoreOf(pid: string): number {
+  return scoresMap.value[pid] ?? 0
+}
+const maxScore = computed(() => {
+  if (!roster.value.length) return 0
+  return Math.max(...roster.value.map((pid) => scoreOf(pid)))
 })
+/** Lider(zy) tablicy wyników — może być kilku przy remisie na szczycie. */
+const leaders = computed(() => roster.value.filter((pid) => scoreOf(pid) === maxScore.value))
+const isTopTie = computed(() => leaders.value.length > 1)
+const winnerId = computed(() => (isTopTie.value ? null : leaders.value[0] ?? null))
+const matchOutcome = computed<'win' | 'lose' | 'draw'>(() => {
+  if (isTopTie.value) return 'draw'
+  return winnerId.value === meId.value ? 'win' : 'lose'
+})
+/** Roster posortowany malejąco po wyniku — do końcowej tablicy. */
+const sortedRoster = computed(() =>
+  [...roster.value].sort((a, b) => scoreOf(b) - scoreOf(a)),
+)
 
 const cancelReason = computed(() => {
   switch (match.value?.endReason) {
@@ -220,47 +259,59 @@ onUnmounted(() => {
 
     <template v-else>
       <header class="game-app__header">
-        <div v-if="match && lobbyFull" class="match-screen__scoreboard">
-          <div class="score-chip score-chip--me">
-            <span class="score-chip__name">Ty</span>
-            <span class="score-chip__val">{{ myScore }}</span>
+        <div v-if="match && lobbyFull && match.phase !== 'lobby' && match.phase !== 'finished'" class="match-screen__scoreboard match-screen__scoreboard--grid">
+          <div
+            v-for="pid in roster"
+            :key="pid"
+            class="score-chip"
+            :class="{ 'score-chip--me': pid === meId, 'score-chip--lead': scoreOf(pid) === maxScore }"
+          >
+            <span class="score-chip__name">{{ playerLabel(pid, meId) }}</span>
+            <span class="score-chip__val">{{ scoreOf(pid) }}</span>
           </div>
           <span class="match-screen__target">do {{ target }}</span>
-          <div class="score-chip">
-            <span class="score-chip__name">{{ oppLabel }}</span>
-            <span class="score-chip__val">{{ oppScore }}</span>
-          </div>
         </div>
       </header>
 
       <div v-if="match" class="rps-board">
         <!-- LOBBY -->
         <div v-if="match.phase === 'lobby'" class="rps-state rps-lobby">
-          <!-- czekanie na przeciwnika: slot wolny, jestem sam w rosterze -->
+          <!-- czekanie na graczy: sloty wolne wg capacity -->
           <template v-if="!lobbyFull">
             <fa icon="circle-notch" class="rotate rps-state__glyph" />
-            <h2 class="rps-state__title">Czekam na przeciwnika…</h2>
+            <h2 class="rps-state__title">Czekam na graczy ({{ rosterCount }}/{{ capacity }})</h2>
             <p class="rps-state__text">
-              Gra RPS do {{ target }} zwycięstw ruszy, gdy ktoś dołączy do meczu.
+              Gra RPS do {{ target }} pkt ruszy, gdy dołączy komplet graczy.
             </p>
+            <ul class="rps-roster">
+              <li v-for="pid in roster" :key="pid" class="rps-roster__item">
+                <span class="rps-dot rps-dot--on" />
+                {{ playerLabel(pid, meId) }}
+              </li>
+              <li v-for="n in emptySlots" :key="`empty-${n}`" class="rps-roster__item rps-roster__item--empty">
+                <span class="rps-dot" />
+                Wolne miejsce
+              </li>
+            </ul>
           </template>
 
           <!-- komplet graczy -->
           <template v-else>
             <fa icon="hand-scissors" class="rps-state__glyph" />
             <h2 class="rps-state__title">Mecz gotowy</h2>
-            <p class="rps-state__text">Grasz z {{ oppLabel }} do {{ target }} zwycięstw.</p>
+            <p class="rps-state__text">Gracie w {{ rosterCount }} do {{ target }} pkt.</p>
             <UiButton v-if="!iAmLobbyReady" icon="play" :loading="starting" @click="startMatch">Rozpocznij</UiButton>
-            <template v-else>
-              <p class="rps-planning__waiting">
-                <fa icon="circle-notch" class="rotate" />
-                Czekam aż {{ oppLabel }} rozpocznie…
-              </p>
-              <p class="rps-planning__opponent">
-                <span class="rps-dot" :class="{ 'rps-dot--on': oppLobbyReady }" />
-                {{ oppLobbyReady ? `${oppLabel} też jest gotowy` : `${oppLabel} jeszcze nie kliknął Rozpocznij` }}
-              </p>
-            </template>
+            <p v-else class="rps-planning__waiting">
+              <fa icon="circle-notch" class="rotate" />
+              Czekam aż pozostali rozpoczną…
+            </p>
+            <ul class="rps-roster">
+              <li v-for="pid in roster" :key="pid" class="rps-roster__item">
+                <span class="rps-dot" :class="{ 'rps-dot--on': !!match.lobbyReady?.[pid] }" />
+                {{ playerLabel(pid, meId) }}
+                <span v-if="match.lobbyReady?.[pid]" class="rps-roster__ready">gotowy</span>
+              </li>
+            </ul>
 
             <!-- odliczanie auto-startu: ktoś już kliknął Rozpocznij (deadline ustawiony) -->
             <p v-if="match.deadline" class="rps-lobby__countdown">
@@ -309,11 +360,11 @@ onUnmounted(() => {
           </p>
           <p v-else-if="iAmReady" class="rps-planning__waiting">
             <fa icon="circle-notch" class="rotate" />
-            Ruch złożony. Czekam na {{ oppLabel }}…
+            Ruch złożony. Czekam na pozostałych ({{ othersReadyCount }}/{{ others.length }})…
           </p>
           <p v-else class="rps-planning__opponent">
-            <span class="rps-dot" :class="{ 'rps-dot--on': oppReady }" />
-            {{ oppReady ? `${oppLabel} już wybrał` : `${oppLabel} jeszcze wybiera` }}
+            <span class="rps-dot" :class="{ 'rps-dot--on': allOthersReady }" />
+            {{ allOthersReady ? 'Pozostali już wybrali' : `Pozostali wybrali: ${othersReadyCount}/${others.length}` }}
           </p>
         </div>
 
@@ -325,22 +376,28 @@ onUnmounted(() => {
 
         <!-- REVEALING -->
         <div v-else-if="match.phase === 'revealing'" class="rps-reveal">
-          <div class="rps-reveal__hands">
-            <RpsHand
-              :move="(myPick?.move as RpsMove) ?? null"
-              :revealed="revealed"
-              :outcome="revealed ? roundOutcome : null"
-              :defaulted="myPick?.defaulted"
-              label="Ty"
-            />
-            <span class="rps-reveal__vs">vs</span>
-            <RpsHand
-              :move="(oppPick?.move as RpsMove) ?? null"
-              :revealed="revealed"
-              :outcome="revealed ? (roundOutcome === 'win' ? 'lose' : roundOutcome === 'lose' ? 'win' : 'draw') : null"
-              :defaulted="oppPick?.defaulted"
-              :label="oppLabel"
-            />
+          <div class="rps-reveal__grid">
+            <div
+              v-for="pid in roster"
+              :key="pid"
+              class="rps-reveal__cell"
+              :class="{ 'rps-reveal__cell--winner': revealed && roundWinner === pid }"
+            >
+              <RpsHand
+                :move="(pickFor(pid)?.move as RpsMove) ?? null"
+                :revealed="revealed"
+                :outcome="revealed ? outcomeFor(pid) : null"
+                :defaulted="pickFor(pid)?.defaulted"
+                :label="playerLabel(pid, meId)"
+              />
+              <span
+                v-if="revealed"
+                class="rps-reveal__points"
+                :class="`rps-reveal__points--${outcomeFor(pid)}`"
+              >
+                {{ formatPoints(roundPointsFor(pid)) }}
+              </span>
+            </div>
           </div>
 
           <Transition name="rps-verdict">
@@ -349,7 +406,7 @@ onUnmounted(() => {
               class="rps-reveal__verdict"
               :class="`rps-reveal__verdict--${roundOutcome}`"
             >
-              {{ roundOutcome === 'win' ? 'Wygrywasz rundę!' : roundOutcome === 'lose' ? 'Runda dla przeciwnika' : 'Remis' }}
+              {{ roundOutcome === 'win' ? 'Wygrywasz rundę!' : roundOutcome === 'lose' ? 'Tracisz punkty w tej rundzie' : 'Remis w rundzie' }}
             </p>
           </Transition>
         </div>
@@ -362,9 +419,20 @@ onUnmounted(() => {
             :class="`rps-finished__glyph--${matchOutcome}`"
           />
           <h2 class="rps-state__title">
-            {{ matchOutcome === 'win' ? 'Wygrałeś!' : matchOutcome === 'lose' ? 'Przegrałeś' : 'Remis' }}
+            {{ matchOutcome === 'win' ? 'Wygrałeś!' : matchOutcome === 'draw' ? 'Remis' : 'Przegrałeś' }}
           </h2>
-          <p class="rps-finished__score">{{ myScore }} : {{ oppScore }}</p>
+          <ul class="rps-finished__board">
+            <li
+              v-for="pid in sortedRoster"
+              :key="pid"
+              class="rps-finished__row"
+              :class="{ 'rps-finished__row--me': pid === meId, 'rps-finished__row--winner': leaders.includes(pid) }"
+            >
+              <span class="rps-finished__name">{{ playerLabel(pid, meId) }}</span>
+              <span class="rps-finished__val">{{ scoreOf(pid) }}</span>
+            </li>
+          </ul>
+          <p class="match-screen__target">do {{ target }}</p>
           <div class="rps-finished__actions">
             <UiButton icon="caret-left" @click="goBack">Powrót</UiButton>
           </div>

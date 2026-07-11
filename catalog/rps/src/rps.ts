@@ -3,7 +3,11 @@ import { GameDefinition, GameManifest, ResolvedMove, PlayerView } from 'sixseven
 /**
  * Papier-kamień-nożyce — pierwsza gra first-party sixseven (dogfooding wire
  * contract). Deterministyczna: ten sam stan + ruchy zawsze dają ten sam wynik
- * (wymóg replay-auditu). Best-of-N: pierwszy do `target` zwycięstw wygrywa mecz.
+ * (wymóg replay-auditu). N graczy (2..N): punktacja rundy jest PAROWA — dla
+ * każdej nieuporządkowanej pary graczy wygrany +1 / przegrany −1 / remis 0,
+ * punkt rundy gracza = suma po wszystkich przeciwnikach. Wynik meczu to
+ * skumulowane punkty rund (mogą być ujemne). Mecz kończy się, gdy KTOKOLWIEK
+ * osiągnie `target` skumulowanych punktów (domyślnie 5).
  */
 
 export type RpsMove = 'rock' | 'paper' | 'scissors'
@@ -100,7 +104,7 @@ export const rps: GameDefinition<RpsState, RpsMove> = {
 
   init: ({ playerIds, seed, playerData, options }) => ({
     round: 1,
-    target: Math.max(1, Number((options as { target?: unknown })?.target) || 2),
+    target: Math.max(1, Number((options as { target?: unknown })?.target) || 5),
     scores: Object.fromEntries(playerIds.map((p) => [p, 0])),
     seed,
     fallback: Object.fromEntries(
@@ -122,23 +126,49 @@ export const rps: GameDefinition<RpsState, RpsMove> = {
 
   resolve: (state, moves: ResolvedMove<RpsMove>[]) => {
     const scores = { ...state.scores }
-    const [a, b] = moves
 
-    let winner: string | null = null
-    if (a && b) {
-      if (beats(a.move, b.move)) winner = a.playerId
-      else if (beats(b.move, a.move)) winner = b.playerId
+    // Punktacja parowa: dla każdej nieuporządkowanej pary graczy — wygrany +1,
+    // przegrany −1, remis 0. Punkt rundy gracza = suma po wszystkich przeciwnikach.
+    const roundPoints: Record<string, number> = Object.fromEntries(moves.map((m) => [m.playerId, 0]))
+    for (let i = 0; i < moves.length; i++) {
+      for (let j = i + 1; j < moves.length; j++) {
+        const a = moves[i]
+        const b = moves[j]
+        if (beats(a.move, b.move)) {
+          roundPoints[a.playerId] += 1
+          roundPoints[b.playerId] -= 1
+        } else if (beats(b.move, a.move)) {
+          roundPoints[b.playerId] += 1
+          roundPoints[a.playerId] -= 1
+        }
+      }
     }
 
-    const points: Record<string, number> = {}
-    if (winner) {
-      points[winner] = 1
-      scores[winner] = (scores[winner] ?? 0) + 1
+    // Kumulacja — mecz to suma punktów rund, mogą być ujemne.
+    for (const m of moves) {
+      scores[m.playerId] = (scores[m.playerId] ?? 0) + roundPoints[m.playerId]
     }
 
     const finished = Object.values(scores).some((v) => v >= state.target)
 
-    // Reveal: po rundzie obaj gracze widzą oba ruchy (jawne po zamknięciu fazy).
+    // Zwycięzca rundy: gracz z UNIKALNIE najwyższym roundPoints. Remis na
+    // szczycie (w tym pełny remis wszystkich na 0) → brak zwycięzcy (null).
+    let roundWinner: string | null = null
+    let maxPoints = -Infinity
+    let maxCount = 0
+    for (const m of moves) {
+      const p = roundPoints[m.playerId]
+      if (p > maxPoints) {
+        maxPoints = p
+        maxCount = 1
+        roundWinner = m.playerId
+      } else if (p === maxPoints) {
+        maxCount += 1
+      }
+    }
+    if (maxCount > 1) roundWinner = null
+
+    // Reveal: po rundzie wszyscy gracze widzą wszystkie ruchy (jawne po zamknięciu fazy).
     const revealed = moves.map((m) => ({ playerId: m.playerId, move: m.move, defaulted: m.defaulted }))
     const views: PlayerView[] = moves.map((m) => ({
       playerId: m.playerId,
@@ -147,7 +177,8 @@ export const rps: GameDefinition<RpsState, RpsMove> = {
         target: state.target,
         yourMove: m.move,
         moves: revealed,
-        roundWinner: winner,
+        roundPoints,
+        roundWinner,
       },
     }))
 
@@ -159,8 +190,11 @@ export const rps: GameDefinition<RpsState, RpsMove> = {
         seed: state.seed,
         fallback: state.fallback,
       },
-      events: [{ type: 'round', picks: revealed, winner }],
-      points,
+      // Historia rundy: punkty parowe per gracz + zwycięzca rundy (unikalny lider
+      // roundPoints; null przy remisie na szczycie). `winner` zachowany dla
+      // historii/replay i zgodności (dla 2 graczy == dawny winner).
+      events: [{ type: 'round', picks: revealed, points: roundPoints, winner: roundWinner }],
+      points: roundPoints,
       views,
       finished,
       revealDurationMs: 1500,

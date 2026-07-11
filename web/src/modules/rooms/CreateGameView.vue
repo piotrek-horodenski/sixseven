@@ -22,7 +22,10 @@ type GameOption = { id: string; label: string; icon: string }
 const GAME_OPTIONS: GameOption[] = [
   { id: RPS_GAME_ID, label: 'Papier / kamień / nożyce', icon: 'hand-scissors' },
 ]
-const PLAYER_COUNT_OPTIONS = [2]
+/** Soft-cap tylko do UI (atrybut `max`) — serwer nie blokuje większych wartości. */
+const CAPACITY_SOFT_CAP = 8
+const DEFAULT_CAPACITY = 2
+const DEFAULT_TARGET = 5
 
 const gate = useGateStore()
 const rooms = useRoomsStore()
@@ -34,15 +37,32 @@ onMounted(() => rooms.init())
 onUnmounted(() => rooms.cleanup())
 
 const selectedGameId = ref(GAME_OPTIONS[0].id)
-const selectedPlayers = ref(PLAYER_COUNT_OPTIONS[0])
+/** Trzymane jako string (kontrola `UiInput`), parsowane/walidowane przy submicie. */
+const capacityInput = ref(String(DEFAULT_CAPACITY))
+const targetInput = ref(String(DEFAULT_TARGET))
 
 const awaitingHandoff = ref(false)
+
+/** Liczba graczy: min 2, bez twardego maksimum. */
+function parseCapacity(): number {
+  const n = Math.floor(Number(capacityInput.value))
+  return Number.isFinite(n) && n >= 2 ? n : DEFAULT_CAPACITY
+}
+
+/** Cel punktowy: min 1. */
+function parseTarget(): number {
+  const n = Math.floor(Number(targetInput.value))
+  return Number.isFinite(n) && n >= 1 ? n : DEFAULT_TARGET
+}
 
 function submit() {
   if (creating.value || awaitingHandoff.value) return
   awaitingHandoff.value = true
   const author = gate.user?.profile?.display || gate.user?.username || 'gracza'
-  rooms.createAndPlay(`Gra ${author}`, 'public', selectedGameId.value)
+  rooms.createAndPlay(`Gra ${author}`, 'public', selectedGameId.value, {
+    capacity: parseCapacity(),
+    target: parseTarget(),
+  })
 }
 
 // Po `games:handoff-complete`: pełne przeładowanie do aplikacji gry (osobny
@@ -83,19 +103,29 @@ watch(selectedGameId, () => {
   </div>
 
   <div class="create-game__field">
-    <span class="create-game__label">Liczba graczy</span>
-    <div class="create-game__options">
-      <button
-        v-for="n in PLAYER_COUNT_OPTIONS"
-        :key="n"
-        type="button"
-        class="create-game__option"
-        :class="{ 'create-game__option--active': n === selectedPlayers }"
-        disabled
-      >
-        {{ n }} <fa icon="user" />
-      </button>
-    </div>
+    <UiInput
+      :modelValue="capacityInput"
+      @update:modelValue="(v: string) => (capacityInput = v)"
+      type="number"
+      min="2"
+      :max="CAPACITY_SOFT_CAP"
+      inputmode="numeric"
+    >
+      Liczba graczy
+    </UiInput>
+    <p class="create-game__hint">Min. 2, bez twardego limitu.</p>
+  </div>
+
+  <div class="create-game__field">
+    <UiInput
+      :modelValue="targetInput"
+      @update:modelValue="(v: string) => (targetInput = v)"
+      type="number"
+      min="1"
+      inputmode="numeric"
+    >
+      Do ilu punktów
+    </UiInput>
   </div>
 
   <UiMessage v-if="lastError" :type="EMessageType.error">{{ lastError }}</UiMessage>

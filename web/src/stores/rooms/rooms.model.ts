@@ -38,5 +38,9 @@ export interface Room extends CollectionDoc {
 
 export const RPS_GAME_ID = 'rps'
 
-/** Domyślny cel meczu RPS zakładanego z grą (mecz powstaje od razu przy `rooms:create`). */
-export const DEFAULT_TARGET = 2
+/**
+ * Domyślny cel meczu RPS zakładanego z grą (mecz powstaje od razu przy
+ * `rooms:create`). Lustro domyślnej wartości backendu (Etap 3C) — brak
+ * `target` w payloadzie i tak dostanie tę wartość po stronie gate.
+ */
+export const DEFAULT_TARGET = 5

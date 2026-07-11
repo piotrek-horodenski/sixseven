@@ -47,10 +47,15 @@ export interface RpsRevealedMove {
 
 /** Zawartość `match_views.view` dla RPS (por. catalog/rps/src/rps.ts). */
 export interface RpsRoundView {
+  /** Skumulowane punkty po tej rundzie, wszyscy gracze (mogą być UJEMNE). */
   scores: Record<string, number>
   target: number
   yourMove: RpsMove
+  /** Ruchy WSZYSTKICH graczy, jawne po zamknięciu rundy (I2). */
   moves: RpsRevealedMove[]
+  /** Punkty TEJ rundy per gracz (suma parowa; suma po wszystkich = 0). */
+  roundPoints: Record<string, number>
+  /** Lider rundy (unikalnie najwyższe roundPoints) lub `null` przy remisie na szczycie. */
   roundWinner: string | null
 }
 

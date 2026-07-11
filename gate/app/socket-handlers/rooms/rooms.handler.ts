@@ -82,9 +82,28 @@ export function generateRoomCode(rand: () => number = Math.random): string {
   return code
 }
 
-interface CreatePayload { gameId?: unknown; name?: unknown; visibility?: unknown }
+interface CreatePayload { gameId?: unknown; name?: unknown; visibility?: unknown; capacity?: unknown; target?: unknown }
 interface JoinPayload { code?: unknown }
 interface RoomIdPayload { roomId?: unknown }
+
+const DEFAULT_CAPACITY = 2
+const DEFAULT_TARGET = 5
+
+/** `capacity?`: int >= 2, brak -> domyślne 2. Zwraca `null` gdy podano coś < 2. */
+function parseCapacity(raw: unknown): number | null {
+  if (raw === undefined || raw === null) return DEFAULT_CAPACITY
+  const n = Number(raw)
+  if (!Number.isFinite(n) || !Number.isInteger(n) || n < 2) return null
+  return n
+}
+
+/** `target?`: int >= 1, brak -> domyślne 5. Wartości < 1 spadają na domyślne. */
+function parseTarget(raw: unknown): number {
+  if (raw === undefined || raw === null) return DEFAULT_TARGET
+  const n = Number(raw)
+  if (!Number.isFinite(n) || !Number.isInteger(n) || n < 1) return DEFAULT_TARGET
+  return n
+}
 
 export function createRoomsHandlers(deps: RoomsHandlerDeps): HandlerObject[] {
   const maxCodeRetries = deps.maxCodeRetries ?? 8
@@ -109,11 +128,17 @@ export function createRoomsHandlers(deps: RoomsHandlerDeps): HandlerObject[] {
       // (members.id, hostId) trzymamy jako stringi i tak porownuje je klient.
       const uid = String(user._id)
 
-      const { gameId, name, visibility } = payload
+      const { gameId, name, visibility, capacity: rawCapacity, target: rawTarget } = payload
       if (typeof gameId !== 'string' || !gameId) {
         socket.emit('rooms:create-error', { message: 'gameId required' })
         return
       }
+      const capacity = parseCapacity(rawCapacity)
+      if (capacity === null) {
+        socket.emit('rooms:create-error', { message: 'capacity must be an integer >= 2' })
+        return
+      }
+      const target = parseTarget(rawTarget)
       const vis: Room['visibility'] = visibility === 'private' ? 'private' : 'public'
       const roomName = typeof name === 'string' && name.trim() ? name.trim() : `${user.username}'s room`
 
@@ -143,8 +168,8 @@ export function createRoomsHandlers(deps: RoomsHandlerDeps): HandlerObject[] {
       const matchResult = await deps.client.createMatch({
         gameId,
         players: [uid],
-        capacity: 2,
-        options: { target: 2 },
+        capacity,
+        options: { target },
       })
       if (matchResult.ok) {
         matchId = matchResult.data.matchId
@@ -303,5 +328,48 @@ export function createRoomsHandlers(deps: RoomsHandlerDeps): HandlerObject[] {
     },
   }
 
-  return [createHandler, joinHandler, leaveHandler, startHandler]
+  const closeHandler: HandlerObject = {
+    event: 'rooms:close',
+    handler: async (socket: AuthenticatedSocket, payload: RoomIdPayload = {}) => {
+      const user = socket.user
+      if (!user) return
+
+      const { roomId } = payload
+      if (typeof roomId !== 'string' || !roomId) {
+        socket.emit('rooms:close-error', { message: 'roomId required' })
+        return
+      }
+
+      const room = await deps.store.findById(roomId)
+      if (!room) {
+        socket.emit('rooms:close-error', { message: 'room not found' })
+        return
+      }
+      const uid = String(user._id)
+      if (room.hostId !== uid) {
+        socket.emit('rooms:close-error', { message: 'only the host can close the room' })
+        return
+      }
+
+      await deps.store.setStatus(roomId, 'closed')
+
+      // Zepsuty/porzucony pokój z meczem w toku — anulujemy go, żeby zniknął
+      // (Home) także pozostałym uczestnikom. Mecz już zakończony/anulowany
+      // zostawiamy bez zmian.
+      if (room.matchId) {
+        const info = await deps.client.getMatch(room.matchId)
+        if (info.ok && info.data.phase !== 'finished' && info.data.phase !== 'cancelled') {
+          const cancelResult = await deps.client.cancelMatch(room.matchId, 'cancelled')
+          if (!cancelResult.ok) {
+            logger.warn({ roomId, matchId: room.matchId, status: cancelResult.status }, 'rooms:close cancel match failed')
+          }
+        }
+      }
+
+      logger.info({ roomId, by: uid }, 'room closed')
+      socket.emit('rooms:close-complete', { roomId })
+    },
+  }
+
+  return [createHandler, joinHandler, leaveHandler, startHandler, closeHandler]
 }

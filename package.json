@@ -16,6 +16,7 @@
     "test:gate": "npm run test --workspace gate",
     "test:games": "npm run test --workspace games",
     "test:web": "npm run test --workspace web",
+    "test:integration": "npm run test:integration --workspaces --if-present",
     "build": "npm run build --workspaces --if-present",
     "dev": "node dev-runner.js",
     "secret:generate": "node scripts/gen-secret.js",

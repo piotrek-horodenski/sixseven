@@ -89,6 +89,39 @@
   &--mine {
     outline: 2px solid var(--primary-color);
     outline-offset: -2px;
+    position: relative;
+  }
+
+  &--pending {
+    cursor: progress;
+    opacity: .6;
+  }
+
+  &__close {
+    align-items: center;
+    appearance: none;
+    background-color: var(--background-color);
+    border: 1px solid var(--neutral-color-soft);
+    border-radius: 999px;
+    color: var(--neutral-color-soft);
+    cursor: pointer;
+    display: flex;
+    font-size: .65rem;
+    height: 1.4rem;
+    justify-content: center;
+    line-height: 1;
+    padding: 0;
+    position: absolute;
+    right: .4rem;
+    top: .4rem;
+    transition: background-color .15s ease, color .15s ease, border-color .15s ease;
+    width: 1.4rem;
+
+    &:hover {
+      background-color: var(--error-color);
+      border-color: var(--error-color);
+      color: var(--background-color);
+    }
   }
 }
 

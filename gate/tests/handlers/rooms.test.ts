@@ -96,10 +96,39 @@ describe('rooms:create', () => {
     expect(room.code).toBe('ABC234')
     expect(room.hostId).toBe('u1')
     expect(room.members).toEqual([{ id: 'u1', kind: 'user', nick: 'alice' }])
-    expect(client.createMatch).toHaveBeenCalledWith({ gameId: 'rps', players: ['u1'], capacity: 2, options: { target: 2 } })
+    // brak capacity/target w payloadzie → domyślne 2 / 5 (Etap 3C)
+    expect(client.createMatch).toHaveBeenCalledWith({ gameId: 'rps', players: ['u1'], capacity: 2, options: { target: 5 } })
     expect(room.matchId).toBe('match-99')
     expect(room.status).toBe('open') // wciąż dołączalny (Etap 3B pkt 1)
     expect(socket.emit).toHaveBeenCalledWith('rooms:create-complete', { roomId: 'room-1', code: 'ABC234', matchId: 'match-99' })
+  })
+
+  it('forwards capacity/target from the payload to createMatch (Etap 3C)', async () => {
+    const store = makeStore()
+    const client = fakeClient()
+    const socket = userSocket('u1', 'alice')
+    await handlerFor('rooms:create', { client, store, genCode: () => 'ABC234' })
+      .handler(socket, { gameId: 'rps', name: 'Fun', visibility: 'public', capacity: 4, target: 10 })
+
+    expect(client.createMatch).toHaveBeenCalledWith({ gameId: 'rps', players: ['u1'], capacity: 4, options: { target: 10 } })
+  })
+
+  it('rejects capacity < 2', async () => {
+    const client = fakeClient()
+    const socket = userSocket('u1')
+    await handlerFor('rooms:create', { client, store: makeStore(), genCode: () => 'ABC234' })
+      .handler(socket, { gameId: 'rps', capacity: 1 })
+    expect(socket.emit).toHaveBeenCalledWith('rooms:create-error', { message: 'capacity must be an integer >= 2' })
+    expect(client.createMatch).not.toHaveBeenCalled()
+  })
+
+  it('falls back to the default target when an invalid target is given', async () => {
+    const store = makeStore()
+    const client = fakeClient()
+    const socket = userSocket('u1')
+    await handlerFor('rooms:create', { client, store, genCode: () => 'ABC234' })
+      .handler(socket, { gameId: 'rps', target: 0 })
+    expect(client.createMatch).toHaveBeenCalledWith(expect.objectContaining({ options: { target: 5 } }))
   })
 
   it('errors without gameId', async () => {
@@ -287,6 +316,100 @@ describe('rooms:leave', () => {
 
     expect(client.getMatch).not.toHaveBeenCalled()
     expect(client.cancelMatch).not.toHaveBeenCalled()
+  })
+})
+
+describe('rooms:close', () => {
+  beforeEach(() => vi.clearAllMocks())
+
+  const room = (over: Partial<Room> = {}): Room => ({
+    _id: 'room-1', code: 'C', gameId: 'rps', name: '', hostId: 'host', hostKind: 'user',
+    visibility: 'public', status: 'open',
+    members: [{ id: 'host', kind: 'user' }, { id: 'u2', kind: 'user' }],
+    matchId: 'match-99', ...over,
+  })
+
+  it('host closes the room and cancels an in-progress match', async () => {
+    const store = makeStore([room()])
+    const client = fakeClient({
+      getMatch: vi.fn().mockResolvedValue({ ok: true, data: { matchId: 'match-99', gameId: 'rps', players: ['host', 'u2'], guestIds: [], phase: 'planning' } }),
+      cancelMatch: vi.fn().mockResolvedValue({ ok: true, data: {} }),
+    })
+    const socket = userSocket('host')
+    await handlerFor('rooms:close', { client, store, genCode: () => 'x' })
+      .handler(socket, { roomId: 'room-1' })
+
+    expect(store.rooms.get('room-1')!.status).toBe('closed')
+    expect(client.getMatch).toHaveBeenCalledWith('match-99')
+    expect(client.cancelMatch).toHaveBeenCalledWith('match-99', 'cancelled')
+    expect(socket.emit).toHaveBeenCalledWith('rooms:close-complete', { roomId: 'room-1' })
+  })
+
+  it('rejects a non-host with an error and does not touch the match', async () => {
+    const store = makeStore([room()])
+    const client = fakeClient()
+    const socket = userSocket('u2')
+    await handlerFor('rooms:close', { client, store, genCode: () => 'x' })
+      .handler(socket, { roomId: 'room-1' })
+
+    expect(socket.emit).toHaveBeenCalledWith('rooms:close-error', { message: 'only the host can close the room' })
+    expect(store.rooms.get('room-1')!.status).toBe('open')
+    expect(client.getMatch).not.toHaveBeenCalled()
+    expect(client.cancelMatch).not.toHaveBeenCalled()
+  })
+
+  it('does not cancel a match that is already finished', async () => {
+    const store = makeStore([room()])
+    const client = fakeClient({
+      getMatch: vi.fn().mockResolvedValue({ ok: true, data: { matchId: 'match-99', gameId: 'rps', players: ['host', 'u2'], guestIds: [], phase: 'finished' } }),
+    })
+    const socket = userSocket('host')
+    await handlerFor('rooms:close', { client, store, genCode: () => 'x' })
+      .handler(socket, { roomId: 'room-1' })
+
+    expect(store.rooms.get('room-1')!.status).toBe('closed')
+    expect(client.cancelMatch).not.toHaveBeenCalled()
+    expect(socket.emit).toHaveBeenCalledWith('rooms:close-complete', { roomId: 'room-1' })
+  })
+
+  it('does not cancel a match that is already cancelled', async () => {
+    const store = makeStore([room()])
+    const client = fakeClient({
+      getMatch: vi.fn().mockResolvedValue({ ok: true, data: { matchId: 'match-99', gameId: 'rps', players: ['host', 'u2'], guestIds: [], phase: 'cancelled' } }),
+    })
+    const socket = userSocket('host')
+    await handlerFor('rooms:close', { client, store, genCode: () => 'x' })
+      .handler(socket, { roomId: 'room-1' })
+
+    expect(client.cancelMatch).not.toHaveBeenCalled()
+  })
+
+  it('closes a room without a linked match without calling getMatch/cancelMatch', async () => {
+    const store = makeStore([room({ matchId: null })])
+    const client = fakeClient()
+    const socket = userSocket('host')
+    await handlerFor('rooms:close', { client, store, genCode: () => 'x' })
+      .handler(socket, { roomId: 'room-1' })
+
+    expect(store.rooms.get('room-1')!.status).toBe('closed')
+    expect(client.getMatch).not.toHaveBeenCalled()
+    expect(client.cancelMatch).not.toHaveBeenCalled()
+    expect(socket.emit).toHaveBeenCalledWith('rooms:close-complete', { roomId: 'room-1' })
+  })
+
+  it('errors on unknown room', async () => {
+    const client = fakeClient()
+    const socket = userSocket('host')
+    await handlerFor('rooms:close', { client, store: makeStore(), genCode: () => 'x' })
+      .handler(socket, { roomId: 'nope' })
+    expect(socket.emit).toHaveBeenCalledWith('rooms:close-error', { message: 'room not found' })
+  })
+
+  it('returns silently when not authenticated', async () => {
+    const socket = { emit: vi.fn(), user: null } as any
+    await handlerFor('rooms:close', { client: fakeClient(), store: makeStore([room()]), genCode: () => 'x' })
+      .handler(socket, { roomId: 'room-1' })
+    expect(socket.emit).not.toHaveBeenCalled()
   })
 })
 

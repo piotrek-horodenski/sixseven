@@ -50,13 +50,21 @@ export function useMatchClient(fetchFn: typeof fetch = fetch) {
     () => [...views.value].sort((a, b) => b.round - a.round)[0],
   )
 
-  /** Przeciwnik: dowolny uczestnik (user lub gość) różny od mnie. */
-  const opponentId = computed<string | null>(() => {
+  /** Pełny roster meczu (gracze + goście), w kolejności players → guestIds. */
+  const players = computed<string[]>(() => {
     const m = match.value
-    if (!m || !playerId.value) return null
-    const all = [...(m.players ?? []), ...(m.guestIds ?? [])]
-    return all.find((id) => id !== playerId.value) ?? null
+    if (!m) return []
+    return [...(m.players ?? []), ...(m.guestIds ?? [])]
   })
+
+  /** Roster bez mnie — pozostali uczestnicy (dla N graczy). */
+  const opponents = computed<string[]>(() => {
+    if (!playerId.value) return []
+    return players.value.filter((id) => id !== playerId.value)
+  })
+
+  /** Przeciwnik: pierwszy z `opponents`. Zachowane dla zgodności (2-osobowe UI/logi). */
+  const opponentId = computed<string | null>(() => opponents.value[0] ?? null)
 
   function onRejected() {
     rejected.value = true
@@ -148,6 +156,8 @@ export function useMatchClient(fetchFn: typeof fetch = fetch) {
     // pochodne
     match,
     latestView,
+    players,
+    opponents,
     opponentId,
     // akcje
     start,
