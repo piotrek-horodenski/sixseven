@@ -99,7 +99,7 @@ async function defaultLoadPlayerMemory(
   playerIds: string[],
 ): Promise<Record<string, { data: Record<string, unknown>; prefs: Record<string, unknown> }>> {
   // Lazy require: brak efektu ubocznego (import modelu) przy imporcie modułu/testach.
-  const { PlayerMemory } = require('./models') as typeof import('./models')
+  const { PlayerMemory } = await import('./models')
   const docs = await PlayerMemory.find({ gameId, playerId: { $in: playerIds } })
   const map: Record<string, { data: Record<string, unknown>; prefs: Record<string, unknown> }> = {}
   for (const pid of playerIds) map[pid] = { data: {}, prefs: {} }
@@ -110,13 +110,13 @@ async function defaultLoadPlayerMemory(
 }
 
 async function defaultGetPrefs(gameId: string, playerId: string): Promise<Record<string, unknown>> {
-  const { PlayerMemory } = require('./models') as typeof import('./models')
+  const { PlayerMemory } = await import('./models')
   const doc = await PlayerMemory.findOne({ gameId, playerId })
   return (doc as any)?.prefs ?? {}
 }
 
 async function defaultSetPrefs(gameId: string, playerId: string, prefs: Record<string, unknown>): Promise<void> {
-  const { PlayerMemory } = require('./models') as typeof import('./models')
+  const { PlayerMemory } = await import('./models')
   await PlayerMemory.updateOne(
     { gameId, playerId },
     { $set: { prefs, updatedAt: Date.now() } },

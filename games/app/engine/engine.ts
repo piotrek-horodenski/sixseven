@@ -78,8 +78,13 @@ export class MatchEngine {
   /** Tworzy mecz w fazie `lobby` z zapisanym stanem początkowym rundy 1. */
   async createMatch(input: CreateMatchInput): Promise<string> {
     const now = this.now()
+    // _id meczu jest STRINGIEM (schemat) bez domyślnego generatora — command-api
+    // zwykle podaje `matchId` (genId), ale gdy silnik jest wołany bez niego
+    // (testy, ścieżki wewnętrzne) musimy wygenerować _id sami, inaczej Mongoose
+    // rzuci „document must have an _id before saving".
+    const matchId = input.matchId ?? new mongoose.Types.ObjectId().toString()
     const match = await Match.create({
-      ...(input.matchId ? { _id: input.matchId } : {}),
+      _id: matchId,
       gameId: input.gameId,
       manifestVersion: input.manifestVersion,
       players: input.players,
@@ -120,9 +125,10 @@ export class MatchEngine {
   }
 
   /**
-   * Brama gotowości lobby (Etap 3 pkt 5): gracz zgłasza, że jest gotowy zacząć.
+   * Brama gotowości lobby (Etap 3 pkt 5 + 3B): gracz zgłasza, że jest gotowy zacząć.
    * Planning (i timer) startuje dopiero, gdy KAŻDY uczestnik rosteru
-   * (`players ∪ guestIds`) zgłosił gotowość — nie przy pierwszym kliknięciu.
+   * (`players ∪ guestIds`) zgłosił gotowość ORAZ roster jest PEŁNY (`capacity`) —
+   * nie przy pierwszym kliknięciu i nigdy z wolnym slotem.
    * No-op poza fazą `lobby` i dla playerId spoza rosteru (idempotentne/bezpieczne).
    */
   async playerReady(matchId: string, playerId: string): Promise<void> {
@@ -131,12 +137,19 @@ export class MatchEngine {
     const roster = [...match.players, ...match.guestIds]
     if (!roster.includes(playerId)) return
 
-    // Etap 3B pkt 3: PIERWSZE zgłoszenie gotowości w lobby uzbraja deadline
-    // auto-startu (planningPhaseMs) — do tej pory lobby czeka bez limitu.
+    // Auto-start ma sens dopiero, gdy roster jest PEŁNY (capacity). Inaczej twórca
+    // sam w lobby „skompletowałby" gotowość na sobie i wystartował mecz w pojedynkę
+    // (deadlock: `join-match` odrzuca poza lobby, a RPS nie domknie rundy). Póki
+    // jest wolny slot: zapisz gotowość, ale NIE uzbrajaj deadline i NIE startuj.
+    const capacity = (match.capacity as number) ?? 2
+    const rosterFull = roster.length >= capacity
+
+    // Etap 3B pkt 3: PIERWSZE zgłoszenie gotowości przy PEŁNYM rosterze uzbraja
+    // deadline auto-startu (planningPhaseMs) — do tej pory lobby czeka bez limitu.
     const existingReady = (match.lobbyReady ?? {}) as Record<string, boolean>
     const isFirstReady = !Object.values(existingReady).some((v) => v === true)
     const setFields: Record<string, unknown> = { [`lobbyReady.${playerId}`]: true, updatedAt: this.now() }
-    if (isFirstReady) {
+    if (isFirstReady && rosterFull) {
       setFields.deadline = this.now() + this.planningMs(match)
     }
 
@@ -150,9 +163,12 @@ export class MatchEngine {
     // idempotentny (guard maszyny stanów na fazę `lobby`).
     const fresh = await Match.findById(matchId)
     if (!fresh || fresh.phase !== 'lobby') return
+    const freshRoster = [...fresh.players, ...fresh.guestIds]
+    const freshCapacity = (fresh.capacity as number) ?? 2
     const lobbyReady = (fresh.lobbyReady ?? {}) as Record<string, boolean>
-    const allReady = roster.every((pid) => lobbyReady[pid] === true)
-    if (allReady) {
+    const allReady = freshRoster.every((pid) => lobbyReady[pid] === true)
+    // Start dopiero, gdy WSZYSCY z rosteru gotowi ORAZ roster pełny — nigdy z wolnym slotem.
+    if (allReady && freshRoster.length >= freshCapacity) {
       await this.start(matchId)
     }
   }

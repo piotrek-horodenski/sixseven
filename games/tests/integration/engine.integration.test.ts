@@ -397,7 +397,10 @@ describe('MatchEngine (integration)', () => {
       let match = await Match.findById(id)
       expect(match?.phase).toBe('lobby')
 
-      clock.t += 1000 + 10
+      // Deadline uzbrojony przez playerReady = now + planningMs, a planningMs jest
+      // podłogowane do settings.planningMinMs (≥2000), nie do options.planningPhaseMs
+      // (1000). Skaczemy tuż ZA realny deadline, nie za samo 1000 ms.
+      clock.t = Number(match!.deadline) + 10
       await scheduler.tick()
 
       match = await Match.findById(id)
