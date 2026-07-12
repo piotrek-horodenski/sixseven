@@ -42,7 +42,7 @@ const isExpanded = computed({
     <img
       class="app-vertical-menu__logo"
       src="/logo.png"
-      alt="app logo"
+      :alt="$t('layout.appLogoAlt')"
     />
   </RouterLink>
   <div
@@ -66,7 +66,7 @@ const isExpanded = computed({
       @click.prevent="toggleProfile"
     >
       <span class="app-vertical-menu__profile-link-icon"><fa icon="user" /></span>
-      <span class="app-vertical-menu__profile-link-label">profile</span>
+      <span class="app-vertical-menu__profile-link-label">{{ $t('layout.profileMenu.label') }}</span>
     </a>
 
     <div
@@ -80,16 +80,16 @@ const isExpanded = computed({
         <UiButton
           :tabindex="isMenuVertical ? 3 : -1"
           @click="profileOpen = false; $router.push('/profile')"
-        >Profile</UiButton>
+        >{{ $t('layout.profileMenu.profile') }}</UiButton>
         <UiButton
           :tabindex="isMenuVertical ? 3 : -1"
           @click="profileOpen = false; $router.push('/preferences')"
-        >Preferencje</UiButton>
+        >{{ $t('layout.profileMenu.preferences') }}</UiButton>
         <UiButton
           :loading="logoutLoading"
           :tabindex="isMenuVertical ? 3 : -1"
           @click="logout"
-        >Logout</UiButton>
+        >{{ $t('layout.profileMenu.logout') }}</UiButton>
       </div>
     </div>
   </div>
@@ -98,7 +98,7 @@ const isExpanded = computed({
     <UiSwitch
       v-model="isExpanded"
       :tabindex="isMenuVertical ? 4 : -1"
-    >collapse</UiSwitch>
+    >{{ $t('layout.collapse') }}</UiSwitch>
   </span>
 </div>
 </template>

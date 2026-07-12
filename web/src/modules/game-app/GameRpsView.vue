@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
 import { useRoute } from 'vue-router'
+import { useI18n } from 'vue-i18n'
 import { useMatchClient } from '@/composables/useMatchClient'
 import { RPS_MOVES, REVEAL_MS, playerLabel } from '@/modules/games/rps.consts'
 import type { RpsMove, RpsRevealedMove } from '@/stores/games/games.model'
@@ -18,6 +19,7 @@ import RpsIcon from '@/modules/games/RpsIcon.vue'
 
 const route = useRoute()
 const client = useMatchClient()
+const { t } = useI18n()
 
 const returnUrl = computed(() => {
   const r = route.query.return
@@ -41,7 +43,7 @@ onMounted(() => {
     client.start(handoff)
   } else {
     client.status.value = 'error'
-    client.error.value = 'Brak kodu handoffu w adresie — otwórz grę z pokoju.'
+    client.error.value = t('games.errors.missingHandoff')
   }
 })
 
@@ -221,13 +223,13 @@ const sortedRoster = computed(() =>
 const cancelReason = computed(() => {
   switch (match.value?.endReason) {
     case 'cancelled_lobby':
-      return 'Nikt nie wystartował meczu na czas.'
+      return t('games.cancelled.lobby')
     case 'cancelled_paused':
-      return 'Mecz anulowano po zbyt długiej przerwie (serwis gry nie odpowiadał).'
+      return t('games.cancelled.paused')
     case 'walkover':
-      return 'Walkower.'
+      return t('games.cancelled.walkover')
     default:
-      return 'Mecz został anulowany.'
+      return t('games.cancelled.default')
   }
 })
 
@@ -247,14 +249,14 @@ onUnmounted(() => {
     <!-- Wymiana handoffu / błąd -->
     <div v-if="client.status.value === 'exchanging' || client.status.value === 'idle'" class="rps-state">
       <fa icon="circle-notch" class="rotate rps-state__glyph" />
-      <p class="rps-state__text">Łączę z meczem…</p>
+      <p class="rps-state__text">{{ $t('games.connecting') }}</p>
     </div>
 
     <div v-else-if="client.status.value === 'error'" class="rps-state rps-state--muted">
       <fa icon="times-circle" class="rps-state__glyph" />
-      <h2 class="rps-state__title">Nie udało się wejść do gry</h2>
+      <h2 class="rps-state__title">{{ $t('games.errors.joinFailedTitle') }}</h2>
       <p class="rps-state__text">{{ client.error.value }}</p>
-      <button class="rps-finished__list" type="button" @click="goBack">Powrót</button>
+      <button class="rps-finished__list" type="button" @click="goBack">{{ $t('games.back') }}</button>
     </div>
 
     <template v-else>
@@ -269,7 +271,7 @@ onUnmounted(() => {
             <span class="score-chip__name">{{ playerLabel(pid, meId) }}</span>
             <span class="score-chip__val">{{ scoreOf(pid) }}</span>
           </div>
-          <span class="match-screen__target">do {{ target }}</span>
+          <span class="match-screen__target">{{ $t('games.scoreTarget', { target }) }}</span>
         </div>
       </header>
 
@@ -279,9 +281,9 @@ onUnmounted(() => {
           <!-- czekanie na graczy: sloty wolne wg capacity -->
           <template v-if="!lobbyFull">
             <fa icon="circle-notch" class="rotate rps-state__glyph" />
-            <h2 class="rps-state__title">Czekam na graczy ({{ rosterCount }}/{{ capacity }})</h2>
+            <h2 class="rps-state__title">{{ $t('games.lobby.waitingTitle', { count: rosterCount, capacity }) }}</h2>
             <p class="rps-state__text">
-              Gra RPS do {{ target }} pkt ruszy, gdy dołączy komplet graczy.
+              {{ $t('games.lobby.waitingBody', { target }) }}
             </p>
             <ul class="rps-roster">
               <li v-for="pid in roster" :key="pid" class="rps-roster__item">
@@ -290,7 +292,7 @@ onUnmounted(() => {
               </li>
               <li v-for="n in emptySlots" :key="`empty-${n}`" class="rps-roster__item rps-roster__item--empty">
                 <span class="rps-dot" />
-                Wolne miejsce
+                {{ $t('games.lobby.emptySlot') }}
               </li>
             </ul>
           </template>
@@ -298,25 +300,25 @@ onUnmounted(() => {
           <!-- komplet graczy -->
           <template v-else>
             <fa icon="hand-scissors" class="rps-state__glyph" />
-            <h2 class="rps-state__title">Mecz gotowy</h2>
-            <p class="rps-state__text">Gracie w {{ rosterCount }} do {{ target }} pkt.</p>
-            <UiButton v-if="!iAmLobbyReady" icon="play" :loading="starting" @click="startMatch">Rozpocznij</UiButton>
+            <h2 class="rps-state__title">{{ $t('games.lobby.readyTitle') }}</h2>
+            <p class="rps-state__text">{{ $t('games.lobby.readyBody', { count: rosterCount, target }) }}</p>
+            <UiButton v-if="!iAmLobbyReady" icon="play" :loading="starting" @click="startMatch">{{ $t('games.lobby.start') }}</UiButton>
             <p v-else class="rps-planning__waiting">
               <fa icon="circle-notch" class="rotate" />
-              Czekam aż pozostali rozpoczną…
+              {{ $t('games.lobby.waitingForOthers') }}
             </p>
             <ul class="rps-roster">
               <li v-for="pid in roster" :key="pid" class="rps-roster__item">
                 <span class="rps-dot" :class="{ 'rps-dot--on': !!match.lobbyReady?.[pid] }" />
                 {{ playerLabel(pid, meId) }}
-                <span v-if="match.lobbyReady?.[pid]" class="rps-roster__ready">gotowy</span>
+                <span v-if="match.lobbyReady?.[pid]" class="rps-roster__ready">{{ $t('games.lobby.ready') }}</span>
               </li>
             </ul>
 
             <!-- odliczanie auto-startu: ktoś już kliknął Rozpocznij (deadline ustawiony) -->
             <p v-if="match.deadline" class="rps-lobby__countdown">
               <fa icon="hourglass-half" />
-              Gra ruszy automatycznie za {{ lobbyRemainingSec }}s
+              {{ $t('games.lobby.autoStart', { seconds: lobbyRemainingSec }) }}
             </p>
           </template>
         </div>
@@ -338,7 +340,7 @@ onUnmounted(() => {
             <span class="rps-ring__value">{{ remainingSec }}</span>
           </div>
 
-          <p class="rps-planning__prompt">Runda {{ match.round }} — wybierz ruch</p>
+          <p class="rps-planning__prompt">{{ $t('games.planning.prompt', { round: match.round }) }}</p>
 
           <div class="rps-moves" :class="{ 'rps-moves--locked': iAmReady }">
             <button
@@ -351,27 +353,27 @@ onUnmounted(() => {
               @click="pick(mv.move)"
             >
               <RpsIcon :move="mv.move" class="rps-move__icon" />
-              <span class="rps-move__label">{{ mv.label }}</span>
+              <span class="rps-move__label">{{ $t(mv.labelKey) }}</span>
             </button>
           </div>
 
           <p v-if="rejected" class="rps-planning__rejected">
-            <fa icon="exclamation-circle" /> Ruch odrzucony — wybierz jeszcze raz.
+            <fa icon="exclamation-circle" /> {{ $t('games.planning.rejected') }}
           </p>
           <p v-else-if="iAmReady" class="rps-planning__waiting">
             <fa icon="circle-notch" class="rotate" />
-            Ruch złożony. Czekam na pozostałych ({{ othersReadyCount }}/{{ others.length }})…
+            {{ $t('games.planning.waitingForOthers', { ready: othersReadyCount, total: others.length }) }}
           </p>
           <p v-else class="rps-planning__opponent">
             <span class="rps-dot" :class="{ 'rps-dot--on': allOthersReady }" />
-            {{ allOthersReady ? 'Pozostali już wybrali' : `Pozostali wybrali: ${othersReadyCount}/${others.length}` }}
+            {{ allOthersReady ? $t('games.planning.othersReady') : $t('games.planning.othersProgress', { ready: othersReadyCount, total: others.length }) }}
           </p>
         </div>
 
         <!-- RESOLVING -->
         <div v-else-if="match.phase === 'resolving'" class="rps-state">
           <fa icon="circle-notch" class="rotate rps-state__glyph" />
-          <p class="rps-state__text">Rozstrzygam rundę…</p>
+          <p class="rps-state__text">{{ $t('games.resolving') }}</p>
         </div>
 
         <!-- REVEALING -->
@@ -406,7 +408,7 @@ onUnmounted(() => {
               class="rps-reveal__verdict"
               :class="`rps-reveal__verdict--${roundOutcome}`"
             >
-              {{ roundOutcome === 'win' ? 'Wygrywasz rundę!' : roundOutcome === 'lose' ? 'Tracisz punkty w tej rundzie' : 'Remis w rundzie' }}
+              {{ $t(`games.reveal.${roundOutcome}`) }}
             </p>
           </Transition>
         </div>
@@ -419,7 +421,7 @@ onUnmounted(() => {
             :class="`rps-finished__glyph--${matchOutcome}`"
           />
           <h2 class="rps-state__title">
-            {{ matchOutcome === 'win' ? 'Wygrałeś!' : matchOutcome === 'draw' ? 'Remis' : 'Przegrałeś' }}
+            {{ $t(`games.finished.${matchOutcome}`) }}
           </h2>
           <ul class="rps-finished__board">
             <li
@@ -432,31 +434,31 @@ onUnmounted(() => {
               <span class="rps-finished__val">{{ scoreOf(pid) }}</span>
             </li>
           </ul>
-          <p class="match-screen__target">do {{ target }}</p>
+          <p class="match-screen__target">{{ $t('games.scoreTarget', { target }) }}</p>
           <div class="rps-finished__actions">
-            <UiButton icon="caret-left" @click="goBack">Powrót</UiButton>
+            <UiButton icon="caret-left" @click="goBack">{{ $t('games.back') }}</UiButton>
           </div>
         </div>
 
         <!-- PAUSED -->
         <div v-else-if="match.phase === 'paused'" class="rps-state rps-state--warn">
           <fa icon="circle-notch" class="rotate rps-state__glyph" />
-          <h2 class="rps-state__title">Wstrzymano</h2>
-          <p class="rps-state__text">Serwis gry chwilowo nie odpowiada. Próbuję wznowić automatycznie…</p>
+          <h2 class="rps-state__title">{{ $t('games.paused.title') }}</h2>
+          <p class="rps-state__text">{{ $t('games.paused.body') }}</p>
         </div>
 
         <!-- CANCELLED -->
         <div v-else-if="match.phase === 'cancelled'" class="rps-state rps-state--muted">
           <fa icon="times-circle" class="rps-state__glyph" />
-          <h2 class="rps-state__title">Mecz anulowany</h2>
+          <h2 class="rps-state__title">{{ $t('games.cancelled.title') }}</h2>
           <p class="rps-state__text">{{ cancelReason }}</p>
-          <button class="rps-finished__list" type="button" @click="goBack">Powrót</button>
+          <button class="rps-finished__list" type="button" @click="goBack">{{ $t('games.back') }}</button>
         </div>
       </div>
 
       <div v-else class="rps-state">
         <fa icon="circle-notch" class="rotate rps-state__glyph" />
-        <p class="rps-state__text">Ładuję mecz…</p>
+        <p class="rps-state__text">{{ $t('games.loadingMatch') }}</p>
       </div>
     </template>
   </div>

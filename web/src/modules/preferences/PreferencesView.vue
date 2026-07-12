@@ -1,6 +1,7 @@
 <script setup lang="ts">
 
 import { computed, onMounted, onUnmounted } from 'vue'
+import { useI18n } from 'vue-i18n'
 import type { ISelectOption } from '@/controls/controls.model'
 import { useLayoutStore } from '@/stores/layout/layout.store'
 import { ETheme } from '@/stores/layout/layout.model'
@@ -21,6 +22,7 @@ import { LANGUAGES, type Language } from '@/stores/prefs/prefs.model'
  *    kolejnej gry to tylko nowy wpis w katalogu, bez zmian w tym widoku.
  */
 
+const { t, te } = useI18n()
 const layout = useLayoutStore()
 const prefs = usePrefsStore()
 const gamePrefs = useGamePrefsStore()
@@ -32,10 +34,13 @@ const isDark = computed<boolean>({
   },
 })
 
-const languageOptions: ISelectOption<Language>[] = LANGUAGES.map((lang) => ({
-  value: lang,
-  label: lang === 'pl' ? 'Polski' : 'English',
-}))
+// Endonimy (Polski/English) — te same w obu locale, klucze dla porządku.
+const languageOptions = computed<ISelectOption<Language>[]>(() =>
+  LANGUAGES.map((lang) => ({
+    value: lang,
+    label: t(`preferences.languageNames.${lang}`),
+  })),
+)
 
 const language = computed<Language | null>({
   get: () => prefs.language,
@@ -44,8 +49,12 @@ const language = computed<Language | null>({
   },
 })
 
+/** Etykieta wartości enum z prefs — tłumaczona, gdy mamy klucz; inaczej surowa wartość. */
 function fieldOptions(values: string[]): ISelectOption<string>[] {
-  return values.map((value) => ({ value, label: value }))
+  return values.map((value) => ({
+    value,
+    label: te(`preferences.optionValues.${value}`) ? t(`preferences.optionValues.${value}`) : value,
+  }))
 }
 
 function fieldValue(gameId: string, key: string, fallback: string): string {
@@ -70,19 +79,19 @@ onUnmounted(() => {
 <template>
 <div class="preferences-view">
   <section class="preferences-section">
-    <h2 class="preferences-section__title">Aplikacja</h2>
+    <h2 class="preferences-section__title">{{ $t('preferences.app.title') }}</h2>
 
     <div class="preferences-field preferences-field--inline">
-      <span class="preferences-field__label">Ciemny motyw</span>
+      <span class="preferences-field__label">{{ $t('preferences.app.darkTheme') }}</span>
       <UiSwitch v-model="isDark" />
     </div>
 
     <div class="preferences-field">
-      <span class="preferences-field__label">Język</span>
+      <span class="preferences-field__label">{{ $t('preferences.app.language') }}</span>
       <UiSelect
         v-model="language"
         :options="languageOptions"
-        placeholder="Wybierz język"
+        :placeholder="$t('preferences.app.languagePlaceholder')"
       />
     </div>
   </section>
@@ -92,22 +101,23 @@ onUnmounted(() => {
     :key="schema.gameId"
     class="preferences-section"
   >
-    <h2 class="preferences-section__title">{{ schema.label }}</h2>
+    <!-- `schema.label`/`field.label` to KLUCZE i18n (por. game-prefs.catalog.ts). -->
+    <h2 class="preferences-section__title">{{ $t(schema.label) }}</h2>
     <p
       v-if="gamePrefs.isLoading(schema.gameId)"
       class="preferences-section__hint"
-    >Wczytywanie…</p>
+    >{{ $t('preferences.games.loading') }}</p>
 
     <div
       v-for="field in schema.fields"
       :key="field.key"
       class="preferences-field"
     >
-      <span class="preferences-field__label">{{ field.label }}</span>
+      <span class="preferences-field__label">{{ $t(field.label) }}</span>
       <UiSelect
         :modelValue="fieldValue(schema.gameId, field.key, field.default)"
         :options="fieldOptions(field.values)"
-        @update:modelValue="(value) => value !== null && setFieldValue(schema.gameId, field.key, value)"
+        @update:modelValue="(value: string | null) => value !== null && setFieldValue(schema.gameId, field.key, value)"
       />
       <UiSaveIndicator :saving="gamePrefs.isSaving(schema.gameId)" />
     </div>

@@ -29,7 +29,7 @@ function clearSearch() {
     <UiInput
       :modelValue="searchInput"
       @update:modelValue="(v: string) => searchInput = v"
-      placeholder="Search images..."
+      :placeholder="$t('images.searchPlaceholder')"
     />
     <a
       v-if="searchInput"
@@ -43,12 +43,12 @@ function clearSearch() {
     <UiButton
       :class="{ 'accent': store.viewMode === 'grid' }"
       @click="store.setViewMode('grid')"
-      v-tooltip="'<b>Grid</b> view'"
+      v-tooltip="$t('images.gridViewTooltip')"
     ><fa icon="dice-four" /></UiButton>
     <UiButton
       :class="{ 'accent': store.viewMode === 'list' }"
       @click="store.setViewMode('list')"
-      v-tooltip="'<b>List</b> view'"
+      v-tooltip="$t('images.listViewTooltip')"
     ><fa icon="list" /></UiButton>
   </div>
 
@@ -57,12 +57,12 @@ function clearSearch() {
       v-if="hasPermission('can-admin-images')"
       :modelValue="store.showDeleted"
       @update:modelValue="store.toggleShowDeleted()"
-    >Deleted</UiSwitch>
+    >{{ $t('images.deleted') }}</UiSwitch>
 
     <UiButton
       v-if="hasPermission('control-images')"
       @click="store.showUploadPopup = true"
-    ><fa icon="upload" /> Upload</UiButton>
+    ><fa icon="upload" /> {{ $t('images.upload') }}</UiButton>
   </div>
 
 </div>

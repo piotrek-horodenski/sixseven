@@ -1,4 +1,4 @@
-import type { App } from 'vue'
+import type { App, Component } from 'vue'
 import { library, type IconDefinition } from '@fortawesome/fontawesome-svg-core'
 import { 
   faHome,
@@ -166,5 +166,6 @@ const icons = [
 export default (app: App) => {
   icons.forEach(icon => library.add(icon as IconDefinition))
   
-  app.component('fa', FontAwesomeIcon)
+  // Cast: unia propsów FontAwesomeIcon przekracza limit złożoności TS (TS2590).
+  app.component('fa', FontAwesomeIcon as Component)
 }

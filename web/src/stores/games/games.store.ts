@@ -1,5 +1,6 @@
 import { ref, computed } from 'vue'
 import { defineStore } from 'pinia'
+import { t } from '@/i18n'
 import { useGateStore } from '@/stores/gate/gate.store'
 import { useCollection } from '@/composables/useCollection'
 import {
@@ -74,10 +75,10 @@ export const useGamesStore = defineStore('games', () => {
   }
   function onCreateError({ message }: { message?: string }) {
     creating.value = false
-    lastError.value = message || 'Nie udało się utworzyć meczu'
+    lastError.value = message || t('games.errors.createFailed')
   }
   function onError({ message }: { message?: string }) {
-    lastError.value = message || 'Operacja nie powiodła się'
+    lastError.value = message || t('games.errors.operationFailed')
   }
   function onSubmitRejected({ matchId }: { matchId: string }) {
     const next = new Set(rejectedMatchIds.value)

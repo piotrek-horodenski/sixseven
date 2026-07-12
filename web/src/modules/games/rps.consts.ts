@@ -1,16 +1,22 @@
+import { t } from '@/i18n'
 import type { RpsMove } from '@/stores/games/games.model'
 
 export interface RpsMoveMeta {
   move: RpsMove
-  label: string
+  /** Klucz i18n etykiety (prezentacja) — tłumacz przez t()/$t() przy renderze. */
+  labelKey: string
   icon: string // font-awesome (zarejestrowane w font-awesome.config.ts)
 }
 
-/** Kolejność = układ przycisków wyboru ruchu. */
+/**
+ * Kolejność = układ przycisków wyboru ruchu.
+ * Determinizm: w stałych modułu trzymamy TYLKO klucze i18n, nigdy przetłumaczone
+ * stringi — `move` (identyfikator do stanu/socketów) zostaje nietknięty.
+ */
 export const RPS_MOVES: RpsMoveMeta[] = [
-  { move: 'rock', label: 'Kamień', icon: 'hand-back-fist' },
-  { move: 'paper', label: 'Papier', icon: 'hand' },
-  { move: 'scissors', label: 'Nożyce', icon: 'hand-scissors' },
+  { move: 'rock', labelKey: 'games.moves.rock', icon: 'hand-back-fist' },
+  { move: 'paper', labelKey: 'games.moves.paper', icon: 'hand' },
+  { move: 'scissors', labelKey: 'games.moves.scissors', icon: 'hand-scissors' },
 ]
 
 const BY_MOVE: Record<RpsMove, RpsMoveMeta> = RPS_MOVES.reduce(
@@ -31,22 +37,28 @@ export function shortId(id: string | null | undefined): string {
   return id.length <= 8 ? id : `…${id.slice(-6)}`
 }
 
-/** Etykieta gracza: „Ty" dla siebie, skrócone id dla przeciwnika. */
+/**
+ * Etykieta gracza: „Ty"/„You" dla siebie, skrócone id dla przeciwnika.
+ * CZYSTA PREZENTACJA — wynik nie może trafić do stanu meczu ani na socket.
+ * t() wołane przy każdym wywołaniu (bez cache), więc reaguje na zmianę locale.
+ */
 export function playerLabel(id: string | null | undefined, meId: string | null): string {
   if (!id) return '—'
-  return id === meId ? 'Ty' : shortId(id)
+  return id === meId ? t('games.you') : shortId(id)
 }
 
-const PHASE_LABELS: Record<string, string> = {
-  lobby: 'Gotowy do startu',
-  planning: 'Trwa runda',
-  resolving: 'Rozstrzyganie',
-  revealing: 'Odsłona',
-  paused: 'Wstrzymany',
-  finished: 'Zakończony',
-  cancelled: 'Anulowany',
+/** Mapa faza → klucz i18n (same klucze w stałej — determinizm). */
+const PHASE_LABEL_KEYS: Record<string, string> = {
+  lobby: 'games.phase.lobby',
+  planning: 'games.phase.planning',
+  resolving: 'games.phase.resolving',
+  revealing: 'games.phase.revealing',
+  paused: 'games.phase.paused',
+  finished: 'games.phase.finished',
+  cancelled: 'games.phase.cancelled',
 }
 
 export function phaseLabel(phase: string): string {
-  return PHASE_LABELS[phase] ?? phase
+  const key = PHASE_LABEL_KEYS[phase]
+  return key ? t(key) : phase
 }

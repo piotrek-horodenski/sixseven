@@ -1,8 +1,10 @@
 <script setup lang="ts">
 
 import { reactive, ref, computed, onMounted, onUnmounted } from 'vue'
+import { useI18n } from 'vue-i18n'
 import { useGateStore } from '@/stores/gate/gate.store'
 
+const { t } = useI18n()
 const gate = useGateStore()
 const saveState = reactive({ saving: false, saved: false })
 const currentPassword = ref('')
@@ -20,17 +22,17 @@ function save() {
   error.value = null
 
   if (!currentPassword.value || !newPassword.value || !confirmPassword.value) {
-    error.value = 'All fields are required'
+    error.value = t('profile.allFieldsRequired')
     return
   }
 
   if (mismatch.value) {
-    error.value = 'New passwords do not match'
+    error.value = t('profile.newPasswordsMismatch')
     return
   }
 
   if (newPassword.value.length < 6) {
-    error.value = 'New password must be at least 6 characters'
+    error.value = t('profile.passwordTooShort')
     return
   }
 
@@ -72,13 +74,13 @@ onUnmounted(() => {
 <template>
 <div class="admin-panel">
   <div class="admin-panel__header">
-    <h3 style="flex: 1; text-align: center">Change Password</h3>
+    <h3 style="flex: 1; text-align: center">{{ $t('profile.changePassword') }}</h3>
     <UiButton
       class="accent"
       :icon="saveState.saving ? null : saveState.saved ? 'check' : null"
       :loading="saveState.saving"
       @click="save"
-    >Change Password</UiButton>
+    >{{ $t('profile.changePassword') }}</UiButton>
   </div>
 
   <div class="admin-panel__body">
@@ -86,21 +88,21 @@ onUnmounted(() => {
       <UiInput
         v-model="currentPassword"
         type="password"
-        placeholder="Current password"
-      >Current Password</UiInput>
+        :placeholder="$t('profile.currentPassword')"
+      >{{ $t('profile.currentPassword') }}</UiInput>
       <UiInput
         v-model="newPassword"
         type="password"
-        placeholder="New password"
-      >New Password</UiInput>
+        :placeholder="$t('profile.newPassword')"
+      >{{ $t('profile.newPassword') }}</UiInput>
       <UiInput
         v-model="confirmPassword"
         type="password"
-        placeholder="Confirm new password"
-      >Confirm New Password</UiInput>
+        :placeholder="$t('profile.confirmNewPassword')"
+      >{{ $t('profile.confirmNewPassword') }}</UiInput>
     </div>
 
-    <p v-if="mismatch" class="admin-confirm-text">Passwords do not match</p>
+    <p v-if="mismatch" class="admin-confirm-text">{{ $t('profile.passwordsMismatch') }}</p>
     <p v-if="error" class="admin-confirm-text">{{ error }}</p>
   </div>
 
@@ -110,7 +112,7 @@ onUnmounted(() => {
       :icon="saveState.saving ? null : saveState.saved ? 'check' : null"
       :loading="saveState.saving"
       @click="save"
-    >Change Password</UiButton>
+    >{{ $t('profile.changePassword') }}</UiButton>
   </div>
 </div>
 </template>

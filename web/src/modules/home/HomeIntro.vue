@@ -4,8 +4,8 @@
 <div class="rooms-intro">
   <h1 class="rooms-intro__title">
     <fa icon="home" class="rooms-intro__icon" />
-    Home
+    {{ $t('home.intro.title') }}
   </h1>
-  <p class="rooms-intro__subtitle">Twoje gry i otwarte gry innych — dołącz albo zacznij nową.</p>
+  <p class="rooms-intro__subtitle">{{ $t('home.intro.subtitle') }}</p>
 </div>
 </template>

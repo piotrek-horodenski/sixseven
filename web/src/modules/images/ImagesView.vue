@@ -138,7 +138,7 @@ function cancelDelete() {
       @dragover="onDocDragOver"
     >
       <fa icon="upload" />
-      <p>Drop files to upload</p>
+      <p>{{ $t('images.dropFilesToUpload') }}</p>
     </div>
   </Teleport>
 </div>

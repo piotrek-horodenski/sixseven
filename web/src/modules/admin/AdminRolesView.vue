@@ -82,22 +82,22 @@ function cancelDelete() {
 <template>
 <div class="admin-roles">
   <div class="admin-roles__header">
-    <h2>Roles</h2>
+    <h2>{{ $t('admin.roles') }}</h2>
     <UiInput
       :modelValue="search"
       @update:modelValue="(v: string) => search = v"
-      placeholder="Search roles..."
+      :placeholder="$t('admin.searchRoles')"
     />
-    <UiButton icon="plus" @click="createRole">New Role</UiButton>
+    <UiButton icon="plus" @click="createRole">{{ $t('admin.newRole') }}</UiButton>
   </div>
 
   <div class="admin-roles__list">
     <table class="admin-table">
       <thead>
         <tr>
-          <th>Role</th>
-          <th>Permissions</th>
-          <th>Inherits</th>
+          <th>{{ $t('admin.role') }}</th>
+          <th>{{ $t('admin.permissions') }}</th>
+          <th>{{ $t('admin.inherits') }}</th>
           <th></th>
         </tr>
       </thead>
@@ -123,7 +123,7 @@ function cancelDelete() {
               class="admin-tag-overflow"
               :title="role.permissions!.slice(3).map((p: string) => permissionMap[p]?.display || p).join(', ')"
             ><fa icon="ellipsis" /></span>
-            <span v-if="!role.permissions?.length" class="admin-muted">none</span>
+            <span v-if="!role.permissions?.length" class="admin-muted">{{ $t('admin.none') }}</span>
           </td>
           <td>
             <span
@@ -137,19 +137,19 @@ function cancelDelete() {
               class="admin-tag-overflow"
               :title="role.useRoles!.slice(3).map((r: string) => admin.roles.find((ro: any) => ro.name === r)?.display || r).join(', ')"
             ><fa icon="ellipsis" /></span>
-            <span v-if="!role.useRoles?.length" class="admin-muted">none</span>
+            <span v-if="!role.useRoles?.length" class="admin-muted">{{ $t('admin.none') }}</span>
           </td>
           <td class="admin-table__actions" @click.stop>
             <UiButton
               icon="trash"
               :disabled="role.name === 'admin'"
               @click="confirmDelete(role._id)"
-            >Remove</UiButton>
+            >{{ $t('admin.remove') }}</UiButton>
           </td>
         </tr>
         <tr v-if="!filteredRoles.length">
           <td colspan="4" class="admin-muted" style="text-align: center; padding: 2rem">
-            No role matches given criteria
+            {{ $t('admin.noRoleMatches') }}
           </td>
         </tr>
       </tbody>
@@ -162,12 +162,12 @@ function cancelDelete() {
     :outsideClose="true"
     @update:show="cancelDelete"
   >
-    <template #title>Confirm</template>
+    <template #title>{{ $t('admin.confirm') }}</template>
     <form class="ui-confirm" @submit.prevent="cancelDelete">
-      <p class="ui-confirm__message">Are you sure you want to delete this role?</p>
+      <p class="ui-confirm__message">{{ $t('admin.confirmDeleteRole') }}</p>
       <div class="ui-confirm__actions">
-        <UiButton class="accent" type="submit">Cancel</UiButton>
-        <UiButton @click="doDelete">Yes, delete</UiButton>
+        <UiButton class="accent" type="submit">{{ $t('common.cancel') }}</UiButton>
+        <UiButton @click="doDelete">{{ $t('admin.yesDelete') }}</UiButton>
       </div>
     </form>
   </UiPopup>

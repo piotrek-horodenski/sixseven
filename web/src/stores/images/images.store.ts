@@ -315,6 +315,9 @@ export const useImagesStore = defineStore('images', () => {
     showDeleted,
     uploading,
     selectedIds,
+    // Kotwica shift-selecta; eksponowana, bo ImagesView.openImage ustawia ją
+    // wprost (wcześniej pisał w nieistniejącą właściwość — no-op).
+    lastSelectedId,
     editingImage,
     showBatchEdit,
     showUploadPopup,

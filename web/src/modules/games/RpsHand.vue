@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed } from 'vue'
+import { useI18n } from 'vue-i18n'
 import { moveMeta } from './rps.consts'
 import type { RpsMove } from '@/stores/games/games.model'
 import RpsIcon from './RpsIcon.vue'
@@ -13,9 +14,13 @@ const props = defineProps<{
   defaulted?: boolean
 }>()
 
+const { t } = useI18n()
+
 // Przed odsłoną pokazujemy stan ukryty (null → znak zapytania), po — realny ruch.
 const shownMove = computed<RpsMove | null>(() => (props.revealed ? props.move : null))
-const moveLabel = computed(() => (props.revealed && props.move ? moveMeta(props.move).label : ''))
+const moveLabel = computed(() =>
+  props.revealed && props.move ? t(moveMeta(props.move).labelKey) : '',
+)
 </script>
 <template>
 <div
@@ -33,7 +38,7 @@ const moveLabel = computed(() => (props.revealed && props.move ? moveMeta(props.
   </div>
   <span class="rps-hand__move">
     {{ moveLabel }}
-    <span v-if="revealed && defaulted" class="rps-hand__defaulted">(auto)</span>
+    <span v-if="revealed && defaulted" class="rps-hand__defaulted">{{ $t('games.hand.defaulted') }}</span>
   </span>
 </div>
 </template>

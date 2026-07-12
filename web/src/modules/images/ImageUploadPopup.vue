@@ -1,6 +1,7 @@
 <script setup lang="ts">
 
 import { ref, watch, computed, reactive } from 'vue'
+import { useI18n } from 'vue-i18n'
 import { useImagesStore } from '@/stores/images/images.store'
 import { EPopupSize } from '@/controls/controls.model'
 
@@ -21,6 +22,7 @@ const emit = defineEmits<{
 }>()
 
 const store = useImagesStore()
+const { t } = useI18n()
 
 const files = ref<File[]>([])
 const currentIndex = ref(0)
@@ -170,7 +172,7 @@ async function uploadOne(skipReload = false) {
       }
     }
   } catch (err: any) {
-    uploadError.value = err.message || 'Upload failed'
+    uploadError.value = err.message || t('images.uploadFailed')
   } finally {
     uploading.value = false
   }
@@ -207,8 +209,8 @@ function close() {
   @update:show="close"
 >
   <template #title>
-    Upload Images
-    <span v-if="totalFiles > 0"> ({{ totalFiles }} file{{ totalFiles > 1 ? 's' : '' }})</span>
+    {{ $t('images.uploadImages') }}
+    <span v-if="totalFiles > 0"> ({{ $t('images.filesCount', totalFiles) }})</span>
   </template>
 
   <div class="image-upload">
@@ -219,10 +221,10 @@ function close() {
       @dragover="onDragOver"
     >
       <fa icon="upload" />
-      <p>Drag & drop images here</p>
-      <p>or</p>
+      <p>{{ $t('images.dropHere') }}</p>
+      <p>{{ $t('images.or') }}</p>
       <label class="image-upload__file-label">
-        <UiButton @click="($refs.fileInput as HTMLInputElement)?.click()">Choose Files</UiButton>
+        <UiButton @click="($refs.fileInput as HTMLInputElement)?.click()">{{ $t('images.chooseFiles') }}</UiButton>
         <input
           ref="fileInput"
           type="file"
@@ -248,7 +250,7 @@ function close() {
         </div>
         <label class="image-upload__add-more">
           <a href="#" @click.prevent="($refs.fileInputMore as HTMLInputElement)?.click()">
-            <fa icon="plus" /> Add more
+            <fa icon="plus" /> {{ $t('images.addMore') }}
           </a>
           <input
             ref="fileInputMore"
@@ -269,22 +271,22 @@ function close() {
         <UiInput
           :modelValue="currentMeta.title"
           @update:modelValue="(v: string) => updateMeta('title', v)"
-        >Title</UiInput>
+        >{{ $t('images.imageTitle') }}</UiInput>
 
         <UiTextarea
           :modelValue="currentMeta.description"
           @update:modelValue="(v: string) => updateMeta('description', v)"
-        >Description</UiTextarea>
+        >{{ $t('images.description') }}</UiTextarea>
 
         <UiInput
           :modelValue="currentMeta.tags"
           @update:modelValue="(v: string) => updateMeta('tags', v)"
-        >Tags (space-separated, at least one required)</UiInput>
+        >{{ $t('images.tagsUploadLabel') }}</UiInput>
 
         <UiInput
           :modelValue="currentMeta.collections"
           @update:modelValue="(v: string) => updateMeta('collections', v)"
-        >Collections (comma-separated)</UiInput>
+        >{{ $t('images.collectionsUploadLabel') }}</UiInput>
 
         <UiMessage v-if="uploadError" type="error">{{ uploadError }}</UiMessage>
 
@@ -294,14 +296,14 @@ function close() {
             :loading="uploading"
             :disabled="!currentMeta.tags.trim()"
             @click="uploadCurrent"
-          >Upload{{ totalFiles > 1 ? ' Current' : '' }}</UiButton>
+          >{{ totalFiles > 1 ? $t('images.uploadCurrent') : $t('images.upload') }}</UiButton>
           <UiButton
             v-if="totalFiles > 1"
             :loading="uploading"
             :disabled="!currentMeta.tags.trim()"
             @click="uploadAll"
-          >Upload All ({{ totalFiles }})</UiButton>
-          <UiButton @click="close" :disabled="uploading">Cancel</UiButton>
+          >{{ $t('images.uploadAll') }} ({{ totalFiles }})</UiButton>
+          <UiButton @click="close" :disabled="uploading">{{ $t('common.cancel') }}</UiButton>
         </div>
       </div>
     </template>

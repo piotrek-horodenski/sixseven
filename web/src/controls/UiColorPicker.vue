@@ -386,12 +386,12 @@ function selectPreset(hex: string) {
         class="ui-color-picker__tab"
         :class="{ 'ui-color-picker__tab--active': activeTab === 'picker' }"
         @click.prevent="activeTab = 'picker'"
-      >Pick color</a>
+      >{{ $t('common.pickColor') }}</a>
       <a
         class="ui-color-picker__tab"
         :class="{ 'ui-color-picker__tab--active': activeTab === 'presets' }"
         @click.prevent="activeTab = 'presets'"
-      >Presets</a>
+      >{{ $t('common.presets') }}</a>
     </div>
 
     <!-- Tab bodies -->
@@ -447,7 +447,7 @@ function selectPreset(hex: string) {
         <a
           class="ui-color-picker__format-label"
           @click.prevent="cycleFormat"
-          v-tooltip="'Switch format (current: ' + formatLabel + ')'"
+          v-tooltip="$t('common.switchFormat', { format: formatLabel })"
         >{{ formatLabel }}</a>
         <div v-if="inputFormat === 'hex'" class="ui-color-picker__input-fields">
           <input
@@ -527,7 +527,7 @@ function selectPreset(hex: string) {
         @click.prevent="saveCurrentAsPreset"
       >
         <fa icon="plus" />
-        Save as preset
+        {{ $t('common.saveAsPreset') }}
       </a>
     </div>
 
@@ -556,7 +556,7 @@ function selectPreset(hex: string) {
           <button
             type="button"
             class="ui-color-picker__preset-remove"
-            title="Remove preset"
+            :title="$t('common.removePreset')"
             @click="removePreset(preset._id)"
           >
             <fa icon="times" />
@@ -564,7 +564,7 @@ function selectPreset(hex: string) {
         </div>
       </div>
       <div v-else class="ui-color-picker__presets-empty">
-        No saved presets yet
+        {{ $t('common.noSavedPresets') }}
       </div>
     </div>
 

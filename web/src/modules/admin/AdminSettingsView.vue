@@ -66,7 +66,7 @@ watch(() => admin.settings, () => {
 <template>
 <div class="admin-settings">
   <div class="admin-settings__header">
-    <h2>Settings</h2>
+    <h2>{{ $t('admin.settings') }}</h2>
   </div>
 
   <div class="admin-settings__list">

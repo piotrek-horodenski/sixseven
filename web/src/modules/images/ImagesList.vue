@@ -286,22 +286,22 @@ function onMouseUp() {
         </th>
         <th class="images-list__th-thumb"></th>
         <th class="images-list__th-sortable" @click="toggleSort('title')">
-          Title <fa v-if="sortIcon('title')" :icon="sortIcon('title')!" />
+          {{ $t('images.imageTitle') }} <fa v-if="sortIcon('title')" :icon="sortIcon('title')!" />
         </th>
         <th class="images-list__th-sortable" @click="toggleSort('_tags')">
-          Tags <fa v-if="sortIcon('_tags')" :icon="sortIcon('_tags')!" />
+          {{ $t('images.tags') }} <fa v-if="sortIcon('_tags')" :icon="sortIcon('_tags')!" />
         </th>
         <th class="images-list__th-sortable" @click="toggleSort('_collections')">
-          Collections <fa v-if="sortIcon('_collections')" :icon="sortIcon('_collections')!" />
+          {{ $t('images.collections') }} <fa v-if="sortIcon('_collections')" :icon="sortIcon('_collections')!" />
         </th>
         <th class="images-list__th-sortable" @click="toggleSort('meta.fileSize')">
-          Size <fa v-if="sortIcon('meta.fileSize')" :icon="sortIcon('meta.fileSize')!" />
+          {{ $t('images.size') }} <fa v-if="sortIcon('meta.fileSize')" :icon="sortIcon('meta.fileSize')!" />
         </th>
         <th class="images-list__th-sortable" @click="toggleSort('_dimensions')">
-          Dimensions <fa v-if="sortIcon('_dimensions')" :icon="sortIcon('_dimensions')!" />
+          {{ $t('images.dimensions') }} <fa v-if="sortIcon('_dimensions')" :icon="sortIcon('_dimensions')!" />
         </th>
         <th class="images-list__th-sortable" @click="toggleSort('createdAt')">
-          Date <fa v-if="sortIcon('createdAt')" :icon="sortIcon('createdAt')!" />
+          {{ $t('images.date') }} <fa v-if="sortIcon('createdAt')" :icon="sortIcon('createdAt')!" />
         </th>
         <th></th>
       </tr>
@@ -341,7 +341,7 @@ function onMouseUp() {
             class="admin-tag-overflow"
             :title="image.tags!.slice(3).map(t => t.name).join(', ')"
           ><fa icon="ellipsis" /></span>
-          <span v-if="!image.tags?.length" class="admin-muted">none</span>
+          <span v-if="!image.tags?.length" class="admin-muted">{{ $t('images.none') }}</span>
         </td>
         <td>
           <span
@@ -356,7 +356,7 @@ function onMouseUp() {
             class="admin-tag-overflow"
             :title="image.collections!.slice(3).map(c => c.name).join(', ')"
           ><fa icon="ellipsis" /></span>
-          <span v-if="!image.collections?.length" class="admin-muted">none</span>
+          <span v-if="!image.collections?.length" class="admin-muted">{{ $t('images.none') }}</span>
         </td>
         <td>{{ image.meta ? formatSize(image.meta.fileSize) : '-' }}</td>
         <td>{{ image.meta ? `${image.meta.width}x${image.meta.height}` : '-' }}</td>
@@ -371,7 +371,7 @@ function onMouseUp() {
       </tr>
       <tr v-if="!store.images.length && !store.loading">
         <td colspan="9" class="admin-muted" style="text-align: center; padding: 2rem">
-          No images found
+          {{ $t('images.noImagesFound') }}
         </td>
       </tr>
     </tbody>

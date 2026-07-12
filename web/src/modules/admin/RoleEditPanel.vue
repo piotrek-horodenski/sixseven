@@ -186,14 +186,14 @@ function close() {
 <template>
 <div class="admin-panel">
   <div class="admin-panel__header">
-    <UiButton icon="times" @click="close">Close</UiButton>
-    <h3 style="flex: 1; text-align: center">{{ isNew ? 'New Role' : 'Edit Role' }}</h3>
+    <UiButton icon="times" @click="close">{{ $t('common.close') }}</UiButton>
+    <h3 style="flex: 1; text-align: center">{{ isNew ? $t('admin.newRole') : $t('admin.editRole') }}</h3>
     <UiButton
       class="accent"
       :icon="saveState.saving ? null : saveState.saved ? 'check' : null"
       :loading="saveState.saving"
       @click="save"
-    >{{ isNew ? 'Create' : 'Save' }}</UiButton>
+    >{{ isNew ? $t('admin.create') : $t('common.save') }}</UiButton>
   </div>
 
   <div class="admin-panel__body">
@@ -201,17 +201,17 @@ function close() {
       <UiInput
         v-model="name"
         :disabled="!isNew"
-        placeholder="role-name"
-      >Name</UiInput>
+        :placeholder="$t('admin.roleNamePlaceholder')"
+      >{{ $t('admin.name') }}</UiInput>
       <UiInput
         v-model="display"
-        placeholder="Display Name"
-      >Display</UiInput>
+        :placeholder="$t('admin.displayNamePlaceholder')"
+      >{{ $t('admin.display') }}</UiInput>
     </div>
 
     <div class="admin-panel__columns">
       <div class="admin-panel__section">
-        <h4>Direct Permissions</h4>
+        <h4>{{ $t('admin.directPermissions') }}</h4>
         <div
           v-for="(perms, group) in permissionGroups"
           :key="group"
@@ -233,14 +233,14 @@ function close() {
               <span
                 v-if="isPermissionInherited(perm.name)"
                 class="admin-panel__role-inherited-badge"
-              >inherited</span>
+              >{{ $t('admin.inherited') }}</span>
             </div>
           </div>
         </div>
       </div>
 
       <div class="admin-panel__section" v-if="otherRoles.length">
-        <h4>Inherit from Roles</h4>
+        <h4>{{ $t('admin.inheritFromRoles') }}</h4>
         <div class="admin-panel__checkboxes">
           <UiCheckbox
             v-for="r in otherRoles"
@@ -254,7 +254,7 @@ function close() {
     </div>
 
     <div class="admin-panel__section">
-      <h4>Effective Permissions <span class="admin-muted">({{ effectivePermissions.length }})</span></h4>
+      <h4>{{ $t('admin.effectivePermissions') }} <span class="admin-muted">({{ effectivePermissions.length }})</span></h4>
       <div class="admin-panel__permissions-list">
         <span
           v-for="perm in effectivePermissions"
@@ -263,7 +263,7 @@ function close() {
           :class="{ 'admin-tag--subtle': inheritedPermissions.includes(perm) && !selectedPermissions.includes(perm) }"
           :style="{ '--tag-color': groupColors[permissionMap[perm]?.group] || groupColors.other }"
         >{{ permissionMap[perm]?.display || perm }}</span>
-        <span v-if="!effectivePermissions.length" class="admin-muted">No permissions</span>
+        <span v-if="!effectivePermissions.length" class="admin-muted">{{ $t('admin.noPermissions') }}</span>
       </div>
     </div>
   </div>
@@ -274,7 +274,7 @@ function close() {
       :icon="saveState.saving ? null : saveState.saved ? 'check' : null"
       :loading="saveState.saving"
       @click="save"
-    >{{ isNew ? 'Create' : 'Save' }}</UiButton>
+    >{{ isNew ? $t('admin.create') : $t('common.save') }}</UiButton>
   </div>
 </div>
 </template>

@@ -25,7 +25,7 @@ function onSelect() {
       @click="onSelect"
     >
       <span class="icon"><fa icon="home" /></span>
-      <span class="label">Home</span>
+      <span class="label">{{ $t('layout.menu.home') }}</span>
     </RouterLink>
   </li>
   <li v-if="hasPermission('access-images')">
@@ -35,7 +35,7 @@ function onSelect() {
       @click="onSelect"
     >
       <span class="icon"><fa icon="images" /></span>
-      <span class="label">Images</span>
+      <span class="label">{{ $t('layout.menu.images') }}</span>
     </RouterLink>
   </li>
   <li v-if="hasPermission('view-admin')">
@@ -45,7 +45,7 @@ function onSelect() {
       @click="onSelect"
     >
       <span class="icon"><fa icon="lock" /></span>
-      <span class="label">Admin</span>
+      <span class="label">{{ $t('layout.menu.admin') }}</span>
     </RouterLink>
   </li>
 </ul>

@@ -192,13 +192,13 @@ watch(() => props.modelValue, () => {
       v-if="filteredOptions.length === 0 && !loading"
       class="ui-autocomplete__no-results"
     >
-      <slot name="no-results">No results</slot>
+      <slot name="no-results">{{ $t('common.noResults') }}</slot>
     </div>
     <div
       v-if="loading && filteredOptions.length === 0"
       class="ui-autocomplete__loading"
     >
-      <slot name="loading">Loading...</slot>
+      <slot name="loading">{{ $t('common.loading') }}</slot>
     </div>
   </div>
 </label>

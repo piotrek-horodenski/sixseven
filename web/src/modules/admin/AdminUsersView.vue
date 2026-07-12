@@ -74,25 +74,25 @@ function syncUsers() {
 <template>
 <div class="admin-users">
   <div class="admin-users__header">
-    <h2>Users</h2>
+    <h2>{{ $t('admin.users') }}</h2>
     <UiInput
       :modelValue="search"
       @update:modelValue="(v: string) => search = v"
-      placeholder="Search users..."
+      :placeholder="$t('admin.searchUsers')"
     />
     <UiButton
       :loading="admin.syncing"
       @click="syncUsers"
-    >Sync</UiButton>
+    >{{ $t('admin.sync') }}</UiButton>
   </div>
 
   <div class="admin-users__list">
     <table class="admin-table">
       <thead>
         <tr>
-          <th>Username</th>
-          <th>Email</th>
-          <th>Roles</th>
+          <th>{{ $t('admin.username') }}</th>
+          <th>{{ $t('admin.email') }}</th>
+          <th>{{ $t('admin.roles') }}</th>
           <th></th>
         </tr>
       </thead>
@@ -118,19 +118,19 @@ function syncUsers() {
               class="admin-tag-overflow"
               :title="u.roles!.slice(3).map((r: string) => admin.roles.find((ro: any) => ro.name === r)?.display || r).join(', ')"
             ><fa icon="ellipsis" /></span>
-            <span v-if="!u.roles?.length" class="admin-muted">none</span>
+            <span v-if="!u.roles?.length" class="admin-muted">{{ $t('admin.none') }}</span>
           </td>
           <td class="admin-table__actions" @click.stop>
             <UiButton
               icon="trash"
               :disabled="u.roles?.includes('admin')"
               @click="confirmDelete(u._id)"
-            >Remove</UiButton>
+            >{{ $t('admin.remove') }}</UiButton>
           </td>
         </tr>
         <tr v-if="!filteredUsers.length">
           <td colspan="4" class="admin-muted" style="text-align: center; padding: 2rem">
-            No user matches given criteria
+            {{ $t('admin.noUserMatches') }}
           </td>
         </tr>
       </tbody>
@@ -143,12 +143,12 @@ function syncUsers() {
     :outsideClose="true"
     @update:show="cancelDelete"
   >
-    <template #title>Confirm</template>
+    <template #title>{{ $t('admin.confirm') }}</template>
     <form class="ui-confirm" @submit.prevent="cancelDelete">
-      <p class="ui-confirm__message">Are you sure you want to delete this user?</p>
+      <p class="ui-confirm__message">{{ $t('admin.confirmDeleteUser') }}</p>
       <div class="ui-confirm__actions">
-        <UiButton class="accent" type="submit">Cancel</UiButton>
-        <UiButton @click="doDelete">Yes, delete</UiButton>
+        <UiButton class="accent" type="submit">{{ $t('common.cancel') }}</UiButton>
+        <UiButton @click="doDelete">{{ $t('admin.yesDelete') }}</UiButton>
       </div>
     </form>
   </UiPopup>

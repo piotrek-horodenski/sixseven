@@ -25,29 +25,29 @@ function submit() {
 <template>
 <div class="auth-page">
   <div class="auth-card">
-    <h2 class="auth-card__title">Log in</h2>
+    <h2 class="auth-card__title">{{ $t('auth.logIn') }}</h2>
 
     <UiForm @submit.prevent="submit" @keyup.enter="submit">
       <UiInput
         v-model="form.email"
-        placeholder="Email or username"
+        :placeholder="$t('auth.emailOrUsername')"
         autocomplete="email"
         class="auth-card__input auth-card__input--login"
-      >Email or Username</UiInput>
+      >{{ $t('auth.emailOrUsername') }}</UiInput>
 
       <UiInput
         v-model="form.password"
         type="password"
-        placeholder="Password"
+        :placeholder="$t('auth.password')"
         autocomplete="current-password"
         class="auth-card__input auth-card__input--password"
-      >Password</UiInput>
+      >{{ $t('auth.password') }}</UiInput>
 
       <template #errors>
         <UiMessage
           v-if="!connected"
           type="warning"
-        >Connecting to server...</UiMessage>
+        >{{ $t('auth.connectingToServer') }}</UiMessage>
 
         <UiMessage
           v-if="loginError"
@@ -60,13 +60,13 @@ function submit() {
           :loading="loginLoading"
           :disabled="!canSubmit"
           @click="submit"
-        >Log in</UiButton>
+        >{{ $t('auth.logIn') }}</UiButton>
       </template>
     </UiForm>
 
     <div class="auth-card__footer">
-      <span>Don't have an account?</span>
-      <RouterLink to="/register">Register</RouterLink>
+      <span>{{ $t('auth.noAccount') }}</span>
+      <RouterLink to="/register">{{ $t('auth.register') }}</RouterLink>
     </div>
   </div>
 </div>

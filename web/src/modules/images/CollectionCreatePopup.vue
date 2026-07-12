@@ -36,17 +36,17 @@ async function create() {
   :outsideClose="true"
   @update:show="emit('close')"
 >
-  <template #title>New Collection</template>
+  <template #title>{{ $t('images.newCollection') }}</template>
   <form class="ui-form" @submit.prevent="create">
     <UiInput
       :modelValue="name"
       @update:modelValue="(v: string) => name = v"
-      placeholder="Collection name..."
+      :placeholder="$t('images.collectionNamePlaceholder')"
       autofocus
     />
     <div class="ui-form__buttons">
-      <UiButton type="button" @click="emit('close')">Cancel</UiButton>
-      <UiButton class="accent" type="submit" :disabled="!name.trim()">Create</UiButton>
+      <UiButton type="button" @click="emit('close')">{{ $t('common.cancel') }}</UiButton>
+      <UiButton class="accent" type="submit" :disabled="!name.trim()">{{ $t('images.create') }}</UiButton>
     </div>
   </form>
 </UiPopup>

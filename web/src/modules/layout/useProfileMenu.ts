@@ -1,4 +1,5 @@
 import { computed, ref, onMounted, onUnmounted } from 'vue'
+import { t } from '@/i18n'
 import { useGateStore } from '@/stores/gate/gate.store'
 
 export function useProfileMenu() {
@@ -8,7 +9,7 @@ export function useProfileMenu() {
   const logoutLoading = ref(false)
 
   const displayName = computed(() => {
-    return gate.user?.profile?.display || gate.user?.username || 'Guest'
+    return gate.user?.profile?.display || gate.user?.username || t('layout.profileMenu.guest')
   })
 
   function toggleProfile() {

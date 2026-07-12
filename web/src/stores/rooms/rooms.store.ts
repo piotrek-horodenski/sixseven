@@ -1,5 +1,6 @@
 import { ref, computed } from 'vue'
 import { defineStore } from 'pinia'
+import { t } from '@/i18n'
 import { useGateStore } from '@/stores/gate/gate.store'
 import { useCollection } from '@/composables/useCollection'
 import { RPS_GAME_ID, type Room, type RoomVisibility } from './rooms.model'
@@ -94,7 +95,7 @@ export const useRoomsStore = defineStore('rooms', () => {
   function onCreateError({ message }: { message?: string }) {
     creating.value = false
     pendingAutoHandoff.value = false
-    lastError.value = message || 'Nie udało się utworzyć gry'
+    lastError.value = message || t('rooms.errors.create')
   }
   function onJoinComplete({ roomId, matchId }: { roomId: string; matchId?: string }) {
     lastError.value = null
@@ -107,7 +108,7 @@ export const useRoomsStore = defineStore('rooms', () => {
   }
   function onJoinError({ message }: { message?: string }) {
     pendingAutoHandoff.value = false
-    lastError.value = message || 'Nie udało się dołączyć do gry'
+    lastError.value = message || t('rooms.errors.join')
   }
   function onLeaveComplete({ roomId }: { roomId: string }) {
     lastLeftRoomId.value = roomId
@@ -117,13 +118,13 @@ export const useRoomsStore = defineStore('rooms', () => {
     lastClosedRoomId.value = roomId
   }
   function onCloseError({ message }: { message?: string }) {
-    lastError.value = message || 'Nie udało się zamknąć gry'
+    lastError.value = message || t('rooms.errors.close')
   }
   function onHandoffComplete(payload: { code: string; gameId: string; playerId: string }) {
     lastHandoff.value = payload
   }
   function onHandoffError({ message }: { message?: string }) {
-    lastError.value = message || 'Nie udało się przejść do meczu'
+    lastError.value = message || t('rooms.errors.handoff')
   }
 
   const ackPairs: [string, (...a: any[]) => void][] = [

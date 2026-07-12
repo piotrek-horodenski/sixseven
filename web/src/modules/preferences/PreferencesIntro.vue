@@ -4,8 +4,8 @@
 <div class="preferences-intro">
   <h1 class="preferences-intro__title">
     <fa icon="sliders" class="preferences-intro__icon" />
-    Preferencje
+    {{ $t('preferences.intro.title') }}
   </h1>
-  <p class="preferences-intro__subtitle">Motyw, język i ustawienia gier.</p>
+  <p class="preferences-intro__subtitle">{{ $t('preferences.intro.subtitle') }}</p>
 </div>
 </template>

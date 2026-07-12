@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { ref, watch, onMounted, onUnmounted } from 'vue'
+import { useI18n } from 'vue-i18n'
 import { storeToRefs } from 'pinia'
 import { useGateStore } from '@/stores/gate/gate.store'
 import { useRoomsStore } from '@/stores/rooms/rooms.store'
@@ -17,16 +18,18 @@ import { EMessageType } from '@/controls/controls.model'
  * dokładnie ten sam kontrakt URL, co reszta wejść do gry.
  */
 
-type GameOption = { id: string; label: string; icon: string }
+/** `labelKey` = klucz i18n — tłumaczy template ($t), reaguje na zmianę języka. */
+type GameOption = { id: string; labelKey: string; icon: string }
 
 const GAME_OPTIONS: GameOption[] = [
-  { id: RPS_GAME_ID, label: 'Papier / kamień / nożyce', icon: 'hand-scissors' },
+  { id: RPS_GAME_ID, labelKey: 'rooms.create.gameRps', icon: 'hand-scissors' },
 ]
 /** Soft-cap tylko do UI (atrybut `max`) — serwer nie blokuje większych wartości. */
 const CAPACITY_SOFT_CAP = 8
 const DEFAULT_CAPACITY = 2
 const DEFAULT_TARGET = 5
 
+const { t } = useI18n()
 const gate = useGateStore()
 const rooms = useRoomsStore()
 const { creating, lastError } = storeToRefs(rooms)
@@ -58,8 +61,12 @@ function parseTarget(): number {
 function submit() {
   if (creating.value || awaitingHandoff.value) return
   awaitingHandoff.value = true
-  const author = gate.user?.profile?.display || gate.user?.username || 'gracza'
-  rooms.createAndPlay(`Gra ${author}`, 'public', selectedGameId.value, {
+  const author = gate.user?.profile?.display || gate.user?.username
+  // Nazwa trafia na serwer w języku twórcy (widzą ją wszyscy gracze).
+  const name = author
+    ? t('rooms.create.defaultName', { author })
+    : t('rooms.create.defaultNameFallback')
+  rooms.createAndPlay(name, 'public', selectedGameId.value, {
     capacity: parseCapacity(),
     target: parseTarget(),
   })
@@ -83,10 +90,10 @@ watch(selectedGameId, () => {
 </script>
 <template>
 <div class="create-game">
-  <h2 class="create-game__title">Nowa gra</h2>
+  <h2 class="create-game__title">{{ $t('rooms.create.title') }}</h2>
 
   <div class="create-game__field">
-    <span class="create-game__label">Gra</span>
+    <span class="create-game__label">{{ $t('rooms.create.gameLabel') }}</span>
     <div class="create-game__options">
       <button
         v-for="g in GAME_OPTIONS"
@@ -96,10 +103,10 @@ watch(selectedGameId, () => {
         :class="{ 'create-game__option--active': g.id === selectedGameId }"
         disabled
       >
-        <fa :icon="g.icon" /> {{ g.label }}
+        <fa :icon="g.icon" /> {{ $t(g.labelKey) }}
       </button>
     </div>
-    <p class="create-game__hint">Na razie jedna gra — więcej wkrótce.</p>
+    <p class="create-game__hint">{{ $t('rooms.create.onlyOneGameHint') }}</p>
   </div>
 
   <div class="create-game__field">
@@ -111,9 +118,9 @@ watch(selectedGameId, () => {
       :max="CAPACITY_SOFT_CAP"
       inputmode="numeric"
     >
-      Liczba graczy
+      {{ $t('rooms.create.capacityLabel') }}
     </UiInput>
-    <p class="create-game__hint">Min. 2, bez twardego limitu.</p>
+    <p class="create-game__hint">{{ $t('rooms.create.capacityHint') }}</p>
   </div>
 
   <div class="create-game__field">
@@ -124,7 +131,7 @@ watch(selectedGameId, () => {
       min="1"
       inputmode="numeric"
     >
-      Do ilu punktów
+      {{ $t('rooms.create.targetLabel') }}
     </UiInput>
   </div>
 
@@ -137,7 +144,7 @@ watch(selectedGameId, () => {
       :disabled="creating || awaitingHandoff"
       @click="submit"
     >
-      Utwórz
+      {{ $t('rooms.create.submit') }}
     </UiButton>
   </div>
 </div>

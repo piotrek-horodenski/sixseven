@@ -1,3 +1,5 @@
+import type { RouteRecordRaw } from 'vue-router'
+
 import homeRoute from './home.route'
 import adminRoute from './admin.route'
 import profileRoute from './profile.route'
@@ -9,7 +11,9 @@ import roomJoinRoute from './room-join.route'
 import gameRpsRoute from './game-rps.route'
 import preferencesRoute from './preferences.route'
 
-export const routes = [
+// Jawny typ: bez niego TS skleja route'y w unię i wymaga `redirect` od
+// wszystkich (TS2322 w router/index.ts) — z typem sprawdza każdy element osobno.
+export const routes: RouteRecordRaw[] = [
   loginRoute,
   registerRoute,
   homeRoute,

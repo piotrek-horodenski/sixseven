@@ -4,7 +4,7 @@
 
 ## Stan projektu (2026-07-11)
 
-**Faza: kod ISTNIEJE. Etapy 0, 1, 2 zaimplementowane i przeszły na żywo. Etap 3 (UI/przepływ „gry", N-graczy) w większości ZROBIONY w sesji 2026-07-11 — patrz sekcja „Etap 3" niżej. JEDYNE otwarte duże zadanie: i18n całej aplikacji (Fala 3, NIEZROBIONA).**
+**Faza: kod ISTNIEJE. Etapy 0, 1, 2 zaimplementowane i przeszły na żywo. Etap 3 (UI/przepływ „gry", N-graczy) ZROBIONY i ZWERYFIKOWANY na żywo (2026-07-12: przepływ N-graczy, kafelki, „X", upload obrazków, `test:integration` zielone). Fala 3 (i18n pl/en) NAPISANA w sesji 2026-07-12; testy web zielone, blocker vue-tsc naprawiony (sesja 2) — czeka na potwierdzenie type-check + rebuild + smoke po stronie Piotra (sekcja „Fala 3" niżej).**
 
 ## Etap 3 — sesja 2026-07-11 (UI + przepływ „gry" + N-graczy + prefs)
 
@@ -33,6 +33,24 @@
 **Testy (stan na koniec sesji):** jednostkowe zielone (`npm test` — gate/web/games/catalog-rps/sdk/hmac/image; poprawione stale testy: role-based-visibility, subscriptions-manager). Integracyjne: `npm run test:integration` (root, dodany) = **games + image** (`--if-present`; web NIE ma test:integration). Wymaga: mongo RS na **27140** (games, transakcje) + mongo na **27133** (image; z `docker compose`). `games` przeszło po ostatnim fixie (dodanie `winner` do eventu RPS) — POTWIERDŹ ostatnim przebiegiem. `rps-volume.bench` za `BENCH=1`.
 
 **Dług/uwagi Etapu 3:** legacy `games.store` (2c) wciąż init w `AppLayout` (nieszkodliwe, używane przez status Home); martwe klasy w `games.scss`; `rooms:start` to teraz martwy handler (mecz powstaje przy `rooms:create`); pełny N-graczy przetestowany tylko jednostkowo/integracyjnie — warto na żywo 3+ graczy.
+
+## Fala 3 — i18n (sesja 2026-07-12)
+
+> Kontrakt: `docs/ETAP3_I18N_CONTRACT.md`. Wykonane 4 agentami na rozłącznych obszarach (A: auth/profile/settings/layout/controls, B: admin/images, C: game-app/games/composables, D: home/rooms/preferences/stores) + centralny setup.
+
+- **vue-i18n v11**, `legacy:false`, `globalInjection:true` (w template `$t()` bez importów). Setup: `web/src/i18n/index.ts` (+ custom **reguła pluralizacji pl, 4 formy**: `zero | 1 | 2–4 | 5+`), `web/src/config/i18n.config.ts` (app.use + `watch(prefsStore.language, immediate)` → locale), `web/vitest.setup.ts` (i18n w `config.global.plugins`, locale `pl` — asercje testów na widoczne teksty są PO POLSKU).
+- **Słowniki:** `web/src/i18n/locales/{pl,en}/<ns>.ts`, ns: `common auth profile settings layout admin images home rooms games preferences` (~260 kluczy). **Parytet kluczy wymusza TYP**: `en/<ns>.ts` deklaruje `const ns: typeof pl = {...}` — brak/nadmiar klucza = błąd `vue-tsc`.
+- W .ts poza komponentami: `import { t } from '@/i18n'` (stores, composables, consts). Determinizm RPS zachowany: w `rps.consts.ts` stałe trzymają TYLKO klucze (`labelKey`), `t()` wołane per render, nic tłumaczonego nie idzie do stanu/socketów. Analogicznie `game-prefs.catalog.ts` trzyma klucze (kształt zgodny z przyszłym manifestem).
+- Znane niuanse: nazwa gry „Gra {author}" zapisuje się na serwerze w języku twórcy; duplikaty wspólnych kluczy (create/yesDelete/…) między ns — kandydaci do konsolidacji w `common` (właściciel: jeden przelot, nie ruszać przy okazji).
+- **Stan weryfikacji (koniec sesji 2026-07-12):** `npm install` zrobiony, **`npm test -w web` ZIELONE**. vue-tsc: 2×TS2322 w routes NAPRAWIONE (sekcja niżej) — **czeka na potwierdzenie `npm run type-check -w web` przez Piotra**. Pozostały krok po potwierdzeniu: rebuild `docker compose up -d --build web` + smoke przełącznika języka w `/preferences` (ma przełączać CAŁĄ apkę na żywo).
+
+### NAPRAWIONE (2026-07-12, sesja 2): vue-tsc — 2×TS2322 w `router/routes/index.ts` (adminRoute, imagesRoute)
+
+Historia: pierwszy pełny `vue-tsc --build` po `npm install` wyrzucił 5 błędów — **tylko 1 z fali i18n** (PreferencesView: implicit any — NAPRAWIONY), 4 zastane. Naprawione wcześniej: cast `FontAwesomeIcon as Component` (TS2590), `UiButton.type` zawężony do `'button'|'submit'|'reset'`, `routes: RouteRecordRaw[]` w `routes/index.ts`, **oraz realny ukryty bug: `images.store` nie zwracał `lastSelectedId`, a `ImagesView.openImage` pisał w nieistniejącą właściwość (no-op kotwicy shift-selecta) — ref wyeksponowany**.
+
+Ostatnie 2 (adminRoute/imagesRoute): **root cause potwierdzony minimalnym repro w sandboksie** (czysty `tsc` na typach vue-router 4.6.4, bez .vue): `satisfies RouteRecordRaw` PRZECHODZI w pliku route (sprawdzanie kontekstowe, każde dziecko osobno vs unia), ale **typ eksportu pozostaje wywnioskowanym literałem** — dzieci z/bez `aside` sklejają się w unię z `aside?: undefined`, i przy PONOWNYM sprawdzeniu w `routes/index.ts` (już bez kontekstu) `undefined` nie przechodzi jako komponent → unia dyskryminuje do `RouteRecordRedirect` i żąda `redirect`. Dlatego błąd wskazywał `index.ts`, nie pliki route — **to NIE był cache ani wersje** (repro identyczne na TS 5.6.3 i 6.0.3). **Fix: jawna adnotacja `const adminRoute: RouteRecordRaw = {...}; export default adminRoute` zamiast `satisfies`** (analogicznie images) — repro zielone na obu wersjach TS. Zaaplikowane w `admin.route.ts` + `images.route.ts` (komentarz z uzasadnieniem w admin.route.ts).
+
+**Przy okazji wykryty dryf wersji (nie był przyczyną, ale warto wiedzieć):** `web` deklaruje `typescript ~5.6.3` (i ma lokalnie 5.6.3 w `web/node_modules`), ale pozostałe workspaces mają `^6.0.2` → w rootowych `node_modules` zhoistowany **typescript 6.0.3** oraz **vue-tsc 2.2.12** (deklarowane `^2.1.10`). vue-tsc leży w root, więc `require('typescript')` rozwiązuje mu się do **6.0.3**, nie 5.6.3 — type-check weba realnie chodzi na TS 6. Dziś bez skutków; kandydat do ujednolicenia (podbić weba do `^6.0.2` albo przypiąć vue-tsc lokalnie w web).
 
 Monorepo `platform` (workspaces): `gate/` (brama/tożsamość/subskrypcje), `games/` (silnik meczów, kolekcje prywatne), `web/` (Vue3), `catalog/rps/` (RPS jako pierwsza gra first-party), `packages/{hmac,sdk}` (wspólny HMAC + SDK twórcy gry), `image/` (media). Zbudowane z fundamentu hydra.
 
@@ -100,8 +118,8 @@ Turowa piłka nożna (1v1, po 4 zawodników, strzałki=impulsy, fizyka konfiguro
 
 ## Następne kroki (w kolejności)
 
-1. **Fala 3 — i18n całej aplikacji (pl/en)** — JEDYNE duże otwarte zadanie z Etapu 3 (task nie zrobiony). Infrastruktura gotowa: `usePrefsStore().language` (`'pl'|'en'`, localStorage `hydra-language`, default `pl`) + przełącznik w `/preferences`. Do zrobienia: wpiąć vue-i18n, wyekstrahować WSZYSTKIE stringi web do pl/en, podpiąć pod `usePrefsStore().language`. To dotyka każdego pliku .vue — najlepiej jeden skupiony przelot (nie da się sensownie zrównoleglić), po ustabilizowaniu ekranów Etapu 3.
-2. **Weryfikacja na żywo Etapu 3** (po `docker compose up -d --build gate games rps web`): założenie gry → drugi/trzeci gracz przez kafelek → „Rozpocznij" u wszystkich (lub auto-start po timeoucie) → rozgrywka N-graczy → tablica wyników → „X" kasuje zepsute/zakończone. Upload obrazków w admin/images (po rebuildzie web; firewall 5279). Potwierdź ostatni przebieg `npm run test:integration` (miał być zielony po fixie `winner`).
+1. **Domknięcie Fali 3 (i18n):** testy web ZIELONE; fix vue-tsc ZAAPLIKOWANY (sekcja „NAPRAWIONE" wyżej) — **Piotr: `npm run type-check -w web`**, potem rebuild web + smoke przełącznika języka.
+2. ~~Weryfikacja na żywo Etapu 3~~ — ZROBIONA 2026-07-12 (zielono: przepływ N-graczy, kafelki, „X", obrazki, `test:integration`).
 3. **Możliwe następne (pomysły Piotra):** bot dołączający do gry, gdy brak przeciwnika (wspomniane jako przyszłość); presence/kolejka szybkiego meczu (oryginalny Etap 3 z `IMPLEMENTATION_PLAN.md`, częściowo zastąpiony modelem „lista otwartych gier na Home").
 4. **Dalej wg planu:** **Etap 4** ranked + ELO, hosting bundli UI (CSP/WebRTC), znajomi, czat. **Etap 5** judge + trust. **Etap 6** arrowsoccer + tutorial. Otwarte wątki dok.: snajperzy (przed etapem 5); ślepe zaułki arrowsoccera; `docs/UNKNOWNS.md`.
 

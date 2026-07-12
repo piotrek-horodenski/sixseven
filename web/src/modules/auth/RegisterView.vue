@@ -36,37 +36,37 @@ watch(registerSuccess, (val) => {
 <template>
 <div class="auth-page">
   <div class="auth-card">
-    <h2 class="auth-card__title">Create account</h2>
+    <h2 class="auth-card__title">{{ $t('auth.createAccount') }}</h2>
 
     <UiForm @submit.prevent="submit" @keyup.enter="submit">
       <UiInput
         v-model="form.username"
-        placeholder="Username"
+        :placeholder="$t('auth.username')"
         autocomplete="username"
         class="auth-card__input auth-card__input--username"
-      >Username</UiInput>
+      >{{ $t('auth.username') }}</UiInput>
 
       <UiInput
         v-model="form.email"
         type="email"
-        placeholder="Email"
+        :placeholder="$t('auth.email')"
         autocomplete="email"
         class="auth-card__input auth-card__input--email"
-      >Email</UiInput>
+      >{{ $t('auth.email') }}</UiInput>
 
       <UiInput
         v-model="form.password"
         type="password"
-        placeholder="Password"
+        :placeholder="$t('auth.password')"
         autocomplete="new-password"
         class="auth-card__input auth-card__input--password"
-      >Password</UiInput>
+      >{{ $t('auth.password') }}</UiInput>
 
       <template #errors>
         <UiMessage
           v-if="!connected"
           type="warning"
-        >Connecting to server...</UiMessage>
+        >{{ $t('auth.connectingToServer') }}</UiMessage>
 
         <UiMessage
           v-if="registerError"
@@ -76,7 +76,7 @@ watch(registerSuccess, (val) => {
         <UiMessage
           v-if="registerSuccess"
           type="success"
-        >Account created! You can now <RouterLink to="/login">log in</RouterLink>.</UiMessage>
+        >{{ $t('auth.accountCreated') }} <RouterLink to="/login">{{ $t('auth.accountCreatedLogIn') }}</RouterLink>.</UiMessage>
       </template>
 
       <template #buttons>
@@ -84,13 +84,13 @@ watch(registerSuccess, (val) => {
           :loading="loading"
           :disabled="!canSubmit"
           @click="submit"
-        >Register</UiButton>
+        >{{ $t('auth.register') }}</UiButton>
       </template>
     </UiForm>
 
     <div class="auth-card__footer">
-      <span>Already have an account?</span>
-      <RouterLink to="/login">Log in</RouterLink>
+      <span>{{ $t('auth.alreadyHaveAccount') }}</span>
+      <RouterLink to="/login">{{ $t('auth.logIn') }}</RouterLink>
     </div>
   </div>
 </div>

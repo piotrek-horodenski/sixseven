@@ -1,5 +1,5 @@
 <template>
 <div class="pt-1 pb-1 pl-3 pr-3">
-  <h1>Settings</h1>
+  <h1>{{ $t('admin.settings') }}</h1>
 </div>
 </template>

@@ -1,4 +1,5 @@
 import { ref, computed, type Ref } from 'vue'
+import { t } from '@/i18n'
 import { useTokenSocket, type TokenSocket } from './useTokenSocket'
 import type { Match, MatchView, RpsMove } from '@/stores/games/games.model'
 
@@ -70,7 +71,7 @@ export function useMatchClient(fetchFn: typeof fetch = fetch) {
     rejected.value = true
   }
   function onError({ message }: { message?: string }) {
-    error.value = message || 'Operacja nie powiodła się'
+    error.value = message || t('games.errors.operationFailed')
   }
 
   /**
@@ -88,7 +89,7 @@ export function useMatchClient(fetchFn: typeof fetch = fetch) {
       })
       if (!res.ok) {
         const data = await res.json().catch(() => ({}))
-        throw new Error(data.message || 'Nie udało się dołączyć do meczu')
+        throw new Error(data.message || t('games.errors.joinFailed'))
       }
       const data = (await res.json()) as MatchTokenResponse
       matchId.value = data.matchId
@@ -99,7 +100,7 @@ export function useMatchClient(fetchFn: typeof fetch = fetch) {
       return true
     } catch (e: any) {
       status.value = 'error'
-      error.value = e?.message || 'Nie udało się dołączyć do meczu'
+      error.value = e?.message || t('games.errors.joinFailed')
       return false
     }
   }

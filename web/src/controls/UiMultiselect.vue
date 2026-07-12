@@ -146,8 +146,8 @@ function clearAll() {
     aria-multiselectable="true"
   >
     <div class="ui-multiselect__actions">
-      <a class="ui-multiselect__action" @click.prevent="selectAll">Select all</a>
-      <a class="ui-multiselect__action" @click.prevent="clearAll">Clear</a>
+      <a class="ui-multiselect__action" @click.prevent="selectAll">{{ $t('common.selectAll') }}</a>
+      <a class="ui-multiselect__action" @click.prevent="clearAll">{{ $t('common.clear') }}</a>
     </div>
     <div
       v-for="(option, index) in options"

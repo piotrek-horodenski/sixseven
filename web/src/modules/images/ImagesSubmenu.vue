@@ -27,7 +27,7 @@ function selectCollection(name: string) {
         href="#"
         :class="{ 'active': !store.selectedCollection }"
         @click.prevent="selectCollection('')"
-      >All</a>
+      >{{ $t('images.all') }}</a>
     </li>
     <li
       v-for="col in store.collections"

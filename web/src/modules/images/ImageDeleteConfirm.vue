@@ -22,20 +22,20 @@ const emit = defineEmits<{
   :outsideClose="true"
   @update:show="emit('cancel')"
 >
-  <template #title>Confirm Delete</template>
+  <template #title>{{ $t('images.confirmDelete') }}</template>
   <form class="ui-confirm" @submit.prevent="emit('cancel')">
     <p class="ui-confirm__message">
       {{ force
-        ? 'Are you sure you want to permanently delete this image? This cannot be undone.'
-        : 'Are you sure you want to delete this image?'
+        ? $t('images.confirmForceDeleteMsg')
+        : $t('images.confirmDeleteMsg')
       }}
     </p>
     <p v-if="image" class="ui-confirm__detail">
       {{ image.title }}
     </p>
     <div class="ui-confirm__actions">
-      <UiButton class="accent" type="submit">Cancel</UiButton>
-      <UiButton @click="emit('confirm')">Yes, delete</UiButton>
+      <UiButton class="accent" type="submit">{{ $t('common.cancel') }}</UiButton>
+      <UiButton @click="emit('confirm')">{{ $t('images.yesDelete') }}</UiButton>
     </div>
   </form>
 </UiPopup>

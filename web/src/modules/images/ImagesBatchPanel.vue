@@ -103,22 +103,22 @@ function close() {
 <template>
 <div class="images-batch-panel" v-if="store.selectedCount > 0">
   <div class="images-batch-panel__header">
-    <h3>Batch Edit ({{ store.selectedCount }})</h3>
+    <h3>{{ $t('images.batchEdit') }} ({{ store.selectedCount }})</h3>
     <a href="#" @click.prevent="close"><fa icon="times" /></a>
   </div>
 
   <div class="images-batch-panel__form">
     <div class="images-batch-panel__section">
-      <h5>Add tags</h5>
+      <h5>{{ $t('images.addTags') }}</h5>
       <UiInput
         :modelValue="tagsToAdd"
         @update:modelValue="(v: string) => tagsToAdd = v"
-        placeholder="Tags to add (space-separated)"
+        :placeholder="$t('images.tagsToAddPlaceholder')"
       />
     </div>
 
     <div class="images-batch-panel__section" v-if="unionTags.length">
-      <h5>Remove tags</h5>
+      <h5>{{ $t('images.removeTags') }}</h5>
       <div class="images-batch-panel__chips">
         <span
           v-for="tag in unionTags"
@@ -131,16 +131,16 @@ function close() {
     </div>
 
     <div class="images-batch-panel__section">
-      <h5>Add collections</h5>
+      <h5>{{ $t('images.addCollections') }}</h5>
       <UiInput
         :modelValue="collectionsToAdd"
         @update:modelValue="(v: string) => collectionsToAdd = v"
-        placeholder="Collections to add (comma-separated)"
+        :placeholder="$t('images.collectionsToAddPlaceholder')"
       />
     </div>
 
     <div class="images-batch-panel__section" v-if="unionCollections.length">
-      <h5>Remove collections</h5>
+      <h5>{{ $t('images.removeCollections') }}</h5>
       <div class="images-batch-panel__chips">
         <span
           v-for="col in unionCollections"
@@ -153,9 +153,9 @@ function close() {
     </div>
 
     <div class="images-batch-panel__actions">
-      <UiButton class="accent" :loading="saving" @click="apply">Apply Changes</UiButton>
+      <UiButton class="accent" :loading="saving" @click="apply">{{ $t('images.applyChanges') }}</UiButton>
       <UiButton @click="showDeleteConfirm = true">
-        <fa icon="trash" /> Delete Selected
+        <fa icon="trash" /> {{ $t('images.deleteSelected') }}
       </UiButton>
     </div>
   </div>
@@ -166,14 +166,14 @@ function close() {
     :outsideClose="true"
     @update:show="showDeleteConfirm = false"
   >
-    <template #title>Confirm Batch Delete</template>
+    <template #title>{{ $t('images.confirmBatchDelete') }}</template>
     <form class="ui-confirm" @submit.prevent="showDeleteConfirm = false">
       <p class="ui-confirm__message">
-        Are you sure you want to delete {{ store.selectedCount }} image{{ store.selectedCount > 1 ? 's' : '' }}?
+        {{ $t('images.confirmBatchDeleteMsg', store.selectedCount) }}
       </p>
       <div class="ui-confirm__actions">
-        <UiButton class="accent" type="submit">Cancel</UiButton>
-        <UiButton @click="doBatchDelete">Yes, delete all</UiButton>
+        <UiButton class="accent" type="submit">{{ $t('common.cancel') }}</UiButton>
+        <UiButton @click="doBatchDelete">{{ $t('images.yesDeleteAll') }}</UiButton>
       </div>
     </form>
   </UiPopup>

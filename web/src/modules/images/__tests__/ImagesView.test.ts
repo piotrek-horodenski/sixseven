@@ -373,7 +373,7 @@ describe('ImageUploadPopup – file handling', () => {
 
     // Find and click upload button
     const buttons = wrapper.findAll('button')
-    const uploadBtn = buttons.find(b => b.text().includes('Upload'))
+    const uploadBtn = buttons.find(b => b.text().includes('Prześlij'))
     expect(uploadBtn).toBeDefined()
 
     await uploadBtn!.trigger('click')
@@ -585,7 +585,7 @@ describe('ImagesSubmenu – collection filtering', () => {
     const items = wrapper.findAll('li')
     // All + 3 collections + add button
     expect(items.length).toBeGreaterThanOrEqual(4)
-    expect(items[0].text()).toContain('All')
+    expect(items[0].text()).toContain('Wszystkie')
     expect(items[1].text()).toContain('favorites')
   })
 
@@ -603,7 +603,7 @@ describe('ImagesSubmenu – collection filtering', () => {
     store.selectedCollection = 'favorites'
     const wrapper = mountSubmenu()
 
-    const allLink = wrapper.findAll('a').find(l => l.text().trim() === 'All')
+    const allLink = wrapper.findAll('a').find(l => l.text().trim() === 'Wszystkie')
     await allLink!.trigger('click')
     await flushPromises()
 
@@ -859,7 +859,7 @@ describe('ImagesList – selection interactions', () => {
     store.images = []
     const wrapper = mountList()
 
-    expect(wrapper.text()).toContain('No images found')
+    expect(wrapper.text()).toContain('Nie znaleziono obrazów')
   })
 
   it('ctrl+click from empty selection emits open (all new)', async () => {
@@ -976,7 +976,7 @@ describe('ImagesBatchPanel – batch edit operations', () => {
 
   it('shows count of selected images', () => {
     const wrapper = mountBatch()
-    expect(wrapper.text()).toContain('Batch Edit (2)')
+    expect(wrapper.text()).toContain('Edycja zbiorcza (2)')
   })
 
   it('shows union of tags across selected images', () => {
@@ -1015,7 +1015,7 @@ describe('ImagesBatchPanel – batch edit operations', () => {
     // Type tags to add
     const inputs = wrapper.findAll('input')
     const addTagsInput = inputs.find(i =>
-      (i.element as HTMLInputElement).placeholder?.includes('Tags to add'),
+      (i.element as HTMLInputElement).placeholder?.includes('Tagi do dodania'),
     )
     await addTagsInput!.setValue('urban city')
 
@@ -1025,7 +1025,7 @@ describe('ImagesBatchPanel – batch edit operations', () => {
     await natureChip!.trigger('click')
 
     // Click Apply
-    const applyBtn = wrapper.findAll('button').find(b => b.text().includes('Apply'))
+    const applyBtn = wrapper.findAll('button').find(b => b.text().includes('Zastosuj'))
     await applyBtn!.trigger('click')
     await flushPromises()
 
@@ -1046,11 +1046,11 @@ describe('ImagesBatchPanel – batch edit operations', () => {
 
     const inputs = wrapper.findAll('input')
     const addColInput = inputs.find(i =>
-      (i.element as HTMLInputElement).placeholder?.includes('Collections to add'),
+      (i.element as HTMLInputElement).placeholder?.includes('Kolekcje do dodania'),
     )
     await addColInput!.setValue('new-col, another')
 
-    const applyBtn = wrapper.findAll('button').find(b => b.text().includes('Apply'))
+    const applyBtn = wrapper.findAll('button').find(b => b.text().includes('Zastosuj'))
     await applyBtn!.trigger('click')
     await flushPromises()
 
@@ -1077,11 +1077,11 @@ describe('ImagesBatchPanel – batch edit operations', () => {
 
     const inputs = wrapper.findAll('input')
     const addTagsInput = inputs.find(i =>
-      (i.element as HTMLInputElement).placeholder?.includes('Tags to add'),
+      (i.element as HTMLInputElement).placeholder?.includes('Tagi do dodania'),
     )
     await addTagsInput!.setValue('test')
 
-    const applyBtn = wrapper.findAll('button').find(b => b.text().includes('Apply'))
+    const applyBtn = wrapper.findAll('button').find(b => b.text().includes('Zastosuj'))
     await applyBtn!.trigger('click')
     await flushPromises()
 
@@ -1114,19 +1114,19 @@ describe('ImagesBatchFooter – selection bar', () => {
 
   it('shows selected count', () => {
     const wrapper = mountFooter()
-    expect(wrapper.text()).toContain('2 images selected')
+    expect(wrapper.text()).toContain('Zaznaczono 2 obrazy')
   })
 
   it('singular when 1 selected', async () => {
     store.deselectAll()
     store.toggleSelect('a')
     const wrapper = mountFooter()
-    expect(wrapper.text()).toContain('1 image selected')
+    expect(wrapper.text()).toContain('Zaznaczono 1 obraz')
   })
 
   it('deselect link clears selection', async () => {
     const wrapper = mountFooter()
-    const deselectLink = wrapper.findAll('a').find(a => a.text().includes('Deselect'))
+    const deselectLink = wrapper.findAll('a').find(a => a.text().includes('Odznacz'))
 
     await deselectLink!.trigger('click')
 
@@ -1141,7 +1141,7 @@ describe('ImagesBatchFooter – selection bar', () => {
 
   it('batch edit button navigates to batch route', async () => {
     const wrapper = mountFooter()
-    const batchBtn = wrapper.findAll('button').find(b => b.text().includes('Batch Edit'))
+    const batchBtn = wrapper.findAll('button').find(b => b.text().includes('Edycja zbiorcza'))
 
     await batchBtn!.trigger('click')
     await flushPromises()
@@ -1151,13 +1151,13 @@ describe('ImagesBatchFooter – selection bar', () => {
 
   it('delete selected shows confirmation popup', async () => {
     const wrapper = mountFooter()
-    const deleteBtn = wrapper.findAll('button').find(b => b.text().includes('Delete'))
+    const deleteBtn = wrapper.findAll('button').find(b => b.text().includes('Usuń'))
 
     await deleteBtn!.trigger('click')
     await nextTick()
 
-    expect(wrapper.text()).toContain('Confirm Batch Delete')
-    expect(wrapper.text()).toContain('Are you sure you want to delete 2 images')
+    expect(wrapper.text()).toContain('Potwierdź usuwanie zbiorcze')
+    expect(wrapper.text()).toContain('Czy na pewno chcesz usunąć 2 obrazy')
   })
 
   it('confirming batch delete calls store.batchDelete', async () => {
@@ -1167,12 +1167,12 @@ describe('ImagesBatchFooter – selection bar', () => {
     const wrapper = mountFooter()
 
     // Open confirm
-    const deleteBtn = wrapper.findAll('button').find(b => b.text().includes('Delete Selected'))
+    const deleteBtn = wrapper.findAll('button').find(b => b.text().includes('Usuń zaznaczone'))
     await deleteBtn!.trigger('click')
     await nextTick()
 
     // Click "Yes, delete all"
-    const confirmBtn = wrapper.findAll('button').find(b => b.text().includes('Yes, delete all'))
+    const confirmBtn = wrapper.findAll('button').find(b => b.text().includes('Tak, usuń wszystkie'))
     await confirmBtn!.trigger('click')
     await flushPromises()
 
@@ -1205,7 +1205,7 @@ describe('ImagesGrid – rectangle selection and empty state', () => {
     store.images = []
     const wrapper = mountGrid()
     expect(wrapper.find('.images-grid__empty').exists()).toBe(true)
-    expect(wrapper.text()).toContain('No images found')
+    expect(wrapper.text()).toContain('Nie znaleziono obrazów')
   })
 
   it('renders image cards for each image', () => {

@@ -1,5 +1,6 @@
 import { ref } from 'vue'
 import { defineStore } from 'pinia'
+import { t } from '@/i18n'
 import { useGateStore } from '@/stores/gate/gate.store'
 
 /**
@@ -40,7 +41,7 @@ export const useGamePrefsStore = defineStore('game-prefs', () => {
     loadingGames.value = { ...loadingGames.value, [gameId]: false }
   }
   function onGetError({ message }: { message?: string }) {
-    lastError.value = message || 'Nie udało się wczytać preferencji gry'
+    lastError.value = message || t('preferences.errors.load')
     // Nie znamy gameId przy błędzie ogólnym — czyścimy wszystkie flagi ładowania,
     // żeby UI nie zostało w stanie „loading" na zawsze.
     loadingGames.value = {}
@@ -49,7 +50,7 @@ export const useGamePrefsStore = defineStore('game-prefs', () => {
     savingGames.value = { ...savingGames.value, [gameId]: false }
   }
   function onSetError({ message }: { message?: string }) {
-    lastError.value = message || 'Nie udało się zapisać preferencji gry'
+    lastError.value = message || t('preferences.errors.save')
     savingGames.value = {}
   }
 

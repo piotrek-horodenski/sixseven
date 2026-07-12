@@ -31,15 +31,15 @@ async function doBatchDelete() {
 <div class="images-batch-footer" v-if="store.selectedCount > 0">
   <div class="images-batch-footer__bar">
     <span class="images-batch-footer__count">
-      {{ store.selectedCount }} image{{ store.selectedCount > 1 ? 's' : '' }} selected
+      {{ $t('images.selectedCount', store.selectedCount) }}
     </span>
-    <a href="#" @click.prevent="store.deselectAll(); if (isBatchRoute) router.push('/images')">Deselect</a>
+    <a href="#" @click.prevent="store.deselectAll(); if (isBatchRoute) router.push('/images')">{{ $t('images.deselect') }}</a>
     <div class="images-batch-footer__spacer"></div>
     <UiButton class="accent" @click="toggleBatchEdit">
-      <fa icon="edit" /> Batch Edit
+      <fa icon="edit" /> {{ $t('images.batchEdit') }}
     </UiButton>
     <UiButton @click="showDeleteConfirm = true">
-      <fa icon="trash" /> Delete Selected
+      <fa icon="trash" /> {{ $t('images.deleteSelected') }}
     </UiButton>
   </div>
 
@@ -49,14 +49,14 @@ async function doBatchDelete() {
     :outsideClose="true"
     @update:show="showDeleteConfirm = false"
   >
-    <template #title>Confirm Batch Delete</template>
+    <template #title>{{ $t('images.confirmBatchDelete') }}</template>
     <form class="ui-confirm" @submit.prevent="showDeleteConfirm = false">
       <p class="ui-confirm__message">
-        Are you sure you want to delete {{ store.selectedCount }} image{{ store.selectedCount > 1 ? 's' : '' }}?
+        {{ $t('images.confirmBatchDeleteMsg', store.selectedCount) }}
       </p>
       <div class="ui-confirm__actions">
-        <UiButton class="accent" type="submit">Cancel</UiButton>
-        <UiButton @click="doBatchDelete">Yes, delete all</UiButton>
+        <UiButton class="accent" type="submit">{{ $t('common.cancel') }}</UiButton>
+        <UiButton @click="doBatchDelete">{{ $t('images.yesDeleteAll') }}</UiButton>
       </div>
     </form>
   </UiPopup>

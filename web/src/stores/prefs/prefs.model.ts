@@ -21,12 +21,13 @@ export interface IGamePrefField {
   type: 'enum'
   values: string[]
   default: string
+  /** Klucz i18n etykiety pola — tłumaczy PreferencesView (por. game-prefs.catalog.ts). */
   label: string
 }
 
 export interface IGamePrefsSchema {
   gameId: string
-  /** Etykieta gry w sekcji „Gry" ekranu preferencji. */
+  /** Klucz i18n etykiety gry w sekcji „Gry" ekranu preferencji. */
   label: string
   fields: IGamePrefField[]
 }

@@ -102,7 +102,7 @@ onUnmounted(() => {
     <img
       class="app-menu__logo"
       src="/logo.png"
-      alt="app logo"
+      :alt="$t('layout.appLogoAlt')"
     />
   </RouterLink>
   <div
@@ -133,9 +133,9 @@ onUnmounted(() => {
         {{ displayName }}
       </div>
       <div class="app-menu__profile-menu-buttons">
-        <UiButton @click="profileOpen = false; $router.push('/profile')">Profile</UiButton>
-        <UiButton @click="profileOpen = false; $router.push('/preferences')">Preferencje</UiButton>
-        <UiButton @click="logout">Logout</UiButton>
+        <UiButton @click="profileOpen = false; $router.push('/profile')">{{ $t('layout.profileMenu.profile') }}</UiButton>
+        <UiButton @click="profileOpen = false; $router.push('/preferences')">{{ $t('layout.profileMenu.preferences') }}</UiButton>
+        <UiButton @click="logout">{{ $t('layout.profileMenu.logout') }}</UiButton>
       </div>
     </div>
   </div>

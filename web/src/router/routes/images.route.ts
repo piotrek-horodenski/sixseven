@@ -1,3 +1,5 @@
+import type { RouteRecordRaw } from 'vue-router'
+
 import ImagesView from '@/modules/images/ImagesView.vue'
 import ImagesSubmenu from '@/modules/images/ImagesSubmenu.vue'
 import ImagesSidebar from '@/modules/images/ImagesSidebar.vue'
@@ -7,7 +9,8 @@ import ImageEditPanel from '@/modules/images/ImageEditPanel.vue'
 import ImagesBatchPanel from '@/modules/images/ImagesBatchPanel.vue'
 import ImagesBatchFooter from '@/modules/images/ImagesBatchFooter.vue'
 
-export default {
+// Jawna adnotacja zamiast `satisfies` — uzasadnienie w admin.route.ts.
+const imagesRoute: RouteRecordRaw = {
   path: '/images',
   meta: { requiredPermission: 'access-images' },
   children: [
@@ -37,3 +40,5 @@ export default {
     },
   ],
 }
+
+export default imagesRoute

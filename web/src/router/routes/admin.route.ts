@@ -1,3 +1,5 @@
+import type { RouteRecordRaw } from 'vue-router'
+
 import AdminUsersView from '@/modules/admin/AdminUsersView.vue'
 import AdminRolesView from '@/modules/admin/AdminRolesView.vue'
 import AdminSettingsView from '@/modules/admin/AdminSettingsView.vue'
@@ -9,7 +11,12 @@ import AdminSettingsIntro from '@/modules/admin/AdminSettingsIntro.vue'
 import UserEditPanel from '@/modules/admin/UserEditPanel.vue'
 import RoleEditPanel from '@/modules/admin/RoleEditPanel.vue'
 
-export default {
+// Jawna adnotacja (NIE `satisfies`): satisfies sprawdza literał kontekstowo
+// i przechodzi, ale eksport zachowuje typ wywnioskowany — dzieci z/bez `aside`
+// sklejają się w unię z `aside?: undefined`, która w routes/index.ts (bez
+// kontekstu) nie przechodzi jako RouteRecordRaw (TS2322). Adnotacja ustala
+// typ eksportu na RouteRecordRaw. Zweryfikowane na TS 5.6.3 i 6.0.3.
+const adminRoute: RouteRecordRaw = {
   path: '/admin',
   redirect: '/admin/users',
   meta: { requiredPermission: 'view-admin' },
@@ -102,3 +109,5 @@ export default {
     },
   ],
 }
+
+export default adminRoute

@@ -9,19 +9,19 @@ const { hasPermission } = usePermission()
     <li v-if="hasPermission('manage-users')">
       <RouterLink to="/admin/users">
         <span class="icon"><fa icon="users" /></span>
-        <span class="label">Users</span>
+        <span class="label">{{ $t('admin.users') }}</span>
       </RouterLink>
     </li>
     <li v-if="hasPermission('manage-roles')">
       <RouterLink to="/admin/roles">
         <span class="icon"><fa icon="shield-halved" /></span>
-        <span class="label">Roles</span>
+        <span class="label">{{ $t('admin.roles') }}</span>
       </RouterLink>
     </li>
     <li v-if="hasPermission('manage-settings')">
       <RouterLink to="/admin/settings">
         <span class="icon"><fa icon="sliders" /></span>
-        <span class="label">Settings</span>
+        <span class="label">{{ $t('admin.settings') }}</span>
       </RouterLink>
     </li>
   </ul>

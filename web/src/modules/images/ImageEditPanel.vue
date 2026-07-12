@@ -127,8 +127,8 @@ function formatSize(bytes: number): string {
   <UiLoader v-if="loading" />
   <template v-else-if="image">
   <div class="image-edit-panel__header">
-    <h3>Edit Image</h3>
-    <span v-if="saved" class="image-edit-panel__saved"><fa icon="check" /> Saved</span>
+    <h3>{{ $t('images.editImage') }}</h3>
+    <span v-if="saved" class="image-edit-panel__saved"><fa icon="check" /> {{ $t('common.saved') }}</span>
     <a href="#" @click.prevent="close"><fa icon="times" /></a>
   </div>
 
@@ -154,43 +154,43 @@ function formatSize(bytes: number): string {
     <UiInput
       :modelValue="title"
       @update:modelValue="(v: string) => title = v"
-    >Title</UiInput>
+    >{{ $t('images.imageTitle') }}</UiInput>
 
     <UiTextarea
       :modelValue="description"
       @update:modelValue="(v: string) => description = v"
-    >Description</UiTextarea>
+    >{{ $t('images.description') }}</UiTextarea>
 
     <UiChipInput
       v-model="selectedTagNames"
       :options="tagOptions"
       :freeText="true"
-    >Tags</UiChipInput>
+    >{{ $t('images.tags') }}</UiChipInput>
 
     <UiChipInput
       v-model="selectedCollectionNames"
       :options="collectionOptions"
       :freeText="true"
       class="ui-tag-input--collections"
-    >Collections</UiChipInput>
+    >{{ $t('images.collections') }}</UiChipInput>
 
     <div class="image-edit-panel__actions" v-if="hasPermission('control-images')">
-      <UiButton class="accent" type="submit" :loading="saving">Save</UiButton>
+      <UiButton class="accent" type="submit" :loading="saving">{{ $t('common.save') }}</UiButton>
 
       <template v-if="image.isDeleted">
         <UiButton @click="restore">
-          <fa icon="recycle" /> Restore
+          <fa icon="recycle" /> {{ $t('images.restore') }}
         </UiButton>
         <UiButton
           v-if="hasPermission('can-admin-images')"
           @click="confirmDelete(true)"
         >
-          <fa icon="trash" /> Permanently Delete
+          <fa icon="trash" /> {{ $t('images.permanentlyDelete') }}
         </UiButton>
       </template>
       <template v-else>
         <UiButton @click="confirmDelete(false)">
-          <fa icon="trash" /> Delete
+          <fa icon="trash" /> {{ $t('common.delete') }}
         </UiButton>
       </template>
     </div>
@@ -202,17 +202,17 @@ function formatSize(bytes: number): string {
     :outsideClose="true"
     @update:show="showDeleteConfirm = false"
   >
-    <template #title>Confirm Delete</template>
+    <template #title>{{ $t('images.confirmDelete') }}</template>
     <form class="ui-confirm" @submit.prevent="showDeleteConfirm = false">
       <p class="ui-confirm__message">
         {{ forceDelete
-          ? 'Are you sure you want to permanently delete this image? This cannot be undone.'
-          : 'Are you sure you want to delete this image?'
+          ? $t('images.confirmForceDeleteMsg')
+          : $t('images.confirmDeleteMsg')
         }}
       </p>
       <div class="ui-confirm__actions">
-        <UiButton class="accent" type="submit">Cancel</UiButton>
-        <UiButton @click="doDelete">Yes, delete</UiButton>
+        <UiButton class="accent" type="submit">{{ $t('common.cancel') }}</UiButton>
+        <UiButton @click="doDelete">{{ $t('images.yesDelete') }}</UiButton>
       </div>
     </form>
   </UiPopup>

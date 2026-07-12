@@ -40,7 +40,7 @@ describe('useProfileMenu', () => {
 
   it('returns Guest when no user', () => {
     const wrapper = mount(TestComponent)
-    expect(wrapper.vm.displayName).toBe('Guest')
+    expect(wrapper.vm.displayName).toBe('Gość')
   })
 
   it('returns username when no profile display', () => {

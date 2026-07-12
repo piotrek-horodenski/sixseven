@@ -53,13 +53,13 @@ onUnmounted(() => {
 <template>
 <div class="admin-panel">
   <div class="admin-panel__header">
-    <h3 style="flex: 1; text-align: center">Edit Profile</h3>
+    <h3 style="flex: 1; text-align: center">{{ $t('profile.editProfile') }}</h3>
     <UiButton
       class="accent"
       :icon="saveState.saving ? null : saveState.saved ? 'check' : null"
       :loading="saveState.saving"
       @click="save"
-    >Save</UiButton>
+    >{{ $t('common.save') }}</UiButton>
   </div>
 
   <div class="admin-panel__body">
@@ -67,15 +67,15 @@ onUnmounted(() => {
       <UiInput
         :modelValue="gate.user?.username"
         disabled
-      >Username</UiInput>
+      >{{ $t('profile.username') }}</UiInput>
       <UiInput
         :modelValue="gate.user?.email"
         disabled
-      >Email</UiInput>
+      >{{ $t('profile.email') }}</UiInput>
       <UiInput
         v-model="display"
-        placeholder="Display Name"
-      >Display Name</UiInput>
+        :placeholder="$t('profile.displayName')"
+      >{{ $t('profile.displayName') }}</UiInput>
     </div>
 
     <p v-if="error" class="admin-confirm-text">{{ error }}</p>
@@ -87,7 +87,7 @@ onUnmounted(() => {
       :icon="saveState.saving ? null : saveState.saved ? 'check' : null"
       :loading="saveState.saving"
       @click="save"
-    >Save</UiButton>
+    >{{ $t('common.save') }}</UiButton>
   </div>
 </div>
 </template>

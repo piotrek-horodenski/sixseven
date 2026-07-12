@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
+import { useI18n } from 'vue-i18n'
 import { storeToRefs } from 'pinia'
 import { useRoomsStore } from '@/stores/rooms/rooms.store'
 import { useGamesStore } from '@/stores/games/games.store'
@@ -15,6 +16,7 @@ import type { Room } from '@/stores/rooms/rooms.model'
  * (`useGamesStore().matchById`, subskrybowany w `AppLayout` — tu tylko
  * czytamy getter, nie ruszamy cyklu życia `games.store`).
  */
+const { t } = useI18n()
 const rooms = useRoomsStore()
 const { publicOpenRooms, myRooms, lastError } = storeToRefs(rooms)
 const games = useGamesStore()
@@ -34,7 +36,7 @@ interface MyRoomStatus {
 /** Status kafelka mojej gry na podstawie realnej fazy meczu (Etap 3C). */
 function myRoomStatus(r: Room): MyRoomStatus {
   const match = r.matchId ? games.matchById(r.matchId) : undefined
-  if (!r.matchId || !match) return { label: 'Przygotowanie…', hidden: false }
+  if (!r.matchId || !match) return { label: t('home.tile.preparing'), hidden: false }
 
   if (match.phase === 'finished' || match.phase === 'cancelled') {
     return { label: '', hidden: true }
@@ -45,17 +47,17 @@ function myRoomStatus(r: Room): MyRoomStatus {
 
   // Legacy zepsuty stan: planning bez kompletu graczy nie powinien się zdarzyć.
   if (match.phase === 'planning' && roster < capacity) {
-    return { label: 'Zepsuta', hidden: false }
+    return { label: t('home.tile.broken'), hidden: false }
   }
 
   if (match.phase === 'lobby') {
     return roster < capacity
-      ? { label: `Czeka na graczy (${roster}/${capacity})`, hidden: false }
-      : { label: 'W toku', hidden: false }
+      ? { label: t('home.tile.waiting', { count: roster, capacity }), hidden: false }
+      : { label: t('home.tile.inProgress'), hidden: false }
   }
 
   // planning (pełny)/resolving/revealing/paused
-  return { label: 'W toku', hidden: false }
+  return { label: t('home.tile.inProgress'), hidden: false }
 }
 
 /** Moje kafelki po odfiltrowaniu zakończonych/anulowanych meczów (auto-hide). */
@@ -104,7 +106,7 @@ watch(lastError, (e) => {
 <div class="home-grid">
   <RouterLink to="/new" class="home-tile home-tile--new">
     <fa icon="plus" class="home-tile__icon" />
-    <span class="home-tile__label">Nowa gra</span>
+    <span class="home-tile__label">{{ $t('home.newGame') }}</span>
   </RouterLink>
 
   <div
@@ -122,8 +124,8 @@ watch(lastError, (e) => {
       v-if="rooms.isHost(x.room)"
       type="button"
       class="home-tile__close"
-      aria-label="Zamknij grę"
-      title="Zamknij grę"
+      :aria-label="$t('home.tile.closeGame')"
+      :title="$t('home.tile.closeGame')"
       @click.stop.prevent="closeRoom(x.room)"
     >
       <fa icon="times" />
@@ -143,12 +145,12 @@ watch(lastError, (e) => {
   >
     <fa icon="hand-scissors" class="home-tile__icon" />
     <span class="home-tile__label">{{ r.name }}</span>
-    <span class="home-tile__meta">Dołącz</span>
+    <span class="home-tile__meta">{{ $t('home.tile.join') }}</span>
   </button>
 </div>
 
 <p v-if="!visibleMyRooms.length && !publicOpenRooms.length" class="home-empty">
-  Brak otwartych gier — załóż nową!
+  {{ $t('home.empty') }}
 </p>
 
 <UiMessage v-if="lastError" type="error" class="home-error">{{ lastError }}</UiMessage>

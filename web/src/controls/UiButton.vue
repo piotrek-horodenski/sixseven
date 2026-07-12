@@ -4,7 +4,7 @@ const props = withDefaults(defineProps<{
   icon?: string
   loading?: boolean
   disabled?: boolean
-  type?: string
+  type?: 'button' | 'submit' | 'reset'
 }>(), {
   icon: '',
   loading: false,

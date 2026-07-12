@@ -136,14 +136,14 @@ onUnmounted(() => {
 <template>
 <div class="admin-panel" v-if="user">
   <div class="admin-panel__header">
-    <UiButton icon="times" @click="close">Close</UiButton>
-    <h3 style="flex: 1; text-align: center">Edit User Roles</h3>
+    <UiButton icon="times" @click="close">{{ $t('common.close') }}</UiButton>
+    <h3 style="flex: 1; text-align: center">{{ $t('admin.editUserRoles') }}</h3>
     <UiButton
       class="accent"
       :icon="saveState.saving ? null : saveState.saved ? 'check' : null"
       :loading="saveState.saving"
       @click="save"
-    >Save</UiButton>
+    >{{ $t('common.save') }}</UiButton>
   </div>
 
   <div class="admin-panel__body">
@@ -151,19 +151,19 @@ onUnmounted(() => {
       <UiInput
         :modelValue="user.username"
         disabled
-      >Username</UiInput>
+      >{{ $t('admin.username') }}</UiInput>
       <UiInput
         :modelValue="user.email"
         disabled
-      >Email</UiInput>
+      >{{ $t('admin.email') }}</UiInput>
       <UiInput
         :modelValue="user.profile?.display || '-'"
         disabled
-      >Display Name</UiInput>
+      >{{ $t('admin.displayName') }}</UiInput>
     </div>
 
     <div class="admin-panel__section">
-      <h4>Roles</h4>
+      <h4>{{ $t('admin.roles') }}</h4>
       <div class="admin-panel__checkboxes">
         <div
           v-for="role in admin.roles"
@@ -181,13 +181,13 @@ onUnmounted(() => {
           <span
             v-if="isRoleInherited(role.name) && !isRoleDirect(role.name)"
             class="admin-panel__role-inherited-badge"
-          >inherited</span>
+          >{{ $t('admin.inherited') }}</span>
         </div>
       </div>
     </div>
 
     <div class="admin-panel__section" v-if="inheritedRoles.length">
-      <h4>Inherited Roles</h4>
+      <h4>{{ $t('admin.inheritedRoles') }}</h4>
       <div class="admin-panel__permissions-list">
         <span
           v-for="r in inheritedRoles"
@@ -199,7 +199,7 @@ onUnmounted(() => {
     </div>
 
     <div class="admin-panel__section">
-      <h4>Effective Permissions <span class="admin-muted">({{ computedPermissions.length }})</span></h4>
+      <h4>{{ $t('admin.effectivePermissions') }} <span class="admin-muted">({{ computedPermissions.length }})</span></h4>
       <div class="admin-panel__permissions-list">
         <span
           v-for="perm in computedPermissions"
@@ -207,7 +207,7 @@ onUnmounted(() => {
           class="admin-tag"
           :style="{ '--tag-color': groupColors[permissionMap[perm]?.group] || groupColors.other }"
         >{{ permissionMap[perm]?.display || perm }}</span>
-        <span v-if="!computedPermissions.length" class="admin-muted">No permissions</span>
+        <span v-if="!computedPermissions.length" class="admin-muted">{{ $t('admin.noPermissions') }}</span>
       </div>
     </div>
   </div>
@@ -218,11 +218,11 @@ onUnmounted(() => {
       :icon="saveState.saving ? null : saveState.saved ? 'check' : null"
       :loading="saveState.saving"
       @click="save"
-    >Save</UiButton>
+    >{{ $t('common.save') }}</UiButton>
   </div>
 </div>
 <div class="admin-panel admin-panel--empty" v-else>
-  <p>User not found</p>
-  <UiButton @click="close">Back</UiButton>
+  <p>{{ $t('admin.userNotFound') }}</p>
+  <UiButton @click="close">{{ $t('common.back') }}</UiButton>
 </div>
 </template>

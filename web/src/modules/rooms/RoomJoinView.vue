@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, ref, watch, onMounted, onUnmounted } from 'vue'
+import { useI18n } from 'vue-i18n'
 import { useRoute } from 'vue-router'
 import { storeToRefs } from 'pinia'
 import { useGateStore } from '@/stores/gate/gate.store'
@@ -21,6 +22,7 @@ import { EMessageType } from '@/controls/controls.model'
 const GUEST_TOKEN_KEY = 'hydra_guest_token'
 const httpBase = import.meta.env.VITE_GATE_HTTP_URL || 'https://localhost:4114'
 
+const { t } = useI18n()
 const route = useRoute()
 const gate = useGateStore()
 const rooms = useRoomsStore()
@@ -77,7 +79,7 @@ async function joinAsGuest() {
     })
     if (!res.ok) {
       const data = await res.json().catch(() => ({}))
-      throw new Error(data.message || 'Nie udało się dołączyć do gry')
+      throw new Error(data.message || t('rooms.errors.join'))
     }
     const data = (await res.json()) as {
       token: string
@@ -102,7 +104,7 @@ async function joinAsGuest() {
     guestPhase.value = 'joined'
   } catch (e: any) {
     guestPhase.value = 'error'
-    guestError.value = e?.message || 'Nie udało się dołączyć do gry'
+    guestError.value = e?.message || t('rooms.errors.join')
   }
 }
 
@@ -113,7 +115,7 @@ function connectGuest(token: string) {
   guestClient.connect()
   guestClient.on('games:handoff-complete', onGuestHandoff)
   guestClient.on('games:handoff-error', ({ message }: { message?: string }) => {
-    guestError.value = message || 'Nie udało się przejść do meczu'
+    guestError.value = message || t('rooms.errors.handoff')
     goingToGame.value = false
   })
 }
@@ -150,30 +152,34 @@ onUnmounted(() => {
   <div v-if="isUser" class="room-join__panel room-join__panel--center">
     <template v-if="roomsError">
       <fa icon="times-circle" class="room-join__glyph room-join__glyph--error" />
-      <h1 class="room-join__title">Nie udało się dołączyć</h1>
+      <h1 class="room-join__title">{{ $t('rooms.join.failedTitle') }}</h1>
       <p class="room-join__text">{{ roomsError }}</p>
-      <RouterLink to="/" class="room-join__link">Do Home</RouterLink>
+      <RouterLink to="/" class="room-join__link">{{ $t('rooms.join.toHome') }}</RouterLink>
     </template>
     <template v-else>
       <fa icon="circle-notch" class="rotate room-join__glyph" />
-      <p class="room-join__text">Dołączam do gry <strong>{{ code }}</strong>…</p>
+      <i18n-t keypath="rooms.join.joining" tag="p" class="room-join__text" scope="global">
+        <template #code><strong>{{ code }}</strong></template>
+      </i18n-t>
     </template>
   </div>
 
   <!-- Gość: formularz nicku -->
   <div v-else-if="guestPhase === 'form' || guestPhase === 'joining' || guestPhase === 'error'" class="room-join__panel">
     <fa icon="door-open" class="room-join__glyph" />
-    <h1 class="room-join__title">Dołącz do gry</h1>
-    <p class="room-join__text">Zaproszono Cię do gry <strong>{{ code }}</strong>. Podaj nick, żeby zagrać.</p>
+    <h1 class="room-join__title">{{ $t('rooms.join.title') }}</h1>
+    <i18n-t keypath="rooms.join.invited" tag="p" class="room-join__text" scope="global">
+      <template #code><strong>{{ code }}</strong></template>
+    </i18n-t>
 
     <form class="room-join__form" @submit.prevent="joinAsGuest">
       <UiInput
         v-model="nick"
-        placeholder="Twój nick"
+        :placeholder="$t('rooms.join.nickPlaceholder')"
         autocomplete="off"
         maxlength="24"
       >
-        Nick
+        {{ $t('rooms.join.nickLabel') }}
       </UiInput>
 
       <UiMessage v-if="guestError" :type="EMessageType.error">{{ guestError }}</UiMessage>
@@ -184,20 +190,20 @@ onUnmounted(() => {
         :loading="guestPhase === 'joining'"
         :disabled="!nickValid() || guestPhase === 'joining'"
       >
-        Dołącz jako gość
+        {{ $t('rooms.join.joinAsGuest') }}
       </UiButton>
     </form>
 
-    <RouterLink to="/login" class="room-join__alt">Masz konto? Zaloguj się</RouterLink>
+    <RouterLink to="/login" class="room-join__alt">{{ $t('rooms.join.haveAccount') }}</RouterLink>
   </div>
 
   <!-- Gość: widok gry (dołączam → od razu handoff, bez dodatkowego klikania) -->
   <div v-else class="room-join__panel">
     <template v-if="guestRoom">
       <h1 class="room-join__title">{{ guestRoom.name }}</h1>
-      <p class="room-join__text">
-        Kod gry: <strong>{{ guestRoom.code }}</strong>
-      </p>
+      <i18n-t keypath="rooms.join.gameCode" tag="p" class="room-join__text" scope="global">
+        <template #code><strong>{{ guestRoom.code }}</strong></template>
+      </i18n-t>
 
       <ul class="room-join__member-list room-join__members">
         <li
@@ -208,8 +214,8 @@ onUnmounted(() => {
         >
           <fa :icon="m.kind === 'guest' ? 'mask' : 'user'" class="room-member__icon" />
           <span class="room-member__nick">{{ m.nick }}</span>
-          <span v-if="m.id === guestRoom.hostId" class="room-member__host">host</span>
-          <span v-if="m.kind === 'guest'" class="room-member__tag">gość</span>
+          <span v-if="m.id === guestRoom.hostId" class="room-member__host">{{ $t('rooms.join.hostBadge') }}</span>
+          <span v-if="m.kind === 'guest'" class="room-member__tag">{{ $t('rooms.join.guestBadge') }}</span>
         </li>
       </ul>
 
@@ -219,15 +225,15 @@ onUnmounted(() => {
         icon="gamepad"
         :loading="goingToGame"
         @click="guestPlay"
-      >Spróbuj ponownie</UiButton>
+      >{{ $t('rooms.join.retry') }}</UiButton>
       <p v-else class="room-join__text room-join__waiting">
         <fa icon="circle-notch" class="rotate" />
-        Łączę z grą…
+        {{ $t('rooms.join.connecting') }}
       </p>
     </template>
     <div v-else class="room-join__panel--center">
       <fa icon="circle-notch" class="rotate room-join__glyph" />
-      <p class="room-join__text">Ładuję grę…</p>
+      <p class="room-join__text">{{ $t('rooms.join.loading') }}</p>
     </div>
   </div>
 </div>

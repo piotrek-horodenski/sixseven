@@ -119,8 +119,8 @@ describe('UiColorPicker', () => {
       await wrapper.find('.ui-color-picker__trigger').trigger('click')
       const tabs = wrapper.findAll('.ui-color-picker__tab')
       expect(tabs).toHaveLength(2)
-      expect(tabs[0].text()).toBe('Pick color')
-      expect(tabs[1].text()).toBe('Presets')
+      expect(tabs[0].text()).toBe('Wybierz kolor')
+      expect(tabs[1].text()).toBe('Presety')
     })
 
     it('picker tab is active by default', async () => {

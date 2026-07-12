@@ -2,6 +2,7 @@
 
 import { ref, reactive, computed, onMounted, onUnmounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
+import { useI18n } from 'vue-i18n'
 import { useImagesStore } from '@/stores/images/images.store'
 import type { IImage } from '@/stores/images/images.model'
 import ImageCard from './ImageCard.vue'
@@ -13,6 +14,7 @@ const emit = defineEmits<{
 const store = useImagesStore()
 const route = useRoute()
 const router = useRouter()
+const { t } = useI18n()
 const sentinel = ref<HTMLElement | null>(null)
 const areaEl = ref<HTMLElement | null>(null)
 const areaMinHeight = ref('0px')
@@ -80,14 +82,14 @@ function sortIcon(field: string): string | null {
   return store.sortDirection === 1 ? 'arrow-up' : 'arrow-down'
 }
 
-const sortColumns = [
-  { field: 'title', label: 'Title' },
-  { field: '_tags', label: 'Tags' },
-  { field: '_collections', label: 'Collections' },
-  { field: 'meta.fileSize', label: 'Size' },
-  { field: '_dimensions', label: 'Dimensions' },
-  { field: 'createdAt', label: 'Date' },
-]
+const sortColumns = computed(() => [
+  { field: 'title', label: t('images.imageTitle') },
+  { field: '_tags', label: t('images.tags') },
+  { field: '_collections', label: t('images.collections') },
+  { field: 'meta.fileSize', label: t('images.size') },
+  { field: '_dimensions', label: t('images.dimensions') },
+  { field: 'createdAt', label: t('images.date') },
+])
 
 // --- Rectangle selection ---
 const isDragging = ref(false)
@@ -246,7 +248,7 @@ function onAreaClick(event: MouseEvent) {
 
   <div v-if="!store.images.length && !store.loading" class="images-grid__empty">
     <fa icon="images" />
-    <p>No images found</p>
+    <p>{{ $t('images.noImagesFound') }}</p>
   </div>
 
   <div ref="sentinel" class="images-grid__sentinel">

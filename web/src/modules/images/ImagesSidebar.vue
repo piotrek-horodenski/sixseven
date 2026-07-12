@@ -42,20 +42,20 @@ async function confirmDeleteTag(id: string) {
 <template>
 <div class="images-sidebar">
   <div class="images-sidebar__header">
-    <h3>Tags</h3>
+    <h3>{{ $t('images.tags') }}</h3>
     <a
       v-if="store.selectedTags.length"
       href="#"
       class="images-sidebar__clear"
       @click.prevent="store.clearTags()"
-    >Clear tags</a>
+    >{{ $t('images.clearTags') }}</a>
   </div>
 
   <div class="images-sidebar__search">
     <UiInput
       :modelValue="tagsSearch"
       @update:modelValue="(v: string) => tagsSearch = v"
-      placeholder="Filter tags..."
+      :placeholder="$t('images.filterTagsPlaceholder')"
     />
   </div>
 
@@ -79,7 +79,7 @@ async function confirmDeleteTag(id: string) {
       </button>
     </li>
     <li v-if="!filteredTags.length" class="images-sidebar__empty">
-      No tags found
+      {{ $t('images.noTagsFound') }}
     </li>
   </ul>
 
@@ -88,7 +88,7 @@ async function confirmDeleteTag(id: string) {
       v-if="!showNewTag"
       href="#"
       @click.prevent="showNewTag = true"
-    ><fa icon="plus" /> Add tag</a>
+    ><fa icon="plus" /> {{ $t('images.addTag') }}</a>
     <form
       v-else
       @submit.prevent="createTag"
@@ -97,9 +97,9 @@ async function confirmDeleteTag(id: string) {
       <UiInput
         :modelValue="newTagName"
         @update:modelValue="(v: string) => newTagName = v"
-        placeholder="Tag name..."
+        :placeholder="$t('images.tagNamePlaceholder')"
       />
-      <UiButton type="submit" :disabled="!newTagName.trim()">Add</UiButton>
+      <UiButton type="submit" :disabled="!newTagName.trim()">{{ $t('images.add') }}</UiButton>
       <a href="#" @click.prevent="showNewTag = false"><fa icon="times" /></a>
     </form>
   </div>

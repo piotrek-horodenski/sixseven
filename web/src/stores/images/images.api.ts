@@ -1,4 +1,5 @@
 import { useGateStore } from '@/stores/gate/gate.store'
+import { t } from '@/i18n'
 import type { IImageFilters, IImagesResponse, IImageTag, IImageCollection } from './images.model'
 
 const baseUrl = import.meta.env.VITE_IMAGE_URL || 'http://localhost:5179/api'
@@ -65,7 +66,8 @@ export async function uploadImage(
   })
   if (!res.ok) {
     const data = await res.json().catch(() => ({}))
-    throw new Error(data.message || 'Failed to upload image')
+    // Komunikat pokazywany w UI (ImageUploadPopup) — tłumaczymy
+    throw new Error(data.message || t('images.uploadError'))
   }
 }
 
