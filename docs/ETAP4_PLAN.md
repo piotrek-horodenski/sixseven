@@ -12,13 +12,13 @@ Dla każdego podetapu najpierw pytamy: **co robi z sekretem?** Społeczność (4
 
 ## Mapa podetapów
 
-> **Status (sesja 2026-07-12): 4a+4b+4c NAPISANE** (5 agentów + integracja + weryfikacja krzyżowa; kontrakt `docs/ETAP4_ABC_CONTRACT.md`). Czeka na weryfikację Piotra (type-check + testy + live). 4d/4e nietknięte. Dług/decyzje: patrz `HANDOFF.md` sekcja „Etap 4".
+> **Status (sesja 2026-07-12): 4a+4b+4c ZWERYFIKOWANE NA ŻYWO i zacommitowane** (5 agentów + integracja; kontrakt `docs/ETAP4_ABC_CONTRACT.md`). Testy jednostkowe gate/web + integracyjne games zielone. Dopieszczenia z testu ludzkiego: invite po nazwie, czat DM 1:1, profile-linki + menu „Historia i odznaki", fix dołączania gościa do meczu, nicki w grze, link zaproszenia w lobby. **Zaległy bug + notatki: `HANDOFF.md` „Do adresacji w nowej sesji".** **4d: plan poniżej ZMIENIŁ SIĘ — czytać na nowo (ta wersja może być nieaktualna).** 4e bez zmian.
 
 | Podetap | Cel jednym zdaniem | Zależy od | Bramka | Status |
 |---|---|---|---|---|
-| **4a** | Presence + znajomi: kto jest online, zaproszenia/akceptacje, lista znajomych na żywo | Etap 3 | Dwóch graczy widzi wzajemny status live; zaproszenie→akceptacja→znajomy | ✍️ napisane (online/lobby/match wpięte; granulacja lobby↔match sygnałowa, nie po fazie) |
-| **4b** | Czat (lobby/mecz) + profile + adnotacje na profilu | 4a | Czat w lobby i meczu działa; profil pokazuje ELO/historię/odznaki; **adnotacja negative niewidoczna dla innych** | ✍️ napisane (adnotacje ODCZYT+widoczność=bramka OK; czat w meczu = overlay w GameRpsView dla zalogowanych) |
-| **4c** | Konwersja gościa w konto (podpięcie meczów z 7 dni) | 4a (model kont/sesji) | Gość zakłada konto, jego mecze towarzyskie z ostatnich 7 dni lądują na koncie | ✍️ napisane (MVP: bieżący guestId z 7 dni; multi-sesja=follow-up) |
+| **4a** | Presence + znajomi: kto jest online, zaproszenia/akceptacje, lista znajomych na żywo | Etap 3 | Dwóch graczy widzi wzajemny status live; zaproszenie→akceptacja→znajomy | ✅ **live OK** (invite po nazwie; online/lobby/match; granulacja lobby↔match sygnałowa) |
+| **4b** | Czat (lobby/mecz) + profile + adnotacje na profilu | 4a | Czat w lobby i meczu działa; profil pokazuje ELO/historię/odznaki; **adnotacja negative niewidoczna dla innych** | ✅ **live OK** (bramka adnotacji potwierdzona; czat DM 1:1 + overlay w meczu; profile historia+odznaki) |
+| **4c** | Konwersja gościa w konto (podpięcie meczów z 7 dni) | 4a (model kont/sesji) | Gość zakłada konto, jego mecze towarzyskie z ostatnich 7 dni lądują na koncie | ✅ **live OK** (MVP: bieżący guestId z 7 dni; multi-sesja=follow-up) |
 | **4d** | Gry zewnętrzne (casual): konta deweloperów, rejestracja gry, katalog z adresem UI deva, handoff na obcy origin | Etap 3 (równolegle do 4a–4c i 4e) | Deweloper (bez uprawnień admina) rejestruje grę; po approve gracz gra mecz towarzyski end-to-end na domenie deva i wraca z wynikiem; token meczu z obcego originu nie otwiera nic poza swoim meczem | ⬜ nietknięte |
 | **4e** | Ranked (gry wbudowane): ELO + walkowery + kolejka szybkiego meczu (+ hak na bota) | Etap 3 (profil z 4b dostaje miejsce na ELO) | Walkower liczy ELO wg reguł; szybki mecz dobiera i rozgrywa wbudowany RPS; ranking per gra live | ⬜ nietknięte |
 

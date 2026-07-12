@@ -4,7 +4,12 @@
 
 ## Stan projektu (2026-07-12)
 
-**Faza: kod ISTNIEJE. Etapy 0, 1, 2 zaimplementowane i przeszły na żywo. Etap 3 (UI/przepływ „gry", N-graczy) ZROBIONY i ZWERYFIKOWANY na żywo. Fala 3 (i18n pl/en) POTWIERDZONA przez Piotra. Etap 4 — podetapy 4a+4b+4c (społeczność: presence+znajomi, czat+profile+adnotacje-odczyt, konwersja gościa) NAPISANE tej sesji 5 agentami + integracja + weryfikacja krzyżowa; sandbox nie odpala testów/Dockera → czeka na weryfikację Piotra (sekcja „Etap 4" niżej). 4d/4e (bundle+CSP, ranked) NIE ruszane.**
+**Faza: kod ISTNIEJE. Etapy 0, 1, 2 zaimplementowane i przeszły na żywo. Etap 3 (UI/przepływ „gry", N-graczy) ZROBIONY i ZWERYFIKOWANY na żywo. Fala 3 (i18n pl/en) POTWIERDZONA. Etap 4 — podetapy 4a+4b+4c (społeczność: presence+znajomi, czat+profile+adnotacje-odczyt, konwersja gościa) ZAIMPLEMENTOWANE (5 agentów + integracja) i ZWERYFIKOWANE NA ŻYWO (sesja 2026-07-12): presence live, znajomi (invite po nazwie/accept/remove), czat DM 1:1 + czat w meczu, profile z historią+odznakami, BRAMKA adnotacji (negatywna niewidoczna dla obcych) OK, konwersja gościa, nicki w grze, link zaproszenia w lobby. Testy jednostkowe gate/web + integracyjne games ZIELONE u Piotra. Committed. 4d (bundle+CSP) — plan ZMIENIŁ SIĘ w międzyczasie, przeczytać `docs/ETAP4_PLAN.md` na nowo przed implementacją. 4e (ranked) — bez zmian, twardo zależy od 4d. ZALEGŁY BUG: patrz niżej „Do adresacji w nowej sesji".**
+
+## Do adresacji w nowej sesji (Etap 4)
+
+- **Brak nawigacji „wstecz/wyjdź" z widoku gry `/game/rps`** — założyciel czekający w lobby („Czekam na graczy") ani gracz w planning/reveal nie ma przycisku powrotu na Home. `goBack` istnieje tylko w stanach error/cancelled/finished. Dołożyć trwały afordans „Wyjdź z gry" (host: powinien anulować/zamknąć pokój; gracz: wrócić do `return`/Home). Uwaga sekretowa: wyjście w trakcie planning liczy się jak porzucenie (walkower — reguła Etap 2/4e).
+- (drobne) Etykiety odznak = surowe `badgeId` (docelowo z manifestu gry, Etap 5); i18n/mapa etykiet do rozważenia.
 
 ## Etap 4 — 4a+4b+4c (społeczność) NAPISANE (sesja 2026-07-12)
 
@@ -174,5 +179,5 @@ Turowa piłka nożna (1v1, po 4 zawodników, strzałki=impulsy, fizyka konfiguro
 
 - **Praca równoległa agentami** sprawdziła się: rozłączne obszary (gate / web / testy games) spięte jednym kontraktem-plikiem (`docs/ETAP2D_CONTRACT.md`), potem integracja i weryfikacja krzyżowa. Kluczowe: rozłączne pliki, precyzyjny kontrakt z góry.
 - **Skille** `front`/`back`/`test`/`data` uruchamiane przy odpowiednich zadaniach; skille formatów (docx/pptx/xlsx) niepotrzebne tu.
-- **Środowisko:** sandbox nie odpala testów ani Dockera (Windows node_modules + zablokowany npm). Weryfikacja: czytanie kodu, `tsc --noEmit` na czystych plikach przez configi w `/tmp` (mapujące pakiety źródło-only na źródła — bo `packages/*` nie mają `dist/`). **Uwaga: mount bash bywa niezsynchronizowany z narzędziami plikowymi** — pokazuje urwane/stare wersje i fałszywe błędy `tsc` w liniach niezwiązanych z edycją; weryfikuj przez `Read`, ufaj buildowi Dockera.
+- **Środowisko:** sandbox nie odpala testów ani Dockera (Windows node_modules + zablokowany npm). Weryfikacja: czytanie kodu, `tsc --noEmit` na czystych plikach przez configi w `/tmp` (mapujące pakiety źródło-only na źródła — bo `packages/*` nie mają `dist/`). **Uwaga: mount bash bywa niezsynchronizowany z narzędziami plikowymi** — pokazuje urwane/stare wersje i fałszywe błędy `tsc` w liniach niezwiązanych z edycją; weryfikuj przez `Read`, ufaj buildowi Dockera. **KRYTYCZNE (nauczka 2026-07-12): NIGDY nie pisz/edytuj plików projektu przez bash (`printf >>`, `sed -i` itd.) — trafia w niezsynchronizowaną kopię i USZKADZA plik (raz urwało `games.scss` → sass „expected }"; naprawa `git checkout` z sandboxa NIEMOŻLIWA: „Operation not permitted"). Pliki edytuj WYŁĄCZNIE narzędziami Read/Write/Edit. Jak sandbox nie może cofnąć uszkodzenia — `git checkout -- <plik>` odpala Piotr lokalnie.**
 - **Pakiety źródło-only** (`sixseven-hmac`, `sixseven-sdk`) budowane do `dist/` w obrazach games/rps (kontekst roota); ich `tsconfig` dostały `types:["node"]` (inaczej `tsc` nie widzi `crypto`/`Buffer`).
