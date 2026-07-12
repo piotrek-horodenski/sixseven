@@ -66,6 +66,44 @@ describe('chat:send', () => {
     expect(store.saved).toHaveLength(0)
   })
 
+  it('dm: saves with members = the sorted pair when the two are friends', async () => {
+    const store = makeStore()
+    const areFriends = vi.fn().mockResolvedValue(true)
+    const deps = makeDeps({ store, areFriends })
+    const socket = userSocket('u1', 'gracz1')
+    await handler(deps).handler(socket, { scope: 'dm', scopeId: 'u1_u2', text: 'hej' })
+
+    expect(areFriends).toHaveBeenCalledWith('u1', 'u2')
+    expect(store.saved).toHaveLength(1)
+    expect(store.saved[0]).toMatchObject({ scope: 'dm', scopeId: 'u1_u2', authorId: 'u1', members: ['u1', 'u2'] })
+    expect(socket.emit).toHaveBeenCalledWith('chat:send-complete', { id: 'msg-1' })
+  })
+
+  it('dm: rejects when the two are NOT friends (no save)', async () => {
+    const store = makeStore()
+    const areFriends = vi.fn().mockResolvedValue(false)
+    const deps = makeDeps({ store, areFriends })
+    const socket = userSocket('u1')
+    await handler(deps).handler(socket, { scope: 'dm', scopeId: 'u1_u2', text: 'hej' })
+    expect(socket.emit).toHaveBeenCalledWith('chat:send-error', { message: 'not friends' })
+    expect(store.saved).toHaveLength(0)
+  })
+
+  it('dm: rejects when the author is not part of the channel pair', async () => {
+    const areFriends = vi.fn().mockResolvedValue(true)
+    const deps = makeDeps({ areFriends })
+    const socket = userSocket('u9') // nie w parze u1_u2
+    await handler(deps).handler(socket, { scope: 'dm', scopeId: 'u1_u2', text: 'hej' })
+    expect(socket.emit).toHaveBeenCalledWith('chat:send-error', { message: 'invalid dm channel' })
+  })
+
+  it('dm: a match-token socket (guest) cannot DM', async () => {
+    const deps = makeDeps({ areFriends: vi.fn().mockResolvedValue(true) })
+    const socket = matchSocket('m1', 'g_1')
+    await handler(deps).handler(socket, { scope: 'dm', scopeId: 'g_1_u2', text: 'hej' })
+    expect(socket.emit).toHaveBeenCalledWith('chat:send-error', { message: 'dm requires a user session' })
+  })
+
   it('rejects empty / whitespace-only text', async () => {
     const deps = makeDeps()
     const socket = userSocket('u1')

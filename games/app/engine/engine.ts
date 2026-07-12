@@ -29,6 +29,10 @@ export interface CreateMatchInput {
   manifestVersion: string
   players: string[]
   guestIds?: string[]
+  /** Denormalizowane nazwy do wyświetlenia (id→nick). */
+  nicks?: Record<string, string>
+  /** Kod pokoju (denorm z gate) — do linku zaproszenia gościa. */
+  roomCode?: string
   /** Docelowa liczba graczy (Etap 3B pkt 1). Default 2 (schema). */
   capacity?: number
   ranked?: boolean
@@ -89,6 +93,8 @@ export class MatchEngine {
       manifestVersion: input.manifestVersion,
       players: input.players,
       guestIds: input.guestIds ?? [],
+      nicks: input.nicks ?? {},
+      roomCode: input.roomCode ?? null,
       capacity: input.capacity ?? 2,
       ranked: input.ranked ?? false,
       options: input.options ?? {},
@@ -182,7 +188,7 @@ export class MatchEngine {
    * `initialState` jest dostarczany przez wywołującego (command-api woła /init z
    * pełnym rosterem, tak jak przy `createMatch`) — engine samo nie zna gry.
    */
-  async addPlayer(matchId: string, playerId: string, kind: 'user' | 'guest', initialState: unknown): Promise<AddPlayerResult> {
+  async addPlayer(matchId: string, playerId: string, kind: 'user' | 'guest', initialState: unknown, nick?: string): Promise<AddPlayerResult> {
     const match = await Match.findById(matchId)
     if (!match) return 'not-found'
     if (match.phase !== 'lobby') return 'not-lobby'
@@ -192,9 +198,11 @@ export class MatchEngine {
     if (size >= capacity) return 'full'
 
     const field = kind === 'guest' ? 'guestIds' : 'players'
+    const set: Record<string, unknown> = { updatedAt: this.now() }
+    if (nick) set[`nicks.${playerId}`] = nick
     const upd = await Match.updateOne(
       { _id: matchId, phase: 'lobby' },
-      { $addToSet: { [field]: playerId }, $set: { updatedAt: this.now() } },
+      { $addToSet: { [field]: playerId }, $set: set },
     )
     if (upd.modifiedCount === 0) return 'not-lobby' // wyścig: faza zmieniła się w międzyczasie
 

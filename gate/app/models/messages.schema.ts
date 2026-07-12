@@ -13,8 +13,8 @@ export const MessageSchema = new Schema({
     type: Number,
     default: () => Date.now(),
   },
-  scope: { type: String, enum: ['room', 'match'], required: true },
-  scopeId: { type: String, index: true }, // roomId albo matchId
+  scope: { type: String, enum: ['room', 'match', 'dm'], required: true },
+  scopeId: { type: String, index: true }, // roomId / matchId / kanał DM (para userId)
   authorId: String, // String(user._id) LUB playerId (token meczu)
   authorNick: String, // denorm do wyświetlenia
   text: String, // maks długość egzekwowana serwerowo (chat handler)

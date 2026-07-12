@@ -15,6 +15,36 @@
     justify-content: space-between;
   }
 
+  // Nagłówek DM: przycisk wstecz + nazwa znajomego + link do profilu.
+  &__dm-header {
+    gap: .5rem;
+    justify-content: flex-start;
+  }
+
+  &__dm-profile {
+    margin-left: auto;
+    color: var(--neutral-color-soft);
+    display: inline-flex;
+
+    &:hover { color: var(--primary-color); }
+  }
+
+  &__back {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 2rem;
+    height: 2rem;
+    border: none;
+    border-radius: 50%;
+    cursor: pointer;
+    background: transparent;
+    color: inherit;
+    font-size: 1rem;
+
+    &:hover { background: rgba(127, 127, 127, .15); }
+  }
+
   &__title {
     align-items: center;
     display: flex;
@@ -101,6 +131,14 @@
     white-space: nowrap;
   }
 
+  &__profile {
+    color: var(--neutral-color-soft);
+    padding: .1rem .3rem;
+    display: inline-flex;
+
+    &:hover { color: var(--primary-color); }
+  }
+
   &__remove {
     background: none;
     border: none;
@@ -129,6 +167,13 @@
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
+  }
+
+  &__name--link {
+    color: inherit;
+    text-decoration: none;
+
+    &:hover { text-decoration: underline; }
   }
 
   &__actions {
@@ -162,4 +207,17 @@
     background-color: var(--neutral-color-soft);
     opacity: .5;
   }
+}
+
+// Klikalna nazwa znajomego (otwiera DM) — reset przycisku, wygląda jak tekst.
+.friend-row__name--btn {
+  border: none;
+  background: transparent;
+  padding: 0;
+  font: inherit;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+
+  &:hover { text-decoration: underline; }
 }

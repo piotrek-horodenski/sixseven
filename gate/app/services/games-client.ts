@@ -28,6 +28,10 @@ export interface CreateMatchInput {
   gameId: string
   players: string[]
   guestIds?: string[]
+  /** Denormalizowane nazwy do wyświetlenia w grze (id→nick). */
+  nicks?: Record<string, string>
+  /** Kod pokoju (denorm) — do linku zaproszenia gościa w widoku gry. */
+  roomCode?: string
   /** Docelowa liczba graczy (Etap 3B pkt 1). Domyślnie 2 (schema games). */
   capacity?: number
   ranked?: boolean
@@ -89,7 +93,7 @@ export interface GamesClient {
   /** Weryfikacja członkostwa (2d): odczyt meczu do handoffu i wymiany tokenu. */
   getMatch(matchId: string): Promise<CommandResult<MatchInfo>>
   /** Dołączenie do meczu w lobby (Etap 3B pkt 2). `full` = slot się właśnie zapełnił. */
-  joinMatch(matchId: string, playerId: string, kind: 'user' | 'guest'): Promise<CommandResult<{ full: boolean }>>
+  joinMatch(matchId: string, playerId: string, kind: 'user' | 'guest', nick?: string): Promise<CommandResult<{ full: boolean }>>
   /** Anulowanie meczu (Etap 3B pkt 6 — leave twórcy w lobby). Domyślny powód: cancelled_lobby. */
   cancelMatch(matchId: string, reason?: 'cancelled_lobby' | 'cancelled_paused' | 'cancelled'): Promise<CommandResult>
   /** Odczyt prefs per (gra, gracz) POZA meczem (Etap 3B pkt 5 — ekran preferencji). */
@@ -219,8 +223,8 @@ export function createGamesClient(config: GamesClientConfig): GamesClient {
       return { ok: false, status, error: errorOf(status, body) }
     },
 
-    async joinMatch(matchId, playerId, kind) {
-      const { status, body } = await guardedCall('/join-match', { matchId, playerId, kind })
+    async joinMatch(matchId, playerId, kind, nick) {
+      const { status, body } = await guardedCall('/join-match', { matchId, playerId, kind, nick })
       if (status === 200 && body.ok === true) {
         return { ok: true, data: { full: body.full === true } }
       }

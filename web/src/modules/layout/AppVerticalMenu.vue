@@ -5,9 +5,12 @@ import { storeToRefs } from 'pinia'
 
 import MainMenu from './MainMenu.vue'
 import { useLayoutStore } from '@/stores/layout/layout.store'
+import { useGateStore } from '@/stores/gate/gate.store'
 import { useProfileMenu } from './useProfileMenu'
 
 const { profileOpen, profileMenuRef, logoutLoading, displayName, toggleProfile, logout } = useProfileMenu()
+const gate = useGateStore()
+const myProfileId = computed<string | null>(() => gate.user?._id ?? null)
 const menuHidden = ref(false)
 
 const {
@@ -81,6 +84,11 @@ const isExpanded = computed({
           :tabindex="isMenuVertical ? 3 : -1"
           @click="profileOpen = false; $router.push('/profile')"
         >{{ $t('layout.profileMenu.profile') }}</UiButton>
+        <UiButton
+          v-if="myProfileId"
+          :tabindex="isMenuVertical ? 3 : -1"
+          @click="profileOpen = false; $router.push(`/u/${myProfileId}`)"
+        >{{ $t('layout.profileMenu.history') }}</UiButton>
         <UiButton
           :tabindex="isMenuVertical ? 3 : -1"
           @click="profileOpen = false; $router.push('/preferences')"

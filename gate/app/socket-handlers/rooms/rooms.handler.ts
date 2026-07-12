@@ -61,6 +61,12 @@ export interface RoomsStore {
   closeOpenByHost?(hostId: string): Promise<void>
 }
 
+/** Hak obecności (4a): status lobby przy tworzeniu/dołączaniu, clear przy zamknięciu/wyjściu hosta. Opcjonalny — testy rdzenia go pomijają. */
+export interface PresenceHook {
+  setActivity: (userId: string, status: 'lobby' | 'match', matchId: string | null) => Promise<void>
+  clearActivity: (userId: string) => Promise<void>
+}
+
 export interface RoomsHandlerDeps {
   client: Pick<GamesClient, 'createMatch' | 'joinMatch' | 'getMatch' | 'cancelMatch'>
   store: RoomsStore
@@ -68,6 +74,8 @@ export interface RoomsHandlerDeps {
   genCode: () => string
   /** Ile prób alokacji unikalnego kodu przy kolizji. */
   maxCodeRetries?: number
+  /** Hak obecności (4a). Brak = presence nie jest aktualizowane (np. w testach). */
+  presence?: PresenceHook
 }
 
 // Alfabet bez 0/1/O/I — czytelność linku/kodu.
@@ -168,6 +176,8 @@ export function createRoomsHandlers(deps: RoomsHandlerDeps): HandlerObject[] {
       const matchResult = await deps.client.createMatch({
         gameId,
         players: [uid],
+        nicks: { [uid]: user.username },
+        roomCode: code,
         capacity,
         options: { target },
       })
@@ -181,6 +191,9 @@ export function createRoomsHandlers(deps: RoomsHandlerDeps): HandlerObject[] {
         socket.emit('rooms:create-error', { message: matchResult.error })
         return
       }
+
+      // Presence (4a): twórca wchodzi do lobby gry.
+      await deps.presence?.setActivity(uid, 'lobby', matchId)?.catch(() => {})
 
       logger.info({ roomId: room._id, code: room.code, matchId, by: user._id }, 'room created')
       socket.emit('rooms:create-complete', { roomId: room._id, code: room.code, matchId })
@@ -216,7 +229,7 @@ export function createRoomsHandlers(deps: RoomsHandlerDeps): HandlerObject[] {
       // Etap 3B pkt 2: dołączenie do ROOMU dopisuje gracza także do MECZU (re-init).
       // Gdy slot się zapełnił — pokój przechodzi na `matched` (znika z listy otwartych).
       if (room.matchId) {
-        const joinResult = await deps.client.joinMatch(room.matchId, uid, 'user')
+        const joinResult = await deps.client.joinMatch(room.matchId, uid, 'user', user.username)
         if (!joinResult.ok) {
           logger.warn({ roomId: room._id, matchId: room.matchId, status: joinResult.status }, 'rooms:join match join failed')
           socket.emit('rooms:join-error', { message: joinResult.error })
@@ -226,6 +239,9 @@ export function createRoomsHandlers(deps: RoomsHandlerDeps): HandlerObject[] {
           await deps.store.setMatched(room._id, room.matchId)
         }
       }
+
+      // Presence (4a): gracz dołączający wchodzi do lobby gry.
+      await deps.presence?.setActivity(uid, 'lobby', room.matchId)?.catch(() => {})
 
       logger.info({ roomId: room._id, matchId: room.matchId, by: uid }, 'room joined')
       socket.emit('rooms:join-complete', { roomId: room._id, matchId: room.matchId })
@@ -271,6 +287,9 @@ export function createRoomsHandlers(deps: RoomsHandlerDeps): HandlerObject[] {
         // Prostsze i bezpieczne: gracz zostaje w rosterze, może wrócić przez handoff.
       }
 
+      // Presence (4a): opuszczający lobby wraca do 'online'.
+      await deps.presence?.clearActivity(uid)?.catch(() => {})
+
       logger.info({ roomId, by: uid }, 'room left')
       socket.emit('rooms:leave-complete', { roomId })
     },
@@ -308,11 +327,14 @@ export function createRoomsHandlers(deps: RoomsHandlerDeps): HandlerObject[] {
 
       const players = room.members.filter(m => m.kind === 'user').map(m => m.id)
       const guestIds = room.members.filter(m => m.kind === 'guest').map(m => m.id)
+      const nicks = Object.fromEntries(room.members.map(m => [m.id, m.nick ?? m.id]))
 
       const result = await deps.client.createMatch({
         gameId: room.gameId,
         players,
         guestIds,
+        nicks,
+        roomCode: room.code,
         options: { target: 2 },
       })
       if (!result.ok) {
@@ -365,6 +387,9 @@ export function createRoomsHandlers(deps: RoomsHandlerDeps): HandlerObject[] {
           }
         }
       }
+
+      // Presence (4a): host zamyka pokój → wraca do 'online'.
+      await deps.presence?.clearActivity(uid)?.catch(() => {})
 
       logger.info({ roomId, by: uid }, 'room closed')
       socket.emit('rooms:close-complete', { roomId })

@@ -22,6 +22,8 @@ export default {
     accept: 'Przyjmij',
     reject: 'Odrzuć',
     remove: 'Usuń',
+    message: 'Napisz wiadomość',
+    profile: 'Zobacz profil',
   },
   privacy: {
     invisible: 'Tryb niewidzialny',

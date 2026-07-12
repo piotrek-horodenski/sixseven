@@ -79,6 +79,10 @@ import {
   faRotateRight,
   faHourglassHalf,
   faDoorOpen,
+  faComments,
+  faPaperPlane,
+  faUserPlus,
+  faAward,
 } from '@fortawesome/free-solid-svg-icons'
 import { FontAwesomeIcon } from '@fortawesome/vue-fontawesome'
 
@@ -161,6 +165,10 @@ const icons = [
   faRotateRight,
   faHourglassHalf,
   faDoorOpen,
+  faComments,
+  faPaperPlane,
+  faUserPlus,
+  faAward,
 ]
 
 export default (app: App) => {

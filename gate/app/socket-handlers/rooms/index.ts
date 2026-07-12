@@ -10,6 +10,7 @@ import {
 import { App } from '../../app'
 import { createGamesClient, GamesClient } from '../../services/games-client'
 import { SettingsService } from '../../settings.service'
+import { getPresenceService } from '../../services/presence.service'
 
 /**
  * Wiązanie produkcyjne pokoi: mongoose-backed store + leniwy klient gate→games
@@ -109,7 +110,7 @@ function getClient(): GamesClient {
 }
 const lazyClient: Pick<GamesClient, 'createMatch' | 'joinMatch' | 'getMatch' | 'cancelMatch'> = {
   createMatch: (input) => getClient().createMatch(input),
-  joinMatch: (matchId, playerId, kind) => getClient().joinMatch(matchId, playerId, kind),
+  joinMatch: (matchId, playerId, kind, nick) => getClient().joinMatch(matchId, playerId, kind, nick),
   getMatch: (matchId) => getClient().getMatch(matchId),
   cancelMatch: (matchId, reason) => getClient().cancelMatch(matchId, reason),
 }
@@ -118,4 +119,10 @@ export const roomsHandlers: HandlerObject[] = createRoomsHandlers({
   client: lazyClient,
   store: mongoStore,
   genCode: () => generateRoomCode(),
+  // Presence (4a): status lobby przy create/join, clear przy leave/close.
+  // Leniwie przez wspólny singleton (ten sam licznik sesji co friends/lifecycle).
+  presence: {
+    setActivity: (userId, status, matchId) => getPresenceService().setActivity(userId, status, matchId),
+    clearActivity: (userId) => getPresenceService().clearActivity(userId),
+  },
 })

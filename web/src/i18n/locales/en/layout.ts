@@ -14,6 +14,7 @@ const layout: typeof pl = {
     label: 'profile',
     guest: 'Guest',
     profile: 'Profile',
+    history: 'History & badges',
     preferences: 'Preferences',
     logout: 'Logout',
   },

@@ -28,10 +28,15 @@ const lazyClient: GamesClient = {
   submitMove: (matchId, playerId, move) => getClient().submitMove(matchId, playerId, move),
   revealDone: (matchId) => getClient().revealDone(matchId),
   getMatch: (matchId) => getClient().getMatch(matchId),
-  joinMatch: (matchId, playerId, kind) => getClient().joinMatch(matchId, playerId, kind),
+  joinMatch: (matchId, playerId, kind, nick) => getClient().joinMatch(matchId, playerId, kind, nick),
   cancelMatch: (matchId, reason) => getClient().cancelMatch(matchId, reason),
   getPrefs: (gameId, playerId) => getClient().getPrefs(gameId, playerId),
   setPrefs: (gameId, playerId, prefs) => getClient().setPrefs(gameId, playerId, prefs),
+  // Metody społeczności (4b/4c) — dodane do interfejsu GamesClient przez A2.
+  // Delegują jak reszta; leniwy klient musi w pełni pokrywać interfejs.
+  playerHistory: (userId, gameId) => getClient().playerHistory(userId, gameId),
+  guestMatches: (guestId, sinceMs) => getClient().guestMatches(guestId, sinceMs),
+  attachGuest: (args) => getClient().attachGuest(args),
 }
 
 export const gamesHandlers: HandlerObject[] = createGamesHandlers(lazyClient)

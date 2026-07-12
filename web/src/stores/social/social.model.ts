@@ -30,6 +30,8 @@ export interface Friendship extends CollectionDoc {
   b: string
   status: FriendshipStatus
   invitedBy: string
+  /** Denormalizowane nazwy stron (id→username) do wyświetlenia. */
+  nicks?: Record<string, string>
   createdAt?: number
   updatedAt?: number
 }
@@ -50,6 +52,8 @@ export interface Presence extends CollectionDoc {
 /** Znajomy gotowy do wyświetlenia — druga strona relacji + wyliczony presence. */
 export interface Friend {
   userId: string
+  /** Nazwa do wyświetlenia (username; fallback = userId). */
+  nick: string
   friendshipId: string
   status: FriendPresence
   currentMatchId: string | null
@@ -58,6 +62,8 @@ export interface Friend {
 /** Zaproszenie (przychodzące lub wychodzące) w widoku UI. */
 export interface PendingInvite {
   userId: string
+  /** Nazwa do wyświetlenia (username; fallback = userId). */
+  nick: string
   friendshipId: string
   invitedBy: string
 }

@@ -116,6 +116,30 @@ describe('friends:invite', () => {
     await handlerFor('friends:invite', deps()).handler(socket, { userId: 'u1' })
     expect(socket.emit).not.toHaveBeenCalled()
   })
+
+  it('resolves a typed username to the canonical _id and stores both nicks', async () => {
+    const store = makeStore()
+    // Zapamiętaj argumenty invite (fake ignoruje nicks — sprawdzamy je przez spy).
+    const inviteSpy = vi.spyOn(store, 'invite')
+    const resolveUser = vi.fn().mockResolvedValue({ id: 'u1', username: 'gracz1' })
+    const d = { ...deps({ store }), resolveUser }
+    const socket = { emit: vi.fn(), id: 'sock', user: { _id: 'u2', username: 'gracz2' } } as any
+
+    await handlerFor('friends:invite', d).handler(socket, { userId: 'gracz1' })
+
+    expect(resolveUser).toHaveBeenCalledWith('gracz1')
+    // Relacja zapisana po ID (u1|u2), nie po nazwie.
+    expect(inviteSpy).toHaveBeenCalledWith('u1', 'u2', 'u2', { u2: 'gracz2', u1: 'gracz1' })
+    expect(socket.emit).toHaveBeenCalledWith('friends:invite-complete', { userId: 'u1' })
+  })
+
+  it('rejects when the typed user does not exist', async () => {
+    const resolveUser = vi.fn().mockResolvedValue(null)
+    const d = { ...deps(), resolveUser }
+    const socket = { emit: vi.fn(), id: 'sock', user: { _id: 'u2', username: 'gracz2' } } as any
+    await handlerFor('friends:invite', d).handler(socket, { userId: 'nieistnieje' })
+    expect(socket.emit).toHaveBeenCalledWith('friends:invite-error', { message: 'user not found' })
+  })
 })
 
 describe('friends:accept', () => {

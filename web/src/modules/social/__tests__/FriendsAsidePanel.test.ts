@@ -66,6 +66,13 @@ const globalStubs: Record<string, any> = {
     },
   }),
   UiSwitch: StubComponent,
+  RouterLink: defineComponent({
+    props: ['to'],
+    setup(_, { slots }) {
+      return () => h('a', slots.default?.())
+    },
+  }),
+  ChatAsidePanel: StubComponent,
   fa: defineComponent({
     props: ['icon'],
     setup(props) {

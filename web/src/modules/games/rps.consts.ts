@@ -42,9 +42,15 @@ export function shortId(id: string | null | undefined): string {
  * CZYSTA PREZENTACJA — wynik nie może trafić do stanu meczu ani na socket.
  * t() wołane przy każdym wywołaniu (bez cache), więc reaguje na zmianę locale.
  */
-export function playerLabel(id: string | null | undefined, meId: string | null): string {
+export function playerLabel(
+  id: string | null | undefined,
+  meId: string | null,
+  nicks?: Record<string, string>,
+): string {
   if (!id) return '—'
-  return id === meId ? t('games.you') : shortId(id)
+  if (id === meId) return t('games.you')
+  // Denormalizowany nick z meczu (id→nick); fallback skrócone id.
+  return nicks?.[id] || shortId(id)
 }
 
 /** Mapa faza → klucz i18n (same klucze w stałej — determinizm). */

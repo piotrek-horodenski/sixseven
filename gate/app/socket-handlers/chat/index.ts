@@ -29,6 +29,19 @@ function getRoomModel() {
   return model
 }
 
+function getFriendshipModel() {
+  const model = App.models.find(m => m.name === 'friendships')?.model
+  if (!model) throw new Error('friendships model not registered')
+  return model
+}
+
+/** Czy `a` i `b` to zaakceptowani znajomi (dla scope 'dm'). Para znormalizowana a<b. */
+async function areFriends(a: string, b: string): Promise<boolean> {
+  const [x, y] = a < b ? [a, b] : [b, a]
+  const doc = await getFriendshipModel().findOne({ a: x, b: y, status: 'accepted' }).lean()
+  return !!doc
+}
+
 const mongoStore: MessagesStore = {
   async create(msg: ChatMessageInput): Promise<{ _id: string }> {
     const Model = getMessageModel()
@@ -74,6 +87,7 @@ export const chatHandlers: HandlerObject[] = createChatHandlers({
   store: mongoStore,
   findRoom,
   getMatch: (matchId) => getClient().getMatch(matchId),
+  areFriends,
   get maxLen() { return config().maxLen },
   get rateMax() { return config().rateMax },
   get rateWindowMs() { return config().rateWindowMs },

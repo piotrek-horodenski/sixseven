@@ -1,18 +1,34 @@
 <script setup lang="ts">
 
-import { ref, onMounted, onUnmounted } from 'vue'
+import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { useSocialStore } from '@/stores/social/social.store'
+import { useGateStore } from '@/stores/gate/gate.store'
+import { dmChannel } from '@/stores/social/chat.model'
 import FriendStatusDot from './FriendStatusDot.vue'
+import ChatAsidePanel from './ChatAsidePanel.vue'
 
 /**
  * Panel znajomych (slot `aside`). Lista znajomych ze wskaźnikiem obecności live
  * (subskrypcja `presence`), sekcja zaproszeń przychodzących (Przyjmij/Odrzuć)
- * oraz pole „dodaj po nazwie/ID" → `friends:invite`. Stan zasila
- * `social.store` (refcount lifecycle — bezpieczne z innymi konsumentami).
+ * oraz pole „dodaj po nazwie/ID" → `friends:invite`. Klik w znajomego otwiera
+ * czat 1:1 (DM). Stan zasila `social.store` (refcount lifecycle).
  */
 
 const store = useSocialStore()
+const gate = useGateStore()
 const inviteTarget = ref('')
+
+/** Otwarty DM (klik w znajomego) — `null` = widok listy. */
+const dmWith = ref<{ userId: string; nick: string } | null>(null)
+const dmScopeId = computed<string | null>(() => {
+  const me = gate.user?._id
+  if (!me || !dmWith.value) return null
+  return dmChannel(me, dmWith.value.userId)
+})
+
+function openDm(friend: { userId: string; nick: string }) {
+  dmWith.value = { userId: friend.userId, nick: friend.nick }
+}
 
 function submitInvite() {
   const target = inviteTarget.value.trim()
@@ -27,6 +43,32 @@ onUnmounted(() => store.cleanup())
 </script>
 <template>
 <div class="friends-panel">
+  <!-- Widok DM 1:1 (klik w znajomego) -->
+  <template v-if="dmWith">
+    <div class="friends-panel__header friends-panel__dm-header">
+      <button
+        type="button"
+        class="friends-panel__back"
+        :aria-label="$t('social.panel.title')"
+        @click="dmWith = null"
+      >
+        <fa icon="caret-left" />
+      </button>
+      <h3 class="friends-panel__title">{{ dmWith.nick }}</h3>
+      <RouterLink
+        class="friends-panel__dm-profile"
+        :to="`/u/${dmWith.userId}`"
+        :title="$t('social.actions.profile')"
+        :aria-label="$t('social.actions.profile')"
+      >
+        <fa icon="user" />
+      </RouterLink>
+    </div>
+    <ChatAsidePanel scope="dm" :scope-id="dmScopeId" />
+  </template>
+
+  <!-- Widok listy znajomych -->
+  <template v-else>
   <div class="friends-panel__header">
     <h3 class="friends-panel__title">
       <fa icon="user-friends" class="friends-panel__icon" /> {{ $t('social.panel.title') }}
@@ -56,7 +98,9 @@ onUnmounted(() => store.cleanup())
         :key="inv.friendshipId"
         class="friend-invite"
       >
-        <span class="friend-invite__name">{{ inv.userId }}</span>
+        <RouterLink class="friend-invite__name friend-invite__name--link" :to="`/u/${inv.userId}`">
+          {{ inv.nick }}
+        </RouterLink>
         <div class="friend-invite__actions">
           <UiButton class="accent" @click="store.accept(inv.userId)">
             {{ $t('social.actions.accept') }}
@@ -77,8 +121,21 @@ onUnmounted(() => store.cleanup())
         class="friend-row"
       >
         <FriendStatusDot :status="friend.status" />
-        <span class="friend-row__name">{{ friend.userId }}</span>
+        <button
+          type="button"
+          class="friend-row__name friend-row__name--btn"
+          :title="$t('social.actions.message')"
+          @click="openDm(friend)"
+        >{{ friend.nick }}</button>
         <span class="friend-row__status">{{ $t(`social.status.${friend.status}`) }}</span>
+        <RouterLink
+          class="friend-row__profile"
+          :to="`/u/${friend.userId}`"
+          :title="$t('social.actions.profile')"
+          :aria-label="$t('social.actions.profile')"
+        >
+          <fa icon="user" />
+        </RouterLink>
         <button
           class="friend-row__remove"
           type="button"
@@ -110,7 +167,7 @@ onUnmounted(() => store.cleanup())
         :key="inv.friendshipId"
         class="friend-row friend-row--pending"
       >
-        <span class="friend-row__name">{{ inv.userId }}</span>
+        <span class="friend-row__name">{{ inv.nick }}</span>
         <span class="friend-row__status">{{ $t('social.invites.pending') }}</span>
         <button
           class="friend-row__remove"
@@ -124,5 +181,6 @@ onUnmounted(() => store.cleanup())
       </li>
     </ul>
   </section>
+  </template>
 </div>
 </template>

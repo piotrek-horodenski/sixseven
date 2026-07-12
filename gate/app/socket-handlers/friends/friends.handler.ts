@@ -21,13 +21,15 @@ export interface FriendshipRecord {
   b: string
   status: 'invited' | 'accepted'
   invitedBy: string
+  /** Denormalizowane nazwy obu stron (id→username) do wyświetlenia w UI. */
+  nicks?: Record<string, string>
 }
 
 /** Abstrakcja składu friendships — operuje na ZNORMALIZOWANEJ parze (a < b). */
 export interface FriendsStore {
   find(a: string, b: string): Promise<FriendshipRecord | null>
-  /** Tworzy zaproszenie (upsert; status='invited', invitedBy). */
-  invite(a: string, b: string, invitedBy: string): Promise<void>
+  /** Tworzy zaproszenie (upsert; status='invited', invitedBy, nicks). */
+  invite(a: string, b: string, invitedBy: string, nicks?: Record<string, string>): Promise<void>
   /** Ustawia status='accepted' istniejącej relacji. */
   accept(a: string, b: string): Promise<void>
   /** Usuwa relację (invited albo accepted). */
@@ -39,6 +41,12 @@ export interface FriendsHandlerDeps {
   presence: Pick<PresenceService, 'onFriendChange' | 'refreshStatus'>
   /** Zapis `privacy.invisible` na użytkowniku (persist). */
   setInvisible: (userId: string, invisible: boolean) => Promise<void>
+  /**
+   * Rozwiązuje identyfikator wpisany w UI (nazwa użytkownika LUB `_id`) na
+   * kanoniczny `{ id, username }`. Zwraca `null`, gdy użytkownika nie ma. Brak
+   * resolvera = payload traktowany dosłownie jako `_id` (tryb testowy).
+   */
+  resolveUser?: (usernameOrId: string) => Promise<{ id: string; username: string } | null>
 }
 
 interface UserIdPayload { userId?: unknown }
@@ -62,12 +70,27 @@ export function createFriendsHandlers(deps: FriendsHandlerDeps): HandlerObject[]
         socket.emit('friends:invite-error', { message: 'userId required' })
         return
       }
-      if (userId === me) {
+
+      // Rozwiąż wpisaną nazwę/id na kanoniczny _id (bez tego zaproszenie po
+      // NAZWIE zapisuje śmieciowy identyfikator, którego adresat nigdy nie widzi).
+      let targetId = userId.trim()
+      let targetNick = targetId
+      if (deps.resolveUser) {
+        const resolved = await deps.resolveUser(targetId)
+        if (!resolved) {
+          socket.emit('friends:invite-error', { message: 'user not found' })
+          return
+        }
+        targetId = resolved.id
+        targetNick = resolved.username
+      }
+
+      if (targetId === me) {
         socket.emit('friends:invite-error', { message: 'cannot invite yourself' })
         return
       }
 
-      const [a, b] = normalizePair(me, userId)
+      const [a, b] = normalizePair(me, targetId)
       const existing = await deps.store.find(a, b)
       if (existing) {
         const message = existing.status === 'accepted' ? 'already friends' : 'invite already pending'
@@ -75,9 +98,11 @@ export function createFriendsHandlers(deps: FriendsHandlerDeps): HandlerObject[]
         return
       }
 
-      await deps.store.invite(a, b, me)
-      logger.info({ me, other: userId }, 'friend invite sent')
-      socket.emit('friends:invite-complete', { userId })
+      // Denormalizacja nazw obu stron do wyświetlenia (id→username).
+      const nicks: Record<string, string> = { [me]: user.username, [targetId]: targetNick }
+      await deps.store.invite(a, b, me, nicks)
+      logger.info({ me, other: targetId }, 'friend invite sent')
+      socket.emit('friends:invite-complete', { userId: targetId })
     },
   }
 

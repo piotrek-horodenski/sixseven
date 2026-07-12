@@ -12,6 +12,7 @@ export default {
     label: 'profil',
     guest: 'Gość',
     profile: 'Profil',
+    history: 'Historia i odznaki',
     preferences: 'Preferencje',
     logout: 'Wyloguj',
   },

@@ -27,6 +27,10 @@ export const FriendshipSchema = new Schema({
 
   // userId inicjatora zaproszenia (rozróżnia kierunek — a/b są tylko posortowane).
   invitedBy: { type: String, required: true },
+
+  // Denormalizowane nazwy obu stron (id→username) do wyświetlenia w UI, żeby
+  // panel nie pokazywał surowych ObjectId. Zapisywane przy zaproszeniu.
+  nicks: { type: Schema.Types.Mixed, default: {} },
 })
 
 // Unikat na znormalizowanej parze: jeden dokument na relację (anty-duplikat A→B / B→A).

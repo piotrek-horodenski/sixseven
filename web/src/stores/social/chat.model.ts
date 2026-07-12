@@ -7,8 +7,16 @@ import type { CollectionDoc } from '@/composables/useCollection'
  * to pole jest tylko po stronie serwera do egzekwowania row-level).
  */
 
-/** Zakres czatu — pokój (lobby) albo mecz. Lustro `messages.scope` w gate. */
-export type ChatScope = 'room' | 'match'
+/** Zakres czatu — pokój (lobby), mecz albo DM 1:1. Lustro `messages.scope` w gate. */
+export type ChatScope = 'room' | 'match' | 'dm'
+
+/**
+ * Kanał DM = posortowana para userId złączona '_' (identyczny po OBU stronach,
+ * więc obaj subskrybują ten sam `scopeId`). Serwer waliduje parę + znajomość.
+ */
+export function dmChannel(a: string, b: string): string {
+  return a < b ? `${a}_${b}` : `${b}_${a}`
+}
 
 /**
  * Dokument `messages` widziany przez klienta. Row-level: gate AND-uje politykę

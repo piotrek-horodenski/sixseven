@@ -210,7 +210,7 @@ describe('command API', () => {
         expect.anything(),
         expect.objectContaining({ matchId: 'm1', playerIds: ['p1', 'p2'], manifestVersion: '1.0.0' }),
       )
-      expect(deps.engine.addPlayer).toHaveBeenCalledWith('m1', 'p2', 'user', { round: 1 })
+      expect(deps.engine.addPlayer).toHaveBeenCalledWith('m1', 'p2', 'user', { round: 1 }, undefined)
     })
 
     it('brak matchId/playerId → 400', async () => {

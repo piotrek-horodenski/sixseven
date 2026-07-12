@@ -10,7 +10,7 @@
 
 > Kontrakt integracyjny (źródło prawdy): `docs/ETAP4_ABC_CONTRACT.md`. Praca 5 agentami na rozłącznych obszarach + integrator, wzorzec Etapu 2/Fali 3. **Sandbox nie odpala testów/Dockera — czeka na weryfikację Piotra (type-check + `npm test` gate/web/games + integ games na RS:27140 + live).**
 
-**Zakres zrobiony:** 4a presence+znajomi, 4b czat+profile+adnotacje(ODCZYT+widoczność), 4c konwersja gościa. 4d/4e (bundle+CSP, ranked) NIE ruszane.
+**Zakres zrobiony:** 4a presence+znajomi, 4b czat+profile+adnotacje(ODCZYT+widoczność), 4c konwersja gościa. 4d/4e NIE ruszane — a 4d ZREDEFINIOWANE po tej sesji (gry zewnętrzne casual zamiast bundle+CSP; patrz „Następne kroki" pkt 4 i `docs/ETAP4_PLAN.md`).
 
 **Nowe kolekcje/polityki (gate `policies.ts`):** `presence` (pisze gate; `{userId,status,lastSeen,currentMatchId,visibleTo[],updatedAt}`; polityka `{visibleTo:user._id}` — widoczne tylko znajomym), `friendships` (gate; para znormalizowana `a<b`+`invitedBy`; polityka strony), `messages` (gate; reshape zalążka na `{scope,scopeId,authorId,authorNick,text,members[],ts}`; polityka `{members:user._id}`), `annotations` (pisze **games**, exposed; `{playerId,gameId,badgeId,sentiment,params,earnedAt}`; polityka gate `{$or:[{sentiment:'positive'},{playerId:user._id}]}` = **bramka Etapu 4**).
 
@@ -22,10 +22,30 @@
 
 **Presence: pole `users.privacy.invisible`** (schemat + `session`/`login-complete` niosą `privacy`). Tryb niewidzialny degraduje status→`online` i zeruje `currentMatchId` przy zapisie (sekret nie trafia do dokumentu). Multi-device: licznik żywych socketów w `presence.service` (Map, per-proces — dług: multi-instancja gate wymaga wspólnego store).
 
+**Hak lobby/match ZROBIONY (sesja 2026-07-12).** `presence.service` ma warstwę „activity" (Map per user, przeżywa reconnect): `setActivity('lobby'|'match', matchId)` / `clearActivity`. Wpięcia: `rooms:create`/`rooms:join` → `lobby`; socket tokenu meczu connect (app.class, `authSocket.match`, playerId≠`g_…`) → `match`; `rooms:leave`/`rooms:close` oraz disconnect socketu meczu → `clearActivity` (powrót do `online`). Pełny offline zapomina activity. `presence?` wstrzykiwane w `RoomsHandlerDeps` (opcjonalne — testy rdzenia pomijają). Testy activity w `presence.service.test.ts`. **Uproszczenie:** rozróżnienie lobby↔match jest sygnałowe (rooms vs ekran gry), NIE po `match.phase` — twórca czekający w lobby pokaże się jako `match` gdy wejdzie na ekran gry. Dokładność po fazie = dług.
+
+**Czat DM 1:1 ZROBIONY (sesja 2026-07-12, po feedbacku live).** Klik w znajomego w `FriendsAsidePanel` otwiera rozmowę bezpośrednią (przełącza panel na `ChatAsidePanel` z przyciskiem wstecz). Nowy `scope='dm'` w `messages` (enum rozszerzony); kanał = posortowana para userId (`a_b`, helper `dmChannel` w `chat.model.ts` — identyczny po obu stronach). Gate `chat:send` dla `dm`: nadawca musi być w parze ORAZ być zaakceptowanym znajomym (`areFriends`, model friendships); tylko `socket.user` (gość nie DM-uje). `members=[a,b]` → polityka `messages` przepuszcza obu. Testy dm w `chat.test.ts`.
+
+**Czat w meczu ZROBIONY (sesja 2026-07-12).** `ChatAsidePanel` osadzony w `GameRpsView` jako zwijany overlay (`.game-app__chat`, przycisk w rogu + drawer) — bez refaktoru logiki gry. Tylko dla ZALOGOWANEGO gracza (`gate.isAuthenticated` + `meId ∈ match.players`); gość czatu nie dostaje (MVP — brak socketu gate). `scope='match'`, `scopeId=match._id`. Style w `community.scss`. **Ikony dodane do `font-awesome.config.ts`** (`faComments/faPaperPlane/faUserPlus/faAward` — były używane przez czat/odznaki/znajomych, ale niezarejestrowane → nie renderowały się).
+
+**DODANE W LIVE-TEŚCIE (2026-07-12, po 4a-4c):**
+- **Zaproszenia po nazwie + resolver:** `friends:invite` rozwiązuje nazwę/`_id`→kanoniczny `_id`; denorm `friendships.nicks`.
+- **Czat DM 1:1** z listy znajomych (klik w znajomego), `scope='dm'`, kanał = para userId, wymóg znajomości.
+- **Linki do profilu** (`/u/:userId`) z listy znajomych/zaproszeń/DM + pozycja menu profilu „Historia i odznaki" (własny profil) — bo widok profilu istniał, ale nic nie linkowało.
+- **Bug 4c naprawiony:** `/rooms/join-guest` nie dopisywał gościa do `guestIds` meczu → „not a member of this match". Dodano `joinMatch(...,'guest')` (mecz powstaje przy tworzeniu — Etap 3B).
+- **Nick w grze:** denorm `matches.nicks {id→nick}` (przez create/join: username usera, nick gościa) → `playerLabel(pid, meId, nicks)`. Stare mecze mają puste `nicks` (fallback skrócone id).
+- **Link zaproszenia gościa w lobby:** denorm `matches.roomCode` → w `/game/rps` przy niepełnym rosterze widoczny kopiowalny link `/r/CODE` (host i dołączeni). Odporne na odświeżenie.
+- Fallback spóźnionego ruchu (potwierdzone): `catalog/rps` `defaultMove` = własna pref albo `hashMove(seed,playerId,round)` — NIE kopia przeciwnika.
+
+**BUGI Z LIVE-TESTU (naprawione 2026-07-12):**
+- **Zaproszenia po nazwie nie docierały:** `friends:invite` zapisywał wpisaną wartość dosłownie jako `_id`. Fix: `resolveUser` w gate (nazwa→`_id`, potem `_id` 24-hex); denormalizacja nazw (`friendships.nicks {id→username}`) → panel pokazuje nazwy, nie ObjectId.
+- **Crash gate na `friends:accept` + presence zawsze „offline":** `getPresenceService()` był wołany przy ładowaniu `friends/index.ts`, a jego `require('../app')` łapał `App=undefined` (CYKLICZNY IMPORT — `app.ts` w trakcie ewaluacji) i zamrażał to w domknięciu → `getModel` rzucał `Cannot read ... 'models'` na KAŻDEJ operacji presence. onConnect/onDisconnect leciały w błąd od startu (łykane przez `.catch`), więc presence NIGDY nie działał; `accept` await-ował błąd → `unhandledRejection` → `process.exit`. **Fix: `require('../app')` PRZENIESIONY do wnętrza `getModel` (rozwiązywane przy każdym wywołaniu, gdy App gotowe).**
+- **Utwardzenie dispatchu (`app.class.ts`):** wywołanie handlera opakowane w try/catch + `.catch` na zwróconym Promise — błąd JEDNEGO handlera loguje się, ale NIE ubija procesu gate (koniec z `unhandledRejection → process.exit` od buga w handlerze). Wzorzec do utrzymania.
+
 **DECYZJE/DŁUG do świadomości Piotra:**
 - **Presence widoczne TYLKO znajomym (całość dok.), nie „bare status publiczny"** — plan wspominał publiczny status, ale mechanizm polityk nie robi field-level-conditional; MVP bardziej prywatny, pokrywa deliverable. Rozbudowa = dług.
-- **Status lobby/match NIEwpięty w cykl życia** — presence działa na granulacji online/offline. Hak lobby/match wymaga wpięcia w handlery rooms/games (A1 zaproponował miejsca w raporcie; do decyzji). Bez tego znajomi widzą „online", nie „w meczu X".
-- **Czat: komponent gotowy, ale BEZ punktu montażu** — lobby/mecz żyje w standalone `/game/rps` (brak slotu `aside`). Wpięcie czatu w mecz wymaga decyzji (osadzić panel w `GameRpsView` vs osobny layout). Na Home `aside` jest panel znajomych.
+- **Granulacja lobby/match sygnałowa, nie po `match.phase`** (patrz wyżej) — dokładność po fazie = dług.
+- **Czat gościa w meczu** — MVP tylko dla zalogowanych (gość nie ma socketu gate). Czat gościa wymagałby wysyłki tokenem match (handler już przyjmuje `socket.match`) + użycia go w web chat.store — follow-up.
 - **4c ograniczenie:** brak trwałego „cookie sesji gościa" (dług Etapu 1) — konwersja podpina mecze BIEŻĄCEGO zweryfikowanego `guestId` z 7 dni. „Ten sam cookie przez wiele sesji" = follow-up.
 - **Rate-limit/limit dzienny per-proces** (Map), nie Redis — MVP jednoinstancyjny.
 
@@ -148,7 +168,7 @@ Turowa piłka nożna (1v1, po 4 zawodników, strzałki=impulsy, fizyka konfiguro
 1. **Domknięcie Fali 3 (i18n):** testy web ZIELONE; fix vue-tsc ZAAPLIKOWANY (sekcja „NAPRAWIONE" wyżej) — **Piotr: `npm run type-check -w web`**, potem rebuild web + smoke przełącznika języka.
 2. ~~Weryfikacja na żywo Etapu 3~~ — ZROBIONA 2026-07-12 (zielono: przepływ N-graczy, kafelki, „X", obrazki, `test:integration`).
 3. **Możliwe następne (pomysły Piotra):** bot dołączający do gry, gdy brak przeciwnika (wspomniane jako przyszłość); presence/kolejka szybkiego meczu (oryginalny Etap 3 z `IMPLEMENTATION_PLAN.md`, częściowo zastąpiony modelem „lista otwartych gier na Home").
-4. **Dalej wg planu:** **Etap 4** — rozpisany na podetapy w `docs/ETAP4_PLAN.md` (sesja 2026-07-12). **Kręgosłup: społeczność najpierw** (decyzja Piotra): 4a presence+znajomi → 4b czat+profile+adnotacje → 4c konwersja gościa → 4d hosting bundli UI+CSP+osobna domena (S3, najryzykowniejsze) → 4e ranked ELO+walkowery+kolejka szybkiego meczu (odsunięty Etap 3). 4d może iść RÓWNOLEGLE do 4a–4c; 4e twardo zależy od 4d (ranked = UI na platformie z CSP). Zakres: plan E4 + wpięte odsunięte kawałki Etapu 3 + hak na bota do pułapek. **Etap 5** judge + trust. **Etap 6** arrowsoccer + tutorial. Otwarte wątki dok.: snajperzy (przed etapem 5); ślepe zaułki arrowsoccera; `docs/UNKNOWNS.md`.
+4. **Dalej wg planu:** **Etap 4** — rozpisany na podetapy w `docs/ETAP4_PLAN.md`. **UWAGA: 4d ZREDEFINIOWANE (sesja 2026-07-12, dyskusja z Piotrem)** — wyszło nieporozumienie: plan zakładał „RPS przechodzi na bundle", a model Piotra to **gry wbudowane** (RPS na stałe częścią aplikacji platformy) vs **gry zewnętrzne** (wszyscy devi, flagowo arrowsoccer.com). Nowy zakres 4d: konta deweloperów + rejestracja gry (ręczny approve) + katalog data-driven + przekierowanie na UI deva z handoffem cross-origin (CORS per zarejestrowany origin) — casual only. Hosting bundli+CSP+S3 PRZESUNIĘTY do Etapu 6 (arrowsoccer = pierwszy konsument); ADR „Gry wbudowane vs zewnętrzne" w `ARCHITECTURE.md`. **4e NIE zależy już od 4d** — ranked (ELO+walkowery+kolejka) gra na wbudowanym RPS; może iść zaraz po 4a–4c, równolegle z 4d. **Etap 5** judge + trust + pipeline walidacji rejestracji. **Etap 6** arrowsoccer + hosting bundli + tutorial. Otwarte wątki dok.: snajperzy (przed etapem 5); ślepe zaułki arrowsoccera; `docs/UNKNOWNS.md`.
 
 ## Jak pracowaliśmy w sesjach implementacyjnych (Etap 2)
 

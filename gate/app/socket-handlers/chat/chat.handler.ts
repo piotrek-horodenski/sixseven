@@ -20,7 +20,7 @@ import logger from '../../logger'
  */
 
 export interface ChatMessageInput {
-  scope: 'room' | 'match'
+  scope: 'room' | 'match' | 'dm'
   scopeId: string
   authorId: string
   authorNick: string
@@ -49,6 +49,8 @@ export interface ChatHandlerDeps {
   findRoom: (roomId: string) => Promise<ChatRoom | null>
   /** Odczyt meczu (członkostwo + snapshot players∪guestIds). */
   getMatch: (matchId: string) => Promise<CommandResult<MatchInfo>>
+  /** Czy dwaj użytkownicy są zaakceptowanymi znajomymi (dla scope 'dm'). */
+  areFriends?: (a: string, b: string) => Promise<boolean>
   /** Maks długość wiadomości (config). */
   maxLen?: number
   /** Rate-limit: maks wiadomości na okno per autor. */
@@ -110,8 +112,13 @@ export function createChatHandlers(deps: ChatHandlerDeps): HandlerObject[] {
       const authorNick = user?.username ?? 'guest'
 
       const { scope, scopeId, text } = payload
-      if (scope !== 'room' && scope !== 'match') {
-        socket.emit('chat:send-error', { message: 'scope must be room or match' })
+      if (scope !== 'room' && scope !== 'match' && scope !== 'dm') {
+        socket.emit('chat:send-error', { message: 'scope must be room, match or dm' })
+        return
+      }
+      // DM: tylko zalogowany user (nie gość z tokenem meczu).
+      if (scope === 'dm' && !user) {
+        socket.emit('chat:send-error', { message: 'dm requires a user session' })
         return
       }
       if (typeof scopeId !== 'string' || !scopeId) {
@@ -146,7 +153,22 @@ export function createChatHandlers(deps: ChatHandlerDeps): HandlerObject[] {
 
       // Członkostwo + snapshot odbiorców.
       let members: string[]
-      if (scope === 'room') {
+      if (scope === 'dm') {
+        // Kanał DM = posortowana para userId ('a_b'). Autor MUSI być w parze, a
+        // druga strona MUSI być zaakceptowanym znajomym (anty-spam do obcych).
+        const ids = scopeId.split('_')
+        if (ids.length !== 2 || !ids.includes(authorId)) {
+          socket.emit('chat:send-error', { message: 'invalid dm channel' })
+          return
+        }
+        const peer = ids[0] === authorId ? ids[1] : ids[0]
+        const friends = deps.areFriends ? await deps.areFriends(authorId, peer) : false
+        if (!friends) {
+          socket.emit('chat:send-error', { message: 'not friends' })
+          return
+        }
+        members = [ids[0], ids[1]]
+      } else if (scope === 'room') {
         const room = await deps.findRoom(scopeId)
         if (!room || !room.members.some(m => m.id === authorId)) {
           socket.emit('chat:send-error', { message: 'not a member' })

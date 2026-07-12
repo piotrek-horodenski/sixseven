@@ -19,6 +19,10 @@ export interface Match extends CollectionDoc {
   gameId: string
   players: string[]
   guestIds?: string[]
+  /** Denormalizowane nazwy graczy (id→nick) do wyświetlenia w grze (Etap 4). */
+  nicks?: Record<string, string>
+  /** Kod pokoju — link zaproszenia gościa (`/r/CODE`) przy niepełnym rosterze. */
+  roomCode?: string | null
   /** Docelowa liczba graczy (RPS=2). Mecz jest „otwarty" (czeka na przeciwnika), gdy
    *  `players.length + (guestIds?.length||0) < capacity`. Backend Etap 3 pkt 1. */
   capacity?: number

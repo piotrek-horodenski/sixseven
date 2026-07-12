@@ -6,10 +6,14 @@ import { storeToRefs } from 'pinia'
 
 import MainMenu from './MainMenu.vue'
 import { useLayoutStore } from '@/stores/layout/layout.store'
+import { useGateStore } from '@/stores/gate/gate.store'
 import { useProfileMenu } from './useProfileMenu'
 
 const { isMenuHorizontal } = storeToRefs(useLayoutStore())
 const { profileOpen, profileMenuRef, displayName, toggleProfile, logout } = useProfileMenu()
+const gate = useGateStore()
+/** Własny profil publiczny (historia meczów + odznaki) — /u/<mój id>. */
+const myProfileId = computed<string | null>(() => gate.user?._id ?? null)
 
 const appMenu = ref(null)
 const appMenuWrapper = ref(null)
@@ -134,6 +138,7 @@ onUnmounted(() => {
       </div>
       <div class="app-menu__profile-menu-buttons">
         <UiButton @click="profileOpen = false; $router.push('/profile')">{{ $t('layout.profileMenu.profile') }}</UiButton>
+        <UiButton v-if="myProfileId" @click="profileOpen = false; $router.push(`/u/${myProfileId}`)">{{ $t('layout.profileMenu.history') }}</UiButton>
         <UiButton @click="profileOpen = false; $router.push('/preferences')">{{ $t('layout.profileMenu.preferences') }}</UiButton>
         <UiButton @click="logout">{{ $t('layout.profileMenu.logout') }}</UiButton>
       </div>

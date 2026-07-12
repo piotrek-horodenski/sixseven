@@ -1,14 +1,14 @@
 # Etap 4 — plan podetapów: stawka i społeczność
 
-> Etap 4 z `IMPLEMENTATION_PLAN.md`: ELO + walkowery, hosting zaufanych bundli UI (CSP + subdomena per gra), RPS na bundle, znajomi, czat lobby/meczu, adnotacje + profile, konwersja gościa w konto. Tniemy go na podetapy z **własnymi** testami, żeby każdy zamykał się osobno.
+> Etap 4 z `IMPLEMENTATION_PLAN.md` (**po redefinicji 4d, sesja 2026-07-12** — patrz decyzja „Gry wbudowane vs zewnętrzne" niżej): ELO + walkowery, otwarcie na gry zewnętrzne (konta deweloperów, rejestracja, katalog, UI na domenie deva), znajomi, czat lobby/meczu, adnotacje + profile, konwersja gościa w konto. Tniemy go na podetapy z **własnymi** testami, żeby każdy zamykał się osobno.
 >
-> **Kręgosłup tej edycji: społeczność najpierw** (decyzja Piotra, sesja 2026-07-12). Podetapy społecznościowe (4a–4c) idą przed nurtem „stawki" (4d–4e), do którego przenosimy też **odsunięte kawałki oryginalnego Etapu 3** (kolejka szybkiego meczu, presence) — patrz `HANDOFF.md` „Następne kroki".
+> **Kręgosłup tej edycji: społeczność najpierw** (decyzja Piotra, sesja 2026-07-12). Podetapy społecznościowe (4a–4c) idą przed nurtem „stawki i otwarcia" (4d gry zewnętrzne, 4e ranked), do którego przenosimy też **odsunięte kawałki oryginalnego Etapu 3** (kolejka szybkiego meczu, presence) — patrz `HANDOFF.md` „Następne kroki".
 >
 > Bazuje na: `IMPLEMENTATION_PLAN.md` (kolekcje + polityki: `presence`, `friendships`, `messages`, `ratings`, `queue`, `annotations`; tokeny; testy S1/S3), `ARCHITECTURE.md` (ADR „Safe secret" 3-warstwowy, ranked = UI na platformie z CSP, adnotacje, wielosesyjność) i `docs/IMPLEMENTATION_RISKS.md` (**D1** kanały nawigacyjne CSP, **D2** osobna domena rejestrowalna, **B4** wolumen streamów, **E1** agregaty jako czysta funkcja zdarzeń).
 
 ## Zasada porządkująca (jak w całym projekcie)
 
-Dla każdego podetapu najpierw pytamy: **co robi z sekretem?** Społeczność (4a–4c) sekretu nie dotyka — to warstwa nad platformą; jej ryzyko jest prywatnościowe (kto widzi czyj status/wiadomości/adnotacje), nie sekretowe. Stawka (4d–4e) dotyka sekretu wprost: ranked wymaga, by UI gry **nie mogło** wynieść zaplanowanego ruchu z przeglądarki gracza — to filar 2 modelu „Safe secret" (CSP), i to jest najtrudniejszy, najbardziej ryzykowny kawałek całego etapu.
+Dla każdego podetapu najpierw pytamy: **co robi z sekretem?** Społeczność (4a–4c) sekretu nie dotyka — to warstwa nad platformą; jej ryzyko jest prywatnościowe (kto widzi czyj status/wiadomości/adnotacje), nie sekretowe. **4d (gry zewnętrzne)** dotyka sekretu na granicy originów: token meczu wydawany na obcą domenę nie może otwierać niczego poza jednym meczem. **4e (ranked)** biegnie na grach WBUDOWANYCH — UI jest częścią naszej aplikacji, deweloperem jesteśmy my, więc filar 2 „Safe secret" (bundle+CSP) nie ma tu przeciwnika, przed którym miałby bronić. Filar 2 staje się potrzebny dopiero, gdy ZEWNĘTRZNA gra zechce ranked — i ta budowa jest świadomie przesunięta poza Etap 4 (patrz decyzje).
 
 ## Mapa podetapów
 
@@ -16,15 +16,15 @@ Dla każdego podetapu najpierw pytamy: **co robi z sekretem?** Społeczność (4
 
 | Podetap | Cel jednym zdaniem | Zależy od | Bramka | Status |
 |---|---|---|---|---|
-| **4a** | Presence + znajomi: kto jest online, zaproszenia/akceptacje, lista znajomych na żywo | Etap 3 | Dwóch graczy widzi wzajemny status live; zaproszenie→akceptacja→znajomy | ✍️ napisane (status online/offline; lobby/match hak do wpięcia) |
-| **4b** | Czat (lobby/mecz) + profile + adnotacje na profilu | 4a | Czat w lobby i meczu działa; profil pokazuje ELO/historię/odznaki; **adnotacja negative niewidoczna dla innych** | ✍️ napisane (adnotacje ODCZYT+widoczność=bramka OK; czat bez punktu montażu w meczu — decyzja) |
+| **4a** | Presence + znajomi: kto jest online, zaproszenia/akceptacje, lista znajomych na żywo | Etap 3 | Dwóch graczy widzi wzajemny status live; zaproszenie→akceptacja→znajomy | ✍️ napisane (online/lobby/match wpięte; granulacja lobby↔match sygnałowa, nie po fazie) |
+| **4b** | Czat (lobby/mecz) + profile + adnotacje na profilu | 4a | Czat w lobby i meczu działa; profil pokazuje ELO/historię/odznaki; **adnotacja negative niewidoczna dla innych** | ✍️ napisane (adnotacje ODCZYT+widoczność=bramka OK; czat w meczu = overlay w GameRpsView dla zalogowanych) |
 | **4c** | Konwersja gościa w konto (podpięcie meczów z 7 dni) | 4a (model kont/sesji) | Gość zakłada konto, jego mecze towarzyskie z ostatnich 7 dni lądują na koncie | ✍️ napisane (MVP: bieżący guestId z 7 dni; multi-sesja=follow-up) |
-| **4d** | Zaufany hosting bundli UI + CSP + osobna domena + RPS na bundle | Etap 3 (równolegle do 4a–4c) | **S3 na produkcyjnym hostingu bundli** (bundle nie wykona żądania poza platformę, w tym kanały nawigacyjne) | ⬜ nietknięte |
-| **4e** | Ranked: ELO + walkowery + kolejka szybkiego meczu (+ hak na bota) | 4d | Walkower liczy ELO wg reguł; szybki mecz dobiera i gra na bundlu; ranking per gra live | ⬜ nietknięte |
+| **4d** | Gry zewnętrzne (casual): konta deweloperów, rejestracja gry, katalog z adresem UI deva, handoff na obcy origin | Etap 3 (równolegle do 4a–4c i 4e) | Deweloper (bez uprawnień admina) rejestruje grę; po approve gracz gra mecz towarzyski end-to-end na domenie deva i wraca z wynikiem; token meczu z obcego originu nie otwiera nic poza swoim meczem | ⬜ nietknięte |
+| **4e** | Ranked (gry wbudowane): ELO + walkowery + kolejka szybkiego meczu (+ hak na bota) | Etap 3 (profil z 4b dostaje miejsce na ELO) | Walkower liczy ELO wg reguł; szybki mecz dobiera i rozgrywa wbudowany RPS; ranking per gra live | ⬜ nietknięte |
 
-**Kolejność i równoległość.** Twarda zależność jest jedna: **4e (ranked) wymaga bundle'a z 4d** (ranked = UI na platformie z CSP — ADR „Safe secret"). Reszta jest luźniejsza: 4d to głównie backend+hosting (rozłączne pliki od gate/web społeczności), więc **4d może iść równolegle do 4a–4c** dwoma frontami agentów, spięte kontraktem — dokładnie wzorzec z Etapu 2/Fali 3. 4b zależy od 4a (znajomi/presence pod czat i profile), 4c od modelu kont z Etapu 1.
+**Kolejność i równoległość.** Po redefinicji 4d twarda zależność 4e→4d ZNIKNĘŁA: ranked biegnie na wbudowanym RPS, więc **4e może startować od razu po 4a–4c**. 4d (gry zewnętrzne) jest niezależny od 4e i w dużej mierze rozłączny plikowo od społeczności — może iść równolegle, wzorzec z Etapu 2/Fali 3. 4b zależy od 4a (znajomi/presence pod czat i profile), 4c od modelu kont z Etapu 1.
 
-Testy sekretu wchodzą do CI w podetapie, w którym powstaje testowany mechanizm: **S3 (pełna, z kanałami nawigacyjnymi) w 4d**; rozszerzenie **S1** o `friendships`/`messages`/`presence` w 4a–4b.
+Testy sekretu wchodzą do CI w podetapie, w którym powstaje testowany mechanizm: rozszerzenie **S1** o `friendships`/`messages`/`presence` w 4a–4b; w 4d regresja tokenów meczu na obcym originie. **S3 (CSP, kanały nawigacyjne) przesuwa się razem z hostingiem bundli poza Etap 4** — wejdzie do CI, gdy powstanie pierwszy zaufany bundle (arrowsoccer / pierwsza zewnętrzna gra ranked).
 
 ---
 
@@ -83,29 +83,34 @@ Testy sekretu wchodzą do CI w podetapie, w którym powstaje testowany mechanizm
 
 ---
 
-## 4d — Zaufany hosting bundli UI + CSP + osobna domena + RPS na bundle
+## 4d — Gry zewnętrzne: konta deweloperów, rejestracja, UI na domenie deva (casual)
 
-**Cel.** Najtrudniejszy i najbardziej ryzykowny podetap: filar 2 „Safe secret". UI gry rankingowej ma być **statycznym bundlem hostowanym u nas**, z CSP tak szczelnym, że przeglądarka gracza fizycznie nie pozwala wynieść zaplanowanego ruchu. RPS przechodzi na tę ścieżkę i zostaje wzorcem OBU dróg (redirect-app z Etapu 2d = casual; bundle = ranked).
+> **Redefinicja (sesja 2026-07-12).** Poprzednie brzmienie 4d („RPS przechodzi na bundle + hosting bundli + CSP") wynikało z założenia, że KAŻDA gra — także RPS — przejdzie ścieżkę zewnętrzną. Piotr doprecyzował model: **RPS (i ewentualne kolejne first-party) są WBUDOWANE w aplikację platformy na stałe**, a otwarcie dotyczy wyłącznie gier deweloperów — zawsze zewnętrznych (flagowy przykład: arrowsoccer na własnej domenie). Hosting bundli+CSP przestał mieć konsumenta w Etapie 4 i został przesunięty (patrz decyzje niżej).
+
+**Cel.** Zbudować wszystko, czego platforma potrzebuje, żeby deweloper mógł **skonfigurować i uruchomić swoją grę w naszej aplikacji**: konto dewelopera, rejestrację gry, wpis w katalogu i przepływ gracza na domenę deva i z powrotem. Logika zdalna już działa od Etapu 2 (RPS technicznie chodzi tą ścieżką — HTTP + HMAC); nowość to **UI na obcym originie** i samoobsługa rejestracji. Zakres świadomie CASUAL — ranked dla gier zewnętrznych wymaga bundla u nas i jest poza tym podetapem.
 
 **Deliverables.**
-- **Decyzja D2 (podjąć ZANIM powstanie pierwszy bundle):** bundle serwowane z **osobnej domeny rejestrowalnej** (wzorzec `googleusercontent.com`), np. `sixsevenusercontent.com`, subdomena per gra tam. Cookies platformy **host-only** (nigdy `Domain=.sixseven.gg`), żeby kod gry nie czytał sesji gracza. Zmiana originów po fakcie łamie tokeny i CSP wszystkich gier — dlatego teraz. → **ADR w `ARCHITECTURE.md`.**
-- `publish-ui`: upload bundla przez konto dewelopera, walidacja, wersjonowanie, serwowanie z subdomeny per gra.
-- **CSP (wytyczna D1):** pełna polityka od `default-src 'none'` z jawnymi zezwoleniami; `connect-src` = wyłącznie API platformy; `form-action 'none'`; blokada rejestracji service workerów; **blokada WebRTC**; rozważyć osadzenie bundla w **sandboxowanym iframe**. Handoff tokenu meczu do bundla (scoped token z Etapu 2d), czat/znajomi renderowane przez platformę (nie bundle).
-- RPS jako zaufany bundle (ta sama `GameDefinition`/logika zdalna; zmienia się tylko warstwa UI i hosting).
-- **Rezydualne ryzyko kanałów nawigacyjnych** (`location=`, `<a ping>`, prefetch, `window.open`) — nie da się zamknąć w 100% bez zabicia UX; **zapisać wprost w ADR**, warstwa 3 (detekcja statystyczna, Etap 5 judge) pozostaje siatką.
+- **Konto dewelopera:** rola `developer` (RBAC z Etapu 0/1), samodzielne założenie konta, widok „moje gry" w web.
+- **Rejestracja gry przez deva:** manifest (jak `game.config.json` RPS: id, gracze, `planningPhaseMs ≥ 2000`, schemat opcji, pula odznak), URL serwisu logiki, **URL aplikacji UI** (nowe pole — dziś przekierowanie jest na sztywno do `/game/rps`), wygenerowany sekret HMAC. Stany minimalne: `registered → published` przez **ręczny approve admina** — automatyczny pipeline walidacji (zdalne kontrakt-testy) to Etap 5. Wpisy w kolekcji `games` (publiczna/subskrybowalna — katalog z niej żyje).
+- **Katalog data-driven:** Home/`CreateGameView` przestaje być hardcodem „RPS" — lista gier z `games` (wbudowane + opublikowane zewnętrzne), z **etykietą „UI poza platformą"** przy zewnętrznych.
+- **Przepływ gracza na obcy origin:** „graj" → `games:request-handoff` → przekierowanie na `uiUrl` gry z kodem handoff (`?handoff=CODE&return=…`); wymiana kodu na token meczu (`POST /auth/match-token`) działa z obcego originu — **CORS zawężony do zarejestrowanych `uiUrl`** (nie `*`); powrót na platformę po meczu (ekran wyniku z `match_events` istnieje od Etapu 2/3).
+- **Higiena granicy originów:** cookies platformy host-only (nigdy z atrybutem `Domain=`); token meczu jako JEDYNY materiał uwierzytelniający po stronie gry; zasada „gra nigdy nie prosi o hasło platformy" (granica phishingu z ADR o UI) — do regulaminu i komunikatu przy pierwszym przejściu na zewnętrzną grę.
 
 **Testy do CI.**
-- **S3 (pełna wersja):** zaufany bundle z wstrzykniętą próbą eksfiltracji — blokowaną przez CSP w PRAWDZIWEJ przeglądarce (e2e). Pokrywa kanały danych (fetch, WS, WebRTC, beacon-obrazek) **oraz nawigacyjne** (`location=`, `form-action`, `<a ping>`, prefetch, `window.open`, rejestracja SW) — rozszerzenie względem podstawowego S3 z Etapu 2d (D1).
-- Cookies platformy nie są czytelne z originu bundla (host-only) — test integracyjny.
-- Token meczu w bundlu nie otwiera nic poza swoim meczem (regresja z 2d na nowym originie).
+- Regresja tokenów na obcym originie: kod handoff jednorazowy; token meczu nie otwiera nic poza swoim meczem (rozszerzenie testów z 2d o scenariusz cross-origin).
+- CORS: wymiana kodu handoff z originu NIEzarejestrowanego = odrzucona.
+- Rejestracja: dev nie może edytować cudzej gry; gra przed approve niewidoczna w katalogu; manifest z `planningPhaseMs < 2000` odrzucony.
+- Katalog: gra zewnętrzna ma etykietę „UI poza platformą" (decyduje zewnętrzność UI, nie właściciel).
 
-**Akceptacja.** RPS grywalny jako bundle na osobnej domenie; S3 zielone dla wszystkich zadresowanych kanałów; sesja gracza nieosiągalna dla kodu gry.
+**Akceptacja.** Deweloper (konto bez uprawnień admina) rejestruje grę z logiką i UI na własnym originie; admin zatwierdza; gracz znajduje ją w katalogu, gra mecz towarzyski end-to-end na domenie deva i wraca na platformę z wynikiem.
+
+**Czego tu świadomie NIE ma:** hostingu bundli UI + CSP + osobnej domeny (D2) + testu S3 — przesunięte do etapu pierwszej zewnętrznej gry rankingowej (naturalny kandydat: arrowsoccer, Etap 6); automatycznego pipeline'u walidacji (Etap 5); trust/renomy (Etap 5).
 
 ---
 
-## 4e — Ranked: ELO + walkowery + kolejka szybkiego meczu
+## 4e — Ranked (gry wbudowane): ELO + walkowery + kolejka szybkiego meczu
 
-**Cel.** Stawka: rating per gra, walkowery, i **odsunięta z Etapu 3 kolejka szybkiego meczu**. Ranked biegnie wyłącznie na bundlu z 4d (warunek „Safe secret").
+**Cel.** Stawka: rating per gra, walkowery, i **odsunięta z Etapu 3 kolejka szybkiego meczu**. Ranked biegnie na grach WBUDOWANYCH (RPS): UI jest częścią naszej aplikacji, deweloperem jesteśmy my — filar 2 „Safe secret" (bundle+CSP) nie ma tu zastosowania. Gry zewnętrzne pozostają casual do czasu hostingu bundli.
 
 **Deliverables.**
 - Kolekcja `ratings` (`userId`, `gameId`, `elo`, `matches`, `K`) — publiczna. ELO per gra, **tylko domyślny preset**: start 1200; K=32 przez pierwsze 30 meczów, potem 16, od 2400: 10. Aktualizacja po `Finished` z `winnerIds` (remis 0,5). Mecze z gośćmi, niedomyślnym presetem, anulowane i towarzyskie **nie dotykają ELO**.
@@ -119,37 +124,38 @@ Testy sekretu wchodzą do CI w podetapie, w którym powstaje testowany mechanizm
 - Kolejka: dobór w oknie ΔELO, rozszerzanie okna w czasie, timeout „accept" wraca na koniec; wpis `queue` widoczny tylko właścicielowi.
 - ELO jako czysta funkcja wyników (odtwarzalne przeliczenie z historii `match_events` — spójne z zasadą E1 dla trust w Etapie 5).
 
-**Akceptacja.** Szybki mecz dobiera dwóch graczy i gra na bundlu (4d); walkower nalicza ELO wg reguł; ranking per gra live na profilu i w katalogu.
+**Akceptacja.** Szybki mecz dobiera dwóch graczy i rozgrywa wbudowany RPS; walkower nalicza ELO wg reguł; ranking per gra live na profilu i w katalogu.
 
 ---
 
 ## Decyzje (ADR-skróty — pełne do dopisania w `ARCHITECTURE.md`)
 
-### Osobna domena rejestrowalna dla bundli (D2)
-**Why:** „Subdomena per gra" pod domeną platformy dzieli scope cookies — jedna literówka w `Domain` = sesje graczy w rękach kodu gry.
-**What:** bundle na osobnej domenie rejestrowalnej (`sixsevenusercontent.com`), subdomena per gra tam; cookies platformy host-only. Decyzja PRZED pierwszym bundlem (4d) — po fakcie łamie tokeny i CSP wszystkich gier.
-**Watch out:** origin zaszyty w tokenach/CSP; migracja później = kosztowna.
+### Gry wbudowane vs zewnętrzne (nowa, sesja 2026-07-12)
+**Why:** plan zakładał „RPS przechodzi na bundle" jako wzorzec dla wszystkich gier. Piotr doprecyzował model: RPS (i ewentualne 1–2 kolejne first-party) to stały element aplikacji platformy, niekonfigurowany przez nikogo; otwarcie dotyczy wyłącznie gier deweloperów — zawsze zewnętrznych (flagowy przykład: arrowsoccer na własnej domenie).
+**What:** dwie klasy gier. **Wbudowane:** UI w aplikacji web, logika jako serwis w naszym compose, ale przez TEN SAM wire contract (dogfooding); ranked natywnie, bez bundla/CSP — filar 2 broni sekretu przed deweloperem gry, a tu deweloperem jesteśmy my. **Zewnętrzne:** logika + UI na infrze deva; casual z etykietą „UI poza platformą"; ranked dopiero z bundlem u nas.
+**Watch out:** pokusa „specjalnych ścieżek" dla wbudowanych w silniku — kontrakt ma zostać jeden; wbudowane różnią się wyłącznie hostingiem UI i domyślnym zaufaniem.
 
-### Czat renderuje platforma, nie bundle gry
+### Ranked gier zewnętrznych = bundle u nas + CSP; budowa PRZESUNIĘTA poza Etap 4
+**Why:** po decyzji o grach wbudowanych jedynym konsumentem hostingu bundli byłaby przyszła zewnętrzna gra rankingowa (pierwsza znana: arrowsoccer, Etap 6); w Etapie 4 ranked działa na wbudowanym RPS bez tej infrastruktury.
+**What:** zasada bez zmian (filar 2 „Safe secret"): zewnętrzna gra gra ranked tylko z UI wgranym do nas jako statyczny bundle i serwowanym z CSP. Budowa (publish-ui, osobna domena D2, S3 e2e, osadzenie iframe/handoff) — dopiero przy pierwszym realnym konsumencie.
+**Watch out:** (1) **D2 pozostaje decyzją zapisaną TERAZ:** bundle z osobnej domeny rejestrowalnej (wzorzec `googleusercontent.com`), cookies platformy host-only — origin zaszywa się w tokenach i CSP, zmiana po fakcie kosztowna. (2) Kanały nawigacyjne (D1) rezydualne — detekcja (Etap 5) to siatka, nie gwarancja. (3) Dev-środowisko bez domen: cookies NIE rozróżniają portów, test izolacji wymaga osobnego hostname (hosts/lvh.me) — zapisać przy projektowaniu hostingu.
+
+### Czat renderuje platforma, nie aplikacja gry
 **Why:** aplikacja gry z dostępem do treści czatu = boczny kanał i wektor phishingu; scoped token meczu celowo nie daje dostępu do `messages`/`friendships`.
-**What:** czat lobby/meczu żyje w powłoce platformy (poza bundlem); bundle dostaje tylko token meczu do `submit-move`/`reveal-done`/`prefs`.
-**Watch out:** spójność UX (czat „obok" bundla, nie „w"); do rozwiązania w warstwie layoutu.
-
-### Ranked wyłącznie na bundlu z CSP
-**Why:** filar 2 „Safe secret" — UI zna rysowany ruch z natury; tylko CSP zamyka kanał wycieku po stronie przeglądarki.
-**What:** 4e (ranked/ELO/kolejka) twardo zależy od 4d; casual pozostaje na redirect-app z etykietą „UI poza platformą".
-**Watch out:** kanały nawigacyjne (D1) rezydualne — detekcja (Etap 5) to siatka bezpieczeństwa, nie gwarancja.
+**What:** czat lobby/meczu żyje w powłoce platformy; aplikacja gry (zewnętrzna dziś, bundle w przyszłości) dostaje tylko token meczu do `submit-move`/`reveal-done`/`prefs`. Dla wbudowanego RPS czat-overlay z 4b spełnia to z definicji.
+**Watch out:** przy pełnym redirect na domenę deva (4d, casual) gracz NIE MA czatu platformy w trakcie meczu — świadomy koszt tej ścieżki; wróci przy projektowaniu osadzenia bundli (iframe vs redirect).
 
 ## Uwagi przekrojowe
 
 - **Liczby to konfiguracja** (K, okna matchmakingu, TTL, limity gościa, retencja) — parametry od dnia 1, kalibracja po playtestach (dane telemetryczne z 2c, `UNKNOWNS.md`).
 - **Wolumen streamów (B4):** presence + friends + czat to nowe, gadatliwe subskrypcje — wpiąć `$match` po kolekcji i indeks `kolekcja → tickets` (zaplanowane w 2e) zanim społeczność wejdzie na żywo; obserwować CPU dopasowywania streamów.
-- **Co świadomie NIE wchodzi w Etap 4:** `trust_events`/renoma/sprawdzalność/`judge`/pułapki z botami (Etap 5 — tu tylko hak na bota i ODCZYT adnotacji), rejestracja self-service z pipeline (Etap 5), snajperzy i arrowsoccer (Etap 5/6). Ranked w Etapie 4 działa bez progów zaufania — bramkowanie ranked renomą/sprawdzalnością dochodzi w Etapie 5.
+- **Co świadomie NIE wchodzi w Etap 4:** `trust_events`/renoma/sprawdzalność/`judge`/pułapki z botami (Etap 5 — tu tylko hak na bota i ODCZYT adnotacji), automatyczny pipeline walidacji rejestracji (Etap 5 — w 4d approve ręczny), hosting bundli UI + CSP + S3 (przesunięte — patrz decyzje), snajperzy i arrowsoccer (Etap 5/6). Ranked w Etapie 4 = wyłącznie gry wbudowane, bez progów zaufania — bramkowanie ranked renomą/sprawdzalnością dochodzi w Etapie 5.
 - **Wzorzec pracy (sprawdzony w Etapie 2/Fali 3):** rozłączne obszary agentami spięte jednym kontraktem-plikiem, potem integracja i weryfikacja krzyżowa; skille `back`/`front`/`data`/`test` per zadanie; weryfikacja live po stronie Piotra (sandbox nie odpala Dockera/testów).
 
 ## Otwarte pytania
 
-- **Sandbox iframe dla bundla** (D1): czy od razu osadzać bundle w sandboxowanym iframe, czy najpierw sama subdomena + CSP i iframe jako hardening później? Wpływa na handoff tokenu i layout czatu.
-- **Kształt handoffu tokenu do bundla na osobnej domenie** (postMessage vs URL-fragment): projektować z 4d, bo dotyka granicy originów i D2.
+- **Przesunięte razem z hostingiem bundli (wrócą przy pierwszej zewnętrznej grze ranked):** sandbox iframe (D1), kształt handoffu tokenu do bundla (postMessage vs URL-fragment), layout czatu obok bundla, symulacja osobnej domeny w dev (hosts/lvh.me — cookies nie rozróżniają portów).
+- **Approve gier w 4d:** panel admina w web czy na start skrypt/komenda (wzór `games-register`)? Tanio zacząć od komendy, panel gdy będzie więcej niż garść gier.
+- **Zakres konta dewelopera w 4d:** limity (ile gier per konto), edycja po publish — zmiana `uiUrl`/URL logiki to potencjalna podmiana gry: czy wymaga ponownego approve? (rekomendacja: tak).
 - **Presence a prywatność:** czy `currentMatchId` widoczny dla wszystkich znajomych, czy z opcją „tryb niewidzialny"? (prefs gracza, tanie do dołożenia w 4a).
 - **ELO a niedomyślne presety:** plan trzyma ELO tylko dla domyślnego presetu — czy warianty (np. RPS do innej liczby punktów) dostają osobne, nierankingowe leaderboardy? (odłożone, ale zanotować).

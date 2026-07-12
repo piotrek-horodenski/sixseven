@@ -160,6 +160,14 @@ export class AppClass {
         // flips them online. Multi-device safe (onConnect guards internally).
         const uid = String(u._id)
         void getPresenceService().onConnect(uid).catch(err => logger.error({ err, uid }, 'presence onConnect failed'))
+      } else if (authSocket.match) {
+        // Presence (4a): zalogowany gracz wchodzi na ekran gry socketem tokenu
+        // meczu (playerId = userId). Goście (playerId 'g_…') nie mają presence.
+        const pid = authSocket.match.playerId
+        if (pid && !pid.startsWith('g_')) {
+          void getPresenceService().setActivity(pid, 'match', authSocket.match.matchId)
+            .catch(err => logger.error({ err, pid }, 'presence match setActivity failed'))
+        }
       }
 
       socketHandlers.forEach(handler => {
@@ -174,7 +182,17 @@ export class AppClass {
             socket.emit('error', { message: 'Rate limit exceeded', event: handler.event })
             return
           }
-          handler.handler(authSocket, ...args)
+          // Utwardzenie: błąd (rzut/odrzucenie) w JEDNYM handlerze NIE może
+          // wywalić całego procesu gate (unhandledRejection → process.exit).
+          // Łapiemy i logujemy — reszta socketów żyje dalej.
+          try {
+            const maybePromise = handler.handler(authSocket, ...args) as unknown
+            if (maybePromise instanceof Promise) {
+              maybePromise.catch(err => logger.error({ err, event: handler.event, socketId: socket.id }, 'socket handler rejected'))
+            }
+          } catch (err) {
+            logger.error({ err, event: handler.event, socketId: socket.id }, 'socket handler threw')
+          }
         })
       })
 

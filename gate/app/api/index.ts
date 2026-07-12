@@ -113,6 +113,24 @@ export class Api {
           { $push: { members: { id: guestId, kind: 'guest', nick: guestNick } }, $set: { updatedAt: Date.now() } },
         )
 
+        // Mecz powstaje już przy zakładaniu gry (Etap 3B) — gościa trzeba dopisać
+        // do MECZU (guestIds), inaczej handoff mówi „not a member of this match".
+        // Analogicznie do rooms:join dla zalogowanych. Pełny slot → pokój `matched`.
+        const matchId = (room as any).matchId
+        if (matchId) {
+          const joinResult = await this.getGamesClient().joinMatch(String(matchId), guestId, 'guest', guestNick)
+          if (!joinResult.ok) {
+            // Wycofaj membera-gościa, by pokój nie trzymał kogoś spoza meczu.
+            await RoomModel.updateOne({ _id: room._id }, { $pull: { members: { id: guestId } }, $set: { updatedAt: Date.now() } })
+            logger.warn({ roomId: String(room._id), matchId: String(matchId), status: joinResult.status }, 'guest join-match failed')
+            res.status(409).json({ message: joinResult.error || 'could not join match' })
+            return
+          }
+          if (joinResult.data?.full) {
+            await RoomModel.updateOne({ _id: room._id }, { $set: { status: 'matched', updatedAt: Date.now() } })
+          }
+        }
+
         const settings = SettingsService()
         const token = issueGuestToken(settings.jwtSecret, { guestId, roomId: String(room._id) })
 

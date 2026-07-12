@@ -27,6 +27,12 @@ export const MatchSchema = new Schema({
 
   players: { type: [String], default: [] },   // userId zalogowanych graczy
   guestIds: { type: [String], default: [] },  // identyfikatory gości (sesja gościa)
+  // Denormalizowane nazwy do wyświetlenia w grze (id→nick). Ustawiane przy
+  // create/join z username (użytkownik) lub nicku gościa. Bez wpływu na logikę.
+  nicks: { type: Schema.Types.Mixed, default: {} },
+  // Kod pokoju (denorm z gate) — pozwala uczestnikom meczu pokazać link
+  // zaproszenia dla gościa (`/r/CODE`), gdy roster niepełny. Bez wpływu na logikę.
+  roomCode: { type: String, default: null },
   // Docelowa liczba graczy (Etap 3B pkt 1). Mecz jest „otwarty" (dołączalny), dopóki
   // players.length + guestIds.length < capacity.
   capacity: { type: Number, default: 2 },

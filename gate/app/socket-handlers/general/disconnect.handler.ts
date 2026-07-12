@@ -23,6 +23,13 @@ export const disconnectHandler: HandlerObject = {
     if (socket.user) {
       const uid = String(socket.user._id)
       void getPresenceService().onDisconnect(uid).catch(err => logger.error({ err, uid }, 'presence onDisconnect failed'))
+    } else if (socket.match) {
+      // Zalogowany gracz opuszcza ekran gry (socket meczu) → wraca do 'online'
+      // (jeśli wciąż ma żywy socket gate). Goście (g_…) nie mają presence.
+      const pid = socket.match.playerId
+      if (pid && !pid.startsWith('g_')) {
+        void getPresenceService().clearActivity(pid).catch(err => logger.error({ err, pid }, 'presence match clearActivity failed'))
+      }
     }
   }
 }

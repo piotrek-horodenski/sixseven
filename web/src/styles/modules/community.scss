@@ -4,6 +4,92 @@
 // WŁAŚCICIEL: Agent A5.
 // ===========================================================================
 
+// --- Link zaproszenia gościa w lobby gry (Etap 4) — kod pokoju /r/CODE ------
+.rps-share {
+  margin-top: 1rem;
+  width: 100%;
+  max-width: 22rem;
+
+  &__label {
+    font-size: .85rem;
+    color: var(--neutral-color-soft);
+    margin: 0 0 .35rem;
+  }
+
+  &__row {
+    display: flex;
+    gap: .4rem;
+  }
+
+  &__input {
+    flex: 1 1 auto;
+    min-width: 0;
+    padding: .4rem .55rem;
+    border: 1px solid var(--border-color, rgba(127, 127, 127, .3));
+    border-radius: .4rem;
+    background: var(--background-color-soft);
+    color: inherit;
+    font-size: .8rem;
+  }
+
+  &__copy {
+    display: inline-flex;
+    align-items: center;
+    gap: .3rem;
+    padding: .4rem .7rem;
+    border: none;
+    border-radius: .4rem;
+    cursor: pointer;
+    background: var(--primary-color, #4257b2);
+    color: #fff;
+    font-size: .8rem;
+    white-space: nowrap;
+  }
+}
+
+// --- Czat meczu: zwijany overlay w /game/rps (integrator, Etap 4b) ----------
+// Widok gry jest standalone (bez slotu aside), więc czat wchodzi jako overlay:
+// pływający przycisk w rogu + wysuwany panel. Nie zaburza układu gry (mobile).
+.game-app__chat {
+  position: fixed;
+  right: 1rem;
+  bottom: 1rem;
+  z-index: 40;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: .5rem;
+}
+
+.game-app__chat-toggle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 3rem;
+  height: 3rem;
+  border: none;
+  border-radius: 50%;
+  cursor: pointer;
+  background: var(--primary-color, #4257b2);
+  color: #fff;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, .25);
+  font-size: 1.1rem;
+}
+
+.game-app__chat-drawer {
+  width: min(20rem, calc(100vw - 2rem));
+  height: min(24rem, calc(100vh - 6rem));
+  overflow: hidden;
+  border-radius: .6rem;
+  background: var(--surface-color, var(--background-color, #fff));
+  box-shadow: 0 6px 24px rgba(0, 0, 0, .3);
+}
+
+// Panel czatu wewnątrz wysuwanego drawera wypełnia go w całości.
+.game-app__chat-drawer .chat-panel {
+  height: 100%;
+}
+
 // --- Czat (aside) ----------------------------------------------------------
 .chat-panel {
   display: flex;

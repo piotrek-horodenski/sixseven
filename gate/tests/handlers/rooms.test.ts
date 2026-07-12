@@ -97,7 +97,7 @@ describe('rooms:create', () => {
     expect(room.hostId).toBe('u1')
     expect(room.members).toEqual([{ id: 'u1', kind: 'user', nick: 'alice' }])
     // brak capacity/target w payloadzie → domyślne 2 / 5 (Etap 3C)
-    expect(client.createMatch).toHaveBeenCalledWith({ gameId: 'rps', players: ['u1'], capacity: 2, options: { target: 5 } })
+    expect(client.createMatch).toHaveBeenCalledWith({ gameId: 'rps', players: ['u1'], nicks: { u1: 'alice' }, roomCode: 'ABC234', capacity: 2, options: { target: 5 } })
     expect(room.matchId).toBe('match-99')
     expect(room.status).toBe('open') // wciąż dołączalny (Etap 3B pkt 1)
     expect(socket.emit).toHaveBeenCalledWith('rooms:create-complete', { roomId: 'room-1', code: 'ABC234', matchId: 'match-99' })
@@ -110,7 +110,7 @@ describe('rooms:create', () => {
     await handlerFor('rooms:create', { client, store, genCode: () => 'ABC234' })
       .handler(socket, { gameId: 'rps', name: 'Fun', visibility: 'public', capacity: 4, target: 10 })
 
-    expect(client.createMatch).toHaveBeenCalledWith({ gameId: 'rps', players: ['u1'], capacity: 4, options: { target: 10 } })
+    expect(client.createMatch).toHaveBeenCalledWith({ gameId: 'rps', players: ['u1'], nicks: { u1: 'alice' }, roomCode: 'ABC234', capacity: 4, options: { target: 10 } })
   })
 
   it('rejects capacity < 2', async () => {
@@ -212,7 +212,7 @@ describe('rooms:join', () => {
     await handlerFor('rooms:join', { client, store, genCode: () => 'x' })
       .handler(socket, { code: 'JOIN22' })
 
-    expect(client.joinMatch).toHaveBeenCalledWith('match-99', 'u2', 'user')
+    expect(client.joinMatch).toHaveBeenCalledWith('match-99', 'u2', 'user', 'bob')
     expect(store.rooms.get('room-1')!.status).toBe('open')
     expect(socket.emit).toHaveBeenCalledWith('rooms:join-complete', { roomId: 'room-1', matchId: 'match-99' })
   })
@@ -430,7 +430,8 @@ describe('rooms:start', () => {
     await handlerFor('rooms:start', { client, store, genCode: () => 'x' })
       .handler(socket, { roomId: 'room-1' })
     expect(client.createMatch).toHaveBeenCalledWith({
-      gameId: 'rps', players: ['host', 'u2'], guestIds: ['g_1'], options: { target: 2 },
+      gameId: 'rps', players: ['host', 'u2'], guestIds: ['g_1'],
+      nicks: { host: 'host', u2: 'u2', g_1: 'g_1' }, roomCode: 'C', options: { target: 2 },
     })
     const stored = store.rooms.get('room-1')!
     expect(stored.matchId).toBe('match-99')

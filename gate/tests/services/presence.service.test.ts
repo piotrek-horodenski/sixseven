@@ -139,6 +139,57 @@ describe('presence.service — multi-device session counting', () => {
   })
 })
 
+describe('presence.service — activity (lobby/match hook)', () => {
+  it('setActivity writes lobby/match with matchId when the user is online', async () => {
+    const { svc, store } = makeService({ friends: { u1: ['u2'] } })
+    await svc.onConnect('u1')
+    await svc.setActivity('u1', 'match', 'm-1')
+    const doc = store.docs.get('u1')!
+    expect(doc.status).toBe('match')
+    expect(doc.currentMatchId).toBe('m-1')
+  })
+
+  it('setActivity for an offline user records intent WITHOUT resurrecting the doc', async () => {
+    const { svc, store } = makeService()
+    await svc.setActivity('u1', 'lobby', 'm-1')
+    expect(store.docs.has('u1')).toBe(false)
+  })
+
+  it('onConnect restores a pending activity instead of plain online (reconnect)', async () => {
+    const { svc, store } = makeService()
+    await svc.onConnect('u1')            // online
+    await svc.setActivity('u1', 'match', 'm-9')
+    await svc.onDisconnect('u1')         // last session → offline + forget activity
+    expect(store.docs.has('u1')).toBe(false)
+
+    // Nowa aktywność, potem pełny reconnect → status odtworzony.
+    await svc.setActivity('u1', 'lobby', 'm-3') // offline: tylko intencja
+    await svc.onConnect('u1')
+    expect(store.docs.get('u1')!.status).toBe('lobby')
+    expect(store.docs.get('u1')!.currentMatchId).toBe('m-3')
+  })
+
+  it('clearActivity returns the user to online while still connected', async () => {
+    const { svc, store } = makeService()
+    await svc.onConnect('u1')
+    await svc.setActivity('u1', 'match', 'm-1')
+    expect(store.docs.get('u1')!.status).toBe('match')
+    await svc.clearActivity('u1')
+    expect(store.docs.get('u1')!.status).toBe('online')
+    expect(store.docs.get('u1')!.currentMatchId).toBeNull()
+  })
+
+  it('full offline forgets activity (reconnect does not resurrect stale match)', async () => {
+    const { svc, store } = makeService()
+    await svc.onConnect('u1')
+    await svc.setActivity('u1', 'match', 'm-1')
+    await svc.onDisconnect('u1')          // offline + forget
+    await svc.onConnect('u1')             // reconnect → plain online, no stale match
+    expect(store.docs.get('u1')!.status).toBe('online')
+    expect(store.docs.get('u1')!.currentMatchId).toBeNull()
+  })
+})
+
 describe('presence.service — refreshStatus (invisible toggle re-eval)', () => {
   it('re-applies invisible degradation to the current doc', async () => {
     const store = makeStore([{ userId: 'u1', status: 'match', lastSeen: 1, currentMatchId: 'match-9', visibleTo: [], updatedAt: 1 }])

@@ -48,6 +48,12 @@ export const useSocialStore = defineStore('social', () => {
     return f.a === currentUserId.value ? f.b : f.a
   }
 
+  /** Nazwa drugiej strony do wyświetlenia (denormalizowany username; fallback = id). */
+  function otherNick(f: Friendship): string {
+    const id = otherId(f)
+    return f.nicks?.[id] ?? id
+  }
+
   function isParty(f: Friendship): boolean {
     return f.a === currentUserId.value || f.b === currentUserId.value
   }
@@ -67,12 +73,13 @@ export const useSocialStore = defineStore('social', () => {
         const p = presenceFor(userId)
         return {
           userId,
+          nick: otherNick(f),
           friendshipId: f._id,
           status: (p?.status ?? 'offline') as FriendPresence,
           currentMatchId: p?.currentMatchId ?? null,
         }
       })
-      .sort((x, y) => x.userId.localeCompare(y.userId)),
+      .sort((x, y) => x.nick.localeCompare(y.nick)),
   )
 
   /** Zaproszenia do mnie (ktoś inny zaprosił, ja jestem stroną). */
@@ -82,14 +89,14 @@ export const useSocialStore = defineStore('social', () => {
         (f) =>
           f.status === 'invited' && isParty(f) && f.invitedBy !== currentUserId.value,
       )
-      .map((f) => ({ userId: otherId(f), friendshipId: f._id, invitedBy: f.invitedBy })),
+      .map((f) => ({ userId: otherId(f), nick: otherNick(f), friendshipId: f._id, invitedBy: f.invitedBy })),
   )
 
   /** Zaproszenia wysłane przeze mnie (oczekujące). */
   const pendingOutgoing = computed<PendingInvite[]>(() =>
     friendships.value
       .filter((f) => f.status === 'invited' && f.invitedBy === currentUserId.value)
-      .map((f) => ({ userId: otherId(f), friendshipId: f._id, invitedBy: f.invitedBy })),
+      .map((f) => ({ userId: otherId(f), nick: otherNick(f), friendshipId: f._id, invitedBy: f.invitedBy })),
   )
 
   // ---- acki (UX) --------------------------------------------------------

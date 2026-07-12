@@ -24,6 +24,8 @@ const social: typeof pl = {
     accept: 'Accept',
     reject: 'Reject',
     remove: 'Remove',
+    message: 'Send a message',
+    profile: 'View profile',
   },
   privacy: {
     invisible: 'Invisible mode',

@@ -63,6 +63,11 @@ export function createPresenceService(deps: PresenceDeps) {
   const now = deps.now ?? (() => Date.now())
   // Licznik żywych socketów per userId. Źródło prawdy dla „online" — multi-device.
   const liveSessions = new Map<string, number>()
+  // Warstwa „activity": bieżąca aktywność usera (lobby/match) ustawiana przez
+  // zdarzenia rooms (gate socket) i cykl życia socketu meczu (token match).
+  // Przeżywa reconnect (onConnect ją odtwarza) i jest zdejmowana przez
+  // clearActivity → powrót do 'online'. Bez wpisu = zwykłe 'online'.
+  const activity = new Map<string, { status: PresenceStatus; matchId: string | null }>()
 
   /**
    * Upsert obecności dla danego statusu. Zawsze przelicza `visibleTo` (accepted
@@ -126,6 +131,33 @@ export function createPresenceService(deps: PresenceDeps) {
   }
 
   /**
+   * Ustaw aktywność usera (lobby/match) + zapisz do dokumentu, jeśli online.
+   * Zapamiętana w mapie, by przeżyć reconnect (onConnect ją odtwarza). Offline
+   * user (brak sesji) nie dostaje zmartwychwstałego presence — tylko zapis intencji.
+   */
+  async function setActivity(
+    userId: string,
+    status: 'lobby' | 'match',
+    matchId: string | null = null,
+  ): Promise<void> {
+    activity.set(userId, { status, matchId })
+    if (sessionCount(userId) > 0) {
+      await setStatus(userId, status, matchId)
+    }
+  }
+
+  /**
+   * Zdejmij aktywność (koniec/opuszczenie gry). Jeśli user wciąż online → 'online';
+   * jeśli offline (brak sesji) → no-op (goOffline i tak usunął dokument).
+   */
+  async function clearActivity(userId: string): Promise<void> {
+    activity.delete(userId)
+    if (sessionCount(userId) > 0) {
+      await setStatus(userId, 'online')
+    }
+  }
+
+  /**
    * Nowy socket usera. Pierwsza sesja → user staje się online. Kolejne sesje
    * (multi-device) tylko inkrementują licznik.
    */
@@ -133,7 +165,9 @@ export function createPresenceService(deps: PresenceDeps) {
     const next = sessionCount(userId) + 1
     liveSessions.set(userId, next)
     if (next === 1) {
-      await setStatus(userId, 'online')
+      // Odtwórz aktywność (lobby/match) po reconnect; inaczej zwykłe 'online'.
+      const act = activity.get(userId)
+      await setStatus(userId, act?.status ?? 'online', act?.matchId ?? null)
     }
   }
 
@@ -147,6 +181,8 @@ export function createPresenceService(deps: PresenceDeps) {
     const next = current - 1
     if (next <= 0) {
       liveSessions.delete(userId)
+      // Pełny offline: zapomnij aktywność, by reconnect nie wskrzesił starego lobby/match.
+      activity.delete(userId)
       await goOffline(userId)
     } else {
       liveSessions.set(userId, next)
@@ -155,6 +191,8 @@ export function createPresenceService(deps: PresenceDeps) {
 
   return {
     setStatus,
+    setActivity,
+    clearActivity,
     refreshVisibleTo,
     refreshStatus,
     goOffline,
@@ -178,10 +216,13 @@ let singleton: PresenceService | null = null
 export function getPresenceService(): PresenceService {
   if (singleton) return singleton
 
-  // Leniwy require — bez efektu ubocznego przy imporcie modułu w testach.
-  const { App } = require('../app') as typeof import('../app')
-
+  // App MUSI być rozwiązywany PRZY KAŻDYM wywołaniu (nie przy konstrukcji
+  // singletona): friends/index.ts woła getPresenceService() na etapie ładowania
+  // modułu, gdy app.ts jest jeszcze w trakcie ewaluacji (cykliczny import) i
+  // `App` byłby `undefined` na zawsze zamrożony w domknięciu. Leniwy require w
+  // getModel odracza to do czasu wywołania handlera, gdy App jest już gotowe.
   function getModel(name: string) {
+    const { App } = require('../app') as typeof import('../app')
     const m = App.models.find((x: { name: string }) => x.name === name)?.model
     if (!m) throw new Error(`${name} model not registered`)
     return m

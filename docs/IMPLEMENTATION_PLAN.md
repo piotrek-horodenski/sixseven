@@ -178,17 +178,17 @@ Maszyna stanów pełna (z Paused/Cancelled), kolekcje prywatne games, `resolve_l
 Kolejka szybkiego meczu (na razie bez ELO — FIFO + accept), lista pokoi publicznych, presence, opcje meczu w lobby (schemat z manifestu, generyczny renderer), toast manager, kwoty równoległych meczów (stała bazowa).
 *Akceptacja:* pełny przepływ: katalog → szybki mecz → gra → wynik → rewanż; presence live na liście znajomych pokoju.
 
-**Etap 4 — Stawka: ranked i społeczność.**
-ELO + walkowery, hosting zaufanych bundli UI (upload `publish-ui`, subdomena per gra, CSP + blokada WebRTC), RPS przechodzi na bundle (zostaje wzorcem obu ścieżek), znajomi, czat lobby/meczu, adnotacje + profile, konwersja gościa w konto.
-*Akceptacja:* S3 na produkcyjnym hostingu bundli (bundle nie wykona żądania poza platformę); walkower liczy ELO wg reguł; adnotacja negative niewidoczna dla innych.
+**Etap 4 — Stawka, społeczność i otwarcie na gry zewnętrzne.** *(zredefiniowany 2026-07-12 — szczegóły i podetapy: `docs/ETAP4_PLAN.md`; ADR „Gry wbudowane vs zewnętrzne")*
+Znajomi + presence, czat lobby/meczu, adnotacje + profile, konwersja gościa w konto (4a–4c); **gry zewnętrzne casual** — konta deweloperów, rejestracja gry (ręczny approve admina), katalog data-driven, przekierowanie na UI deva z handoffem cross-origin (4d); **ranked na grach wbudowanych** — ELO + walkowery + kolejka szybkiego meczu na wbudowanym RPS (4e). Hosting zaufanych bundli UI (publish-ui, osobna domena D2, CSP) **przesunięty** do etapu pierwszej zewnętrznej gry rankingowej — RPS pozostaje wbudowany na stałe.
+*Akceptacja:* deweloper bez uprawnień admina rejestruje grę i gracz gra ją end-to-end na domenie deva (casual); token meczu z obcego originu nie otwiera nic poza swoim meczem; walkower liczy ELO wg reguł; adnotacja negative niewidoczna dla innych.
 
 **Etap 5 — Gospodarka zaufania.**
-`trust_events` + agregaty + formuły + progi (konfiguracja), mikroserwis **`judge`** (harmonogram bazowy replay + lustro, pułapki dla naszych gier z botami, `audit_cases`, tryb targetingu `off`/ręczny; warstwa AI w trybie `assist`/`auto` jako opcja po stabilizacji sygnałów), rejestracja self-service z pipeline, dziedziczenie renomy konta, **pojedynek snajperów** jako druga gra — rejestrowana wyłącznie ścieżką self-service (dogfooding) i test krótkich tur (3 s).
+`trust_events` + agregaty + formuły + progi (konfiguracja), mikroserwis **`judge`** (harmonogram bazowy replay + lustro, pułapki dla naszych gier z botami, `audit_cases`, tryb targetingu `off`/ręczny; warstwa AI w trybie `assist`/`auto` jako opcja po stabilizacji sygnałów), **automatyczny pipeline walidacji rejestracji** (zdalne kontrakt-testy, stany `validating/validated`, auto-approve od progu — konta devów i ręczny approve istnieją od Etapu 4d), dziedziczenie renomy konta, **pojedynek snajperów** jako druga gra — rejestrowana wyłącznie ścieżką self-service (dogfooding) i test krótkich tur (3 s).
 *Akceptacja:* S4, S5 (celowo zepsute serwisy-fixtury: niedeterministyczny i faworyzujący — audytor je łapie, renoma spada, unpublish poniżej progu); snajperzy grywalni przy 3-sekundowych turach; katalog pokazuje renomę/sprawdzalność live.
 
 **Etap 6 — Flagowiec i tutorial.**
-Arrowsoccer (wg `games/ARROWSOCCER.md`): moduł fizyki kwantowej (współdzielony), serwis logiki, UI three.js jako zaufany bundle, opcje fizyki, formacje w prefs, odznaki, bot do pułapek. Tutorial publiczny: „od `npm create` do published" na przykładzie easy (RPS) i zaawansowanym (arrowsoccer). Playtesty i kalibracja parametrów zaufania.
-*Akceptacja:* arrowsoccer przechodzi całą ścieżkę zewnętrznego deva bez używania uprawnień admina; mecz na telefonie (portrait) z animacją siatki; tutorial wykonalny przez osobę spoza projektu.
+Arrowsoccer (wg `games/ARROWSOCCER.md`): moduł fizyki kwantowej (współdzielony), serwis logiki, UI three.js na własnej domenie (casual) **+ hosting zaufanych bundli przeniesiony z Etapu 4** — publish-ui, osobna domena rejestrowalna (D2), CSP z blokadą kanałów nawigacyjnych (D1), test S3 e2e; arrowsoccer jako pierwsza zewnętrzna gra ranked (UI wgrane jako bundle). Opcje fizyki, formacje w prefs, odznaki, bot do pułapek. Tutorial publiczny: „od `npm create` do published" na przykładzie easy (RPS — z zastrzeżeniem, że RPS jest wbudowany; przykład rejestracji = snajperzy) i zaawansowanym (arrowsoccer). Playtesty i kalibracja parametrów zaufania.
+*Akceptacja:* arrowsoccer przechodzi całą ścieżkę zewnętrznego deva bez używania uprawnień admina, łącznie z wgraniem bundla i grą ranked; S3 zielone na produkcyjnym hostingu bundli; mecz na telefonie (portrait) z animacją siatki; tutorial wykonalny przez osobę spoza projektu.
 
 ## Testy sekretu (stały pakiet w CI)
 

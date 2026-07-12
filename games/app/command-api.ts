@@ -25,7 +25,7 @@ export interface EngineCommands {
   submitMove(matchId: string, playerId: string, move: unknown): Promise<'accepted' | 'rejected'>
   revealDone(matchId: string): Promise<void>
   /** Dołączenie gracza do meczu w lobby (Etap 3B pkt 2). */
-  addPlayer(matchId: string, playerId: string, kind: 'user' | 'guest', initialState: unknown): Promise<AddPlayerResult>
+  addPlayer(matchId: string, playerId: string, kind: 'user' | 'guest', initialState: unknown, nick?: string): Promise<AddPlayerResult>
   /** Anulowanie meczu (Etap 3B pkt 6 — leave twórcy w lobby). */
   cancel(matchId: string, reason: 'cancelled_lobby' | 'cancelled_paused' | 'cancelled'): Promise<void>
 }
@@ -329,7 +329,7 @@ export function createCommandRouter(deps: CommandDeps): express.Router {
 
   router.post('/create-match', async (req, res) => {
     try {
-      const { gameId, players, guestIds, capacity, ranked, options } = req.body ?? {}
+      const { gameId, players, guestIds, capacity, ranked, options, nicks, roomCode } = req.body ?? {}
       if (typeof gameId !== 'string' || !Array.isArray(players) || players.length === 0) {
         res.status(400).json({ error: 'gameId and players required' })
         return
@@ -374,6 +374,8 @@ export function createCommandRouter(deps: CommandDeps): express.Router {
         manifestVersion: reg.version,
         players,
         guestIds,
+        nicks: nicks && typeof nicks === 'object' ? nicks : undefined,
+        roomCode: typeof roomCode === 'string' ? roomCode : undefined,
         capacity: typeof capacity === 'number' && capacity > 0 ? capacity : undefined,
         ranked,
         options: mergedOptions,
@@ -455,7 +457,7 @@ export function createCommandRouter(deps: CommandDeps): express.Router {
   // re-init jest bezpieczny.
   router.post('/join-match', async (req, res) => {
     try {
-      const { matchId, playerId, kind } = req.body ?? {}
+      const { matchId, playerId, kind, nick } = req.body ?? {}
       if (typeof matchId !== 'string' || !matchId || typeof playerId !== 'string' || !playerId) {
         res.status(400).json({ error: 'matchId and playerId required' })
         return
@@ -510,7 +512,7 @@ export function createCommandRouter(deps: CommandDeps): express.Router {
         return
       }
 
-      const result = await deps.engine.addPlayer(matchId, playerId, playerKind, initRes.state)
+      const result = await deps.engine.addPlayer(matchId, playerId, playerKind, initRes.state, typeof nick === 'string' ? nick : undefined)
       if (result === 'duplicate') {
         res.json({ ok: true, matchId, playerId, full: currentSize >= capacity })
         return

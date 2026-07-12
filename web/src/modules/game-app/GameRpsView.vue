@@ -7,6 +7,8 @@ import { RPS_MOVES, REVEAL_MS, playerLabel } from '@/modules/games/rps.consts'
 import type { RpsMove, RpsRevealedMove } from '@/stores/games/games.model'
 import RpsHand from '@/modules/games/RpsHand.vue'
 import RpsIcon from '@/modules/games/RpsIcon.vue'
+import ChatAsidePanel from '@/modules/social/ChatAsidePanel.vue'
+import { useGateStore } from '@/stores/gate/gate.store'
 
 /**
  * Aplikacja gry RPS (`/game/rps`) — standalone, poza AppLayout, BEZ `gate.store`
@@ -32,10 +34,41 @@ const returnUrl = computed(() => {
 
 const match = client.match
 const meId = computed(() => client.playerId.value)
+/** Denormalizowane nazwy graczy z meczu (id→nick) — do etykiet w grze. */
+const nicks = computed<Record<string, string>>(() => (match.value?.nicks ?? {}) as Record<string, string>)
+
+// Link zaproszenia gościa (`/r/CODE`) — widoczny przy NIEPEŁNYM rosterze.
+const shareUrl = computed<string | null>(() => {
+  const code = match.value?.roomCode
+  if (!code) return null
+  return `${window.location.origin}/r/${code}`
+})
+const shareCopied = ref(false)
+async function copyShare() {
+  if (!shareUrl.value) return
+  try {
+    await navigator.clipboard.writeText(shareUrl.value)
+    shareCopied.value = true
+    window.setTimeout(() => (shareCopied.value = false), 1500)
+  } catch { /* kopiowanie niedostępne — użytkownik może zaznaczyć ręcznie */ }
+}
 /** Pełny roster meczu (gracze + goście), włącznie ze mną. */
 const roster = client.players
 /** Roster bez mnie — pozostali uczestnicy. */
 const others = client.opponents
+
+// Czat meczu (4b) — OVERLAY tylko dla zalogowanego gracza. gate.store używane
+// WYŁĄCZNIE do tego panelu (nie do tożsamości gry — ta idzie z tokenu meczu).
+// Gość (playerId w guestIds, brak sesji gate) czatu nie dostaje (MVP).
+const gate = useGateStore()
+const chatOpen = ref(false)
+const chatMatchId = computed<string | null>(() => match.value?._id ?? null)
+const canChat = computed<boolean>(() =>
+  gate.isAuthenticated &&
+  !!chatMatchId.value &&
+  !!meId.value &&
+  (match.value?.players ?? []).includes(meId.value as string),
+)
 
 onMounted(() => {
   const handoff = route.query.handoff
@@ -268,7 +301,7 @@ onUnmounted(() => {
             class="score-chip"
             :class="{ 'score-chip--me': pid === meId, 'score-chip--lead': scoreOf(pid) === maxScore }"
           >
-            <span class="score-chip__name">{{ playerLabel(pid, meId) }}</span>
+            <span class="score-chip__name">{{ playerLabel(pid, meId, nicks) }}</span>
             <span class="score-chip__val">{{ scoreOf(pid) }}</span>
           </div>
           <span class="match-screen__target">{{ $t('games.scoreTarget', { target }) }}</span>
@@ -288,13 +321,25 @@ onUnmounted(() => {
             <ul class="rps-roster">
               <li v-for="pid in roster" :key="pid" class="rps-roster__item">
                 <span class="rps-dot rps-dot--on" />
-                {{ playerLabel(pid, meId) }}
+                {{ playerLabel(pid, meId, nicks) }}
               </li>
               <li v-for="n in emptySlots" :key="`empty-${n}`" class="rps-roster__item rps-roster__item--empty">
                 <span class="rps-dot" />
                 {{ $t('games.lobby.emptySlot') }}
               </li>
             </ul>
+
+            <!-- Link zaproszenia gościa (kod pokoju) — niepełny roster. -->
+            <div v-if="shareUrl" class="rps-share">
+              <p class="rps-share__label">{{ $t('games.lobby.inviteLabel') }}</p>
+              <div class="rps-share__row">
+                <input class="rps-share__input" :value="shareUrl" readonly @focus="($event.target as HTMLInputElement).select()" />
+                <button type="button" class="rps-share__copy" @click="copyShare">
+                  <fa :icon="shareCopied ? 'check' : 'copy'" />
+                  {{ shareCopied ? $t('games.lobby.inviteCopied') : $t('games.lobby.inviteCopy') }}
+                </button>
+              </div>
+            </div>
           </template>
 
           <!-- komplet graczy -->
@@ -310,7 +355,7 @@ onUnmounted(() => {
             <ul class="rps-roster">
               <li v-for="pid in roster" :key="pid" class="rps-roster__item">
                 <span class="rps-dot" :class="{ 'rps-dot--on': !!match.lobbyReady?.[pid] }" />
-                {{ playerLabel(pid, meId) }}
+                {{ playerLabel(pid, meId, nicks) }}
                 <span v-if="match.lobbyReady?.[pid]" class="rps-roster__ready">{{ $t('games.lobby.ready') }}</span>
               </li>
             </ul>
@@ -390,7 +435,7 @@ onUnmounted(() => {
                 :revealed="revealed"
                 :outcome="revealed ? outcomeFor(pid) : null"
                 :defaulted="pickFor(pid)?.defaulted"
-                :label="playerLabel(pid, meId)"
+                :label="playerLabel(pid, meId, nicks)"
               />
               <span
                 v-if="revealed"
@@ -430,7 +475,7 @@ onUnmounted(() => {
               class="rps-finished__row"
               :class="{ 'rps-finished__row--me': pid === meId, 'rps-finished__row--winner': leaders.includes(pid) }"
             >
-              <span class="rps-finished__name">{{ playerLabel(pid, meId) }}</span>
+              <span class="rps-finished__name">{{ playerLabel(pid, meId, nicks) }}</span>
               <span class="rps-finished__val">{{ scoreOf(pid) }}</span>
             </li>
           </ul>
@@ -468,6 +513,22 @@ onUnmounted(() => {
         <p class="rps-state__text">{{ $t('games.loadingMatch') }}</p>
       </div>
     </template>
+  </div>
+
+  <!-- Czat meczu (4b): zwijany overlay dla zalogowanego gracza. -->
+  <div v-if="canChat" class="game-app__chat" :class="{ 'game-app__chat--open': chatOpen }">
+    <button
+      type="button"
+      class="game-app__chat-toggle"
+      :aria-expanded="chatOpen"
+      :title="$t('community.chat.title')"
+      @click="chatOpen = !chatOpen"
+    >
+      <fa :icon="chatOpen ? 'times' : 'comments'" />
+    </button>
+    <div v-if="chatOpen" class="game-app__chat-drawer">
+      <ChatAsidePanel scope="match" :scope-id="chatMatchId" />
+    </div>
   </div>
 </div>
 </template>
