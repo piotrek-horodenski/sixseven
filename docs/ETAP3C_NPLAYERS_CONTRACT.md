@@ -3,6 +3,9 @@
 > Sesja 2026-07-11 (cz. 3). Decyzje Piotra + kontrakt między falami.
 
 ## Decyzje
+
+> ⚠️ **ZASTĄPIONE 2026-07-12 (feedback Piotra):** punktacja parowa poniżej opisuje starą regułę o sumie zerowej (wygrany +1 / **przegrany −1**). Obowiązuje teraz **winner-only**: TYLKO zwycięzca pary dostaje +1, przegrany 0, remis 0 → punkty nieujemne, monotoniczne. Aktualne źródło prawdy: `catalog/rps/src/rps.ts` + `HANDOFF.md`. Poniższe wzmianki o „−1", „scores ujemne" i „suma=0" są nieaktualne.
+
 - **RPS dla N graczy (2..N, bez twardego max).** Punktacja rundy = suma parowa:
   dla każdej pary (i,j): wygrany +1, przegrany −1, remis 0; punkt rundy gracza =
   suma po wszystkich przeciwnikach. Wynik meczu = **skumulowane** punkty rund.

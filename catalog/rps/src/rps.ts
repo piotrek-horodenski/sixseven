@@ -4,10 +4,10 @@ import { GameDefinition, GameManifest, ResolvedMove, PlayerView } from 'sixseven
  * Papier-kamień-nożyce — pierwsza gra first-party sixseven (dogfooding wire
  * contract). Deterministyczna: ten sam stan + ruchy zawsze dają ten sam wynik
  * (wymóg replay-auditu). N graczy (2..N): punktacja rundy jest PAROWA — dla
- * każdej nieuporządkowanej pary graczy wygrany +1 / przegrany −1 / remis 0,
- * punkt rundy gracza = suma po wszystkich przeciwnikach. Wynik meczu to
- * skumulowane punkty rund (mogą być ujemne). Mecz kończy się, gdy KTOKOLWIEK
- * osiągnie `target` skumulowanych punktów (domyślnie 5).
+ * każdej nieuporządkowanej pary graczy TYLKO zwycięzca dostaje +1 (przegrany 0,
+ * remis 0); punkt rundy gracza = liczba wygranych par w tej rundzie. Wynik meczu
+ * to skumulowane punkty rund (nieujemne, monotonicznie rosnące). Mecz kończy się,
+ * gdy KTOKOLWIEK osiągnie `target` skumulowanych punktów (domyślnie 5).
  */
 
 export type RpsMove = 'rock' | 'paper' | 'scissors'
@@ -127,8 +127,8 @@ export const rps: GameDefinition<RpsState, RpsMove> = {
   resolve: (state, moves: ResolvedMove<RpsMove>[]) => {
     const scores = { ...state.scores }
 
-    // Punktacja parowa: dla każdej nieuporządkowanej pary graczy — wygrany +1,
-    // przegrany −1, remis 0. Punkt rundy gracza = suma po wszystkich przeciwnikach.
+    // Punktacja parowa: dla każdej nieuporządkowanej pary graczy TYLKO zwycięzca
+    // dostaje +1 (przegrany 0, remis 0). Punkt rundy gracza = liczba wygranych par.
     const roundPoints: Record<string, number> = Object.fromEntries(moves.map((m) => [m.playerId, 0]))
     for (let i = 0; i < moves.length; i++) {
       for (let j = i + 1; j < moves.length; j++) {
@@ -136,15 +136,14 @@ export const rps: GameDefinition<RpsState, RpsMove> = {
         const b = moves[j]
         if (beats(a.move, b.move)) {
           roundPoints[a.playerId] += 1
-          roundPoints[b.playerId] -= 1
         } else if (beats(b.move, a.move)) {
           roundPoints[b.playerId] += 1
-          roundPoints[a.playerId] -= 1
         }
       }
     }
 
-    // Kumulacja — mecz to suma punktów rund, mogą być ujemne.
+    // Kumulacja — mecz to suma punktów rund; punkty są nieujemne (winner-only),
+    // więc scores rosną monotonicznie i mecz zawsze zmierza do `target`.
     for (const m of moves) {
       scores[m.playerId] = (scores[m.playerId] ?? 0) + roundPoints[m.playerId]
     }

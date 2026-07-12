@@ -32,14 +32,14 @@ describe('RPS — kontrakt SDK', () => {
   })
 })
 
-describe('RPS — reguły (2 graczy — punktacja parowa: przegrany −1)', () => {
-  it('kamień bije nożyce → wygrany +1, przegrany −1 (NIE 0 — zmiana wobec starej logiki)', () => {
+describe('RPS — reguły (2 graczy — punktacja parowa: tylko zwycięzca +1)', () => {
+  it('kamień bije nożyce → wygrany +1, przegrany 0 (winner-only)', () => {
     const resp = resolvePipeline(rps, req(initState(), { p1: 'rock', p2: 'scissors' }))
-    expect(resp.points).toEqual({ p1: 1, p2: -1 })
+    expect(resp.points).toEqual({ p1: 1, p2: 0 })
     const view = resp.views.find((v) => v.playerId === 'p1')!.view as any
-    expect(view.roundPoints).toEqual({ p1: 1, p2: -1 })
+    expect(view.roundPoints).toEqual({ p1: 1, p2: 0 })
     expect(view.roundWinner).toBe('p1')
-    expect(view.scores).toEqual({ p1: 1, p2: -1 })
+    expect(view.scores).toEqual({ p1: 1, p2: 0 })
     expect(resp.finished).toBe(false)
     expect(resp.revealDurationMs).toBe(1500)
   })
@@ -51,13 +51,13 @@ describe('RPS — reguły (2 graczy — punktacja parowa: przegrany −1)', () =
     expect(view.roundWinner).toBeNull()
   })
 
-  it('dojście do target kończy mecz; scores mogą być ujemne', () => {
+  it('dojście do target kończy mecz; scores nieujemne', () => {
     const state = initState(['p1', 'p2'], { target: 1 })
     const resp = resolvePipeline(rps, req(state, { p1: 'paper', p2: 'rock' }))
-    expect(resp.points).toEqual({ p1: 1, p2: -1 })
+    expect(resp.points).toEqual({ p1: 1, p2: 0 })
     expect(resp.finished).toBe(true) // target=1, p1 osiąga 1
     const next = resp.state as RpsState
-    expect(next.scores).toEqual({ p1: 1, p2: -1 })
+    expect(next.scores).toEqual({ p1: 1, p2: 0 })
   })
 
   it('spóźniony gracz bez prefs dostaje domyślny fallback random (deterministyczny)', () => {
@@ -78,14 +78,13 @@ describe('RPS — target domyślny', () => {
 })
 
 describe('RPS — N graczy (punktacja parowa)', () => {
-  it('3 graczy: rock/rock/scissors → dwaj z rock biją scissors (+1 każdy), remis między sobą → +1,+1,−2; suma=0', () => {
+  it('3 graczy: rock/rock/scissors → dwaj z rock biją scissors (+1 każdy), remis między sobą → 1,1,0', () => {
     const state = initState(['p1', 'p2', 'p3'])
     const resp = resolvePipeline(rps, req(state, { p1: 'rock', p2: 'rock', p3: 'scissors' }))
-    expect(resp.points).toEqual({ p1: 1, p2: 1, p3: -2 })
-    expect(Object.values(resp.points).reduce((a, b) => a + b, 0)).toBe(0)
+    expect(resp.points).toEqual({ p1: 1, p2: 1, p3: 0 })
     const view = resp.views.find((v) => v.playerId === 'p1')!.view as any
     expect(view.roundWinner).toBeNull() // p1 i p2 remisują na szczycie (+1 obaj)
-    expect(view.scores).toEqual({ p1: 1, p2: 1, p3: -2 })
+    expect(view.scores).toEqual({ p1: 1, p2: 1, p3: 0 })
   })
 
   it('pełny remis (wszyscy to samo) → 0 dla każdego, brak roundWinner', () => {
@@ -100,8 +99,8 @@ describe('RPS — N graczy (punktacja parowa)', () => {
   it('unikalny zwycięzca rundy w grupie N: kamień bije wszystkich nożycowców', () => {
     const state = initState(['p1', 'p2', 'p3'])
     const resp = resolvePipeline(rps, req(state, { p1: 'rock', p2: 'scissors', p3: 'scissors' }))
-    // p1 bije p2 i p3 (+1 każda para) → p1: +2; p2 vs p3 remis → p2: -1, p3: -1
-    expect(resp.points).toEqual({ p1: 2, p2: -1, p3: -1 })
+    // p1 bije p2 i p3 (+1 każda para) → p1: 2; p2 vs p3 remis → 0, 0
+    expect(resp.points).toEqual({ p1: 2, p2: 0, p3: 0 })
     const view = resp.views.find((v) => v.playerId === 'p1')!.view as any
     expect(view.roundWinner).toBe('p1')
   })
@@ -112,8 +111,8 @@ describe('RPS — N graczy (punktacja parowa)', () => {
     const p3 = (resp.events[0] as any).picks.find((x: any) => x.playerId === 'p3')
     expect(p3.move).toBe('paper')
     expect(p3.defaulted).toBe(true)
-    // paper (p3) bije rock (p1) i rock (p2) → p3: +2; p1 vs p2 remis → p1: -1, p2: -1
-    expect(resp.points).toEqual({ p1: -1, p2: -1, p3: 2 })
+    // paper (p3) bije rock (p1) i rock (p2) → p3: 2; p1 vs p2 remis → 0, 0
+    expect(resp.points).toEqual({ p1: 0, p2: 0, p3: 2 })
   })
 
   it('finished gdy KTOKOLWIEK dobije target, niezależnie który gracz', () => {
@@ -123,7 +122,7 @@ describe('RPS — N graczy (punktacja parowa)', () => {
     expect(resp.finished).toBe(true)
   })
 
-  it('niezmiennik: suma roundPoints po wszystkich graczach == 0 (dowolna kombinacja ruchów)', () => {
+  it('niezmiennik: roundPoints każdego gracza są nieujemne i ≤ liczby przeciwników (winner-only)', () => {
     const combos: Array<Record<string, RpsMove>> = [
       { p1: 'rock', p2: 'paper', p3: 'scissors' },
       { p1: 'rock', p2: 'rock', p3: 'paper' },
@@ -131,10 +130,13 @@ describe('RPS — N graczy (punktacja parowa)', () => {
       { p1: 'rock', p2: 'paper', p3: 'scissors', p4: 'rock' },
     ]
     for (const moves of combos) {
-      const state = initState(Object.keys(moves))
+      const ids = Object.keys(moves)
+      const state = initState(ids)
       const resp = resolvePipeline(rps, req(state, moves))
-      const sum = Object.values(resp.points).reduce((a, b) => a + b, 0)
-      expect(sum).toBe(0)
+      for (const v of Object.values(resp.points)) {
+        expect(v).toBeGreaterThanOrEqual(0)
+        expect(v).toBeLessThanOrEqual(ids.length - 1)
+      }
     }
   })
 
@@ -173,7 +175,7 @@ describe('RPS — preferencje fallback (playerPrefs.fallbackMove)', () => {
     const p2 = (resp.events[0] as any).picks.find((x: any) => x.playerId === 'p2')
     expect(p2.move).toBe('paper')
     expect(p2.defaulted).toBe(true)
-    expect(resp.points).toEqual({ p1: -1, p2: 1 }) // paper bije rock — p2 +1, p1 −1
+    expect(resp.points).toEqual({ p1: 0, p2: 1 }) // paper bije rock — p2 +1, p1 0
   })
 
   it('różni gracze z różnym fallbackiem — prefs stosowane per gracz', () => {
