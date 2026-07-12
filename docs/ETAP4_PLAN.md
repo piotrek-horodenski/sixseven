@@ -24,7 +24,7 @@ Dla każdego podetapu najpierw pytamy: **co robi z sekretem?** Społeczność (4
 
 **Kolejność i równoległość.** Po redefinicji 4d twarda zależność 4e→4d ZNIKNĘŁA: ranked biegnie na wbudowanym RPS, więc **4e może startować od razu po 4a–4c**. 4d (gry zewnętrzne) jest niezależny od 4e i w dużej mierze rozłączny plikowo od społeczności — może iść równolegle, wzorzec z Etapu 2/Fali 3. 4b zależy od 4a (znajomi/presence pod czat i profile), 4c od modelu kont z Etapu 1.
 
-Testy sekretu wchodzą do CI w podetapie, w którym powstaje testowany mechanizm: rozszerzenie **S1** o `friendships`/`messages`/`presence` w 4a–4b; w 4d regresja tokenów meczu na obcym originie. **S3 (CSP, kanały nawigacyjne) przesuwa się razem z hostingiem bundli poza Etap 4** — wejdzie do CI, gdy powstanie pierwszy zaufany bundle (arrowsoccer / pierwsza zewnętrzna gra ranked).
+Testy sekretu wchodzą do CI w podetapie, w którym powstaje testowany mechanizm: rozszerzenie **S1** o `friendships`/`messages`/`presence` w 4a–4b; w 4d regresja tokenów meczu na obcym originie. **S3 WYCOFANY razem z hostingiem bundli** *(2026-07-12, sesja 2 — ADR „Gry zewnętrzne = tylko towarzyskie")*.
 
 ---
 
@@ -53,7 +53,7 @@ Testy sekretu wchodzą do CI w podetapie, w którym powstaje testowany mechanizm
 
 **Deliverables.**
 - Kolekcja `messages` (ożywić zalążek z hydry; pisze gate): `roomId`/`matchId`, `authorId`, `text`, `ts`. Polityka: **członkowie pokoju/meczu**. Rate-limit + limit długości (anti-spam). Czat w slocie `aside` (lobby) i w ekranie meczu.
-- **Uwaga sekretowa dla czatu w meczu:** wiadomości są jawne między uczestnikami od razu (to NIE ruch) — ale kanał czatu nie może stać się bocznym kanałem wycieku planu; w meczach rankingowych (4d/4e, UI = bundle z CSP) czat renderuje **platforma**, nie bundle gry, żeby aplikacja gry nie miała dostępu do treści rozmów (ADR „Safe secret" pkt 1 w `ARCHITECTURE.md`: pełny JWT w aplikacji gry = dev widzi czat/znajomych — dlatego scoped token + czat po stronie platformy).
+- **Uwaga sekretowa dla czatu w meczu:** wiadomości są jawne między uczestnikami od razu (to NIE ruch) — ale kanał czatu nie może stać się bocznym kanałem wycieku planu; czat renderuje **platforma**, nigdy aplikacja gry — scoped token meczu celowo nie daje dostępu do `messages`/`friendships` (pełny JWT w aplikacji gry = dev widzi czat/znajomych). W meczach ranked (4e, gry wbudowane) spełnione z definicji.
 - Profile: strona gracza (publiczny profil z sanityzacją), miejsce na ranking per gra (dane z 4e), historia meczów z `match_events`, sekcja odznak/tytułów.
 - Adnotacje na profilu: `annotations` (`playerId`, `gameId`, `badgeId`, `sentiment`, `earnedAt`) — **polityka: `sentiment=='positive'` publiczne LUB `playerId==user`**. Wyświetlanie: pozytywne widoczne dla wszystkich; neutralne/negatywne tylko dla właściciela. (Przyznawanie przez `/annotate` z puli manifestu — mechanika wejdzie pełniej z trust/judge w Etapie 5; tu domykamy ODCZYT i widoczność.)
 
@@ -104,13 +104,13 @@ Testy sekretu wchodzą do CI w podetapie, w którym powstaje testowany mechanizm
 
 **Akceptacja.** Deweloper (konto bez uprawnień admina) rejestruje grę z logiką i UI na własnym originie; admin zatwierdza; gracz znajduje ją w katalogu, gra mecz towarzyski end-to-end na domenie deva i wraca na platformę z wynikiem.
 
-**Czego tu świadomie NIE ma:** hostingu bundli UI + CSP + osobnej domeny (D2) + testu S3 — przesunięte do etapu pierwszej zewnętrznej gry rankingowej (naturalny kandydat: arrowsoccer, Etap 6); automatycznego pipeline'u walidacji (Etap 5); trust/renomy (Etap 5).
+**Czego tu świadomie NIE ma:** ranked dla gier zewnętrznych — WYCOFANY z całego planu (2026-07-12, sesja 2; hosting bundli + CSP + D2 + S3 usunięte, nie przesunięte — ADR „Gry zewnętrzne = tylko towarzyskie"); automatycznego pipeline'u walidacji (Etap 5); trust/renomy (Etap 5).
 
 ---
 
 ## 4e — Ranked (gry wbudowane): ELO + walkowery + kolejka szybkiego meczu
 
-**Cel.** Stawka: rating per gra, walkowery, i **odsunięta z Etapu 3 kolejka szybkiego meczu**. Ranked biegnie na grach WBUDOWANYCH (RPS): UI jest częścią naszej aplikacji, deweloperem jesteśmy my — filar 2 „Safe secret" (bundle+CSP) nie ma tu zastosowania. Gry zewnętrzne pozostają casual do czasu hostingu bundli.
+**Cel.** Stawka: rating per gra, walkowery, i **odsunięta z Etapu 3 kolejka szybkiego meczu**. Ranked biegnie na grach WBUDOWANYCH (RPS): UI jest częścią naszej aplikacji, deweloperem jesteśmy my. Gry zewnętrzne pozostają casual NA STAŁE (decyzja 2026-07-12, sesja 2).
 
 **Deliverables.**
 - Kolekcja `ratings` (`userId`, `gameId`, `elo`, `matches`, `K`) — publiczna. ELO per gra, **tylko domyślny preset**: start 1200; K=32 przez pierwsze 30 meczów, potem 16, od 2400: 10. Aktualizacja po `Finished` z `winnerIds` (remis 0,5). Mecze z gośćmi, niedomyślnym presetem, anulowane i towarzyskie **nie dotykają ELO**.
@@ -132,13 +132,11 @@ Testy sekretu wchodzą do CI w podetapie, w którym powstaje testowany mechanizm
 
 ### Gry wbudowane vs zewnętrzne (nowa, sesja 2026-07-12)
 **Why:** plan zakładał „RPS przechodzi na bundle" jako wzorzec dla wszystkich gier. Piotr doprecyzował model: RPS (i ewentualne 1–2 kolejne first-party) to stały element aplikacji platformy, niekonfigurowany przez nikogo; otwarcie dotyczy wyłącznie gier deweloperów — zawsze zewnętrznych (flagowy przykład: arrowsoccer na własnej domenie).
-**What:** dwie klasy gier. **Wbudowane:** UI w aplikacji web, logika jako serwis w naszym compose, ale przez TEN SAM wire contract (dogfooding); ranked natywnie, bez bundla/CSP — filar 2 broni sekretu przed deweloperem gry, a tu deweloperem jesteśmy my. **Zewnętrzne:** logika + UI na infrze deva; casual z etykietą „UI poza platformą"; ranked dopiero z bundlem u nas.
+**What:** dwie klasy gier. **Wbudowane:** UI w aplikacji web, logika jako serwis w naszym compose, ale przez TEN SAM wire contract (dogfooding); ranked natywnie — filar 2 broni sekretu przed deweloperem gry, a tu deweloperem jesteśmy my. **Zewnętrzne:** logika + UI na infrze deva; WYŁĄCZNIE casual z etykietą „UI poza platformą" *(aktualizacja 2026-07-12, sesja 2: „ranked z bundlem" wycofane — patrz decyzja niżej)*.
 **Watch out:** pokusa „specjalnych ścieżek" dla wbudowanych w silniku — kontrakt ma zostać jeden; wbudowane różnią się wyłącznie hostingiem UI i domyślnym zaufaniem.
 
-### Ranked gier zewnętrznych = bundle u nas + CSP; budowa PRZESUNIĘTA poza Etap 4
-**Why:** po decyzji o grach wbudowanych jedynym konsumentem hostingu bundli byłaby przyszła zewnętrzna gra rankingowa (pierwsza znana: arrowsoccer, Etap 6); w Etapie 4 ranked działa na wbudowanym RPS bez tej infrastruktury.
-**What:** zasada bez zmian (filar 2 „Safe secret"): zewnętrzna gra gra ranked tylko z UI wgranym do nas jako statyczny bundle i serwowanym z CSP. Budowa (publish-ui, osobna domena D2, S3 e2e, osadzenie iframe/handoff) — dopiero przy pierwszym realnym konsumencie.
-**Watch out:** (1) **D2 pozostaje decyzją zapisaną TERAZ:** bundle z osobnej domeny rejestrowalnej (wzorzec `googleusercontent.com`), cookies platformy host-only — origin zaszywa się w tokenach i CSP, zmiana po fakcie kosztowna. (2) Kanały nawigacyjne (D1) rezydualne — detekcja (Etap 5) to siatka, nie gwarancja. (3) Dev-środowisko bez domen: cookies NIE rozróżniają portów, test izolacji wymaga osobnego hostname (hosts/lvh.me) — zapisać przy projektowaniu hostingu.
+### ~~Ranked gier zewnętrznych = bundle u nas + CSP~~ — WYCOFANE *(2026-07-12, sesja 2)*
+**SUPERSEDED przez ADR „Gry zewnętrzne = tylko towarzyskie" w `ARCHITECTURE.md`.** Decyzja Piotra: gry zewnętrzne w ogóle nie grają ranked — nie możemy za nie technicznie gwarantować sekretu, a gra ma opierać się na zaufaniu, które można stracić (detekcja + kary zamiast blokady technicznej). Hosting bundli + CSP + D2 + test S3 usunięte z planu (nie przesunięte). Ranked = wyłącznie gry wbudowane (4e bez zmian). Jeśli kiedyś znajdzie się weryfikowalna ścieżka dla gier zewnętrznych (rozważany i odrzucony na razie wariant: jawny silnik uruchamiany na naszej infrze — koszty poza kontrolą), decyzję można otworzyć nowym ADR-em.
 
 ### Czat renderuje platforma, nie aplikacja gry
 **Why:** aplikacja gry z dostępem do treści czatu = boczny kanał i wektor phishingu; scoped token meczu celowo nie daje dostępu do `messages`/`friendships`.
@@ -154,7 +152,7 @@ Testy sekretu wchodzą do CI w podetapie, w którym powstaje testowany mechanizm
 
 ## Otwarte pytania
 
-- **Przesunięte razem z hostingiem bundli (wrócą przy pierwszej zewnętrznej grze ranked):** sandbox iframe (D1), kształt handoffu tokenu do bundla (postMessage vs URL-fragment), layout czatu obok bundla, symulacja osobnej domeny w dev (hosts/lvh.me — cookies nie rozróżniają portów).
+- ~~Przesunięte razem z hostingiem bundli~~ **NIEAKTUALNE** *(2026-07-12, sesja 2)*: sandbox iframe (D1), handoff tokenu do bundla, layout czatu obok bundla, symulacja osobnej domeny w dev — tematy umarły razem z hostingiem bundli; wrócą tylko, jeśli ADR „Gry zewnętrzne = tylko towarzyskie" zostanie kiedyś otwarty nowymi argumentami.
 - **Approve gier w 4d:** panel admina w web czy na start skrypt/komenda (wzór `games-register`)? Tanio zacząć od komendy, panel gdy będzie więcej niż garść gier.
 - **Zakres konta dewelopera w 4d:** limity (ile gier per konto), edycja po publish — zmiana `uiUrl`/URL logiki to potencjalna podmiana gry: czy wymaga ponownego approve? (rekomendacja: tak).
 - **Presence a prywatność:** czy `currentMatchId` widoczny dla wszystkich znajomych, czy z opcją „tryb niewidzialny"? (prefs gracza, tanie do dołożenia w 4a).

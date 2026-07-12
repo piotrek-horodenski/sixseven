@@ -17,8 +17,8 @@ Każda gra na sixseven działa w tym samym rytmie: wszyscy gracze **równocześn
 ## Gwarancja sekretu — co dokładnie obiecujemy
 
 - **Wobec przeciwnika:** treść Twojego ruchu nie istnieje nigdzie, skąd mógłby ją odczytać — ani w API, ani w subskrypcjach; nawet sygnał „gotowy" jest wysyłany tak, by nie zdradzać niczego czasem reakcji.
-- **Wobec twórcy gry:** serwis logiki gry otrzymuje ruchy dopiero po zamknięciu fazy planowania (nie może już nic nikomu podpowiedzieć). W meczach rankingowych frontend gry jest serwowany przez sixseven z blokadą komunikacji poza platformą — nie ma technicznej drogi wycieku. Dodatkowo sędzia prawdy (patrz niżej) stale audytuje gry.
-- **Czego nie obiecujemy:** w meczach towarzyskich z frontendem hostowanym przez dewelopera („UI poza platformą" — widoczna etykieta) gwarancja wobec twórcy gry opiera się na audytach i karach, nie na technicznej blokadzie.
+- **Wobec twórcy gry:** serwis logiki gry otrzymuje ruchy dopiero po zamknięciu fazy planowania (nie może już nic nikomu podpowiedzieć). W grach wbudowanych (tworzonych przez platformę) frontend jest częścią naszej aplikacji — i tylko te gry grają rankingowo.
+- **Czego nie obiecujemy:** gry zewnętrzne mają frontend hostowany przez dewelopera („UI poza platformą" — widoczna etykieta) i grają wyłącznie mecze towarzyskie. Tu gwarancja wobec twórcy gry opiera się na **wykrywaniu i karach** (audyty sędziego, mecze-pułapki, zgłoszenia graczy, utrata renomy do zdjęcia z katalogu włącznie), nie na technicznej blokadzie. Obietnica brzmi: „wykrywamy i karzemy", nie „wyciek niemożliwy".
 
 ## Zaufanie — waluta deweloperów
 
@@ -27,7 +27,7 @@ Każda gra ma dwie publiczne miary w katalogu:
 - **Renoma** (start 100%) — spada tylko przy działaniu wbrew integralności platformy. Odbudowuje się powoli i po incydencie nigdy do pełna.
 - **Sprawdzalność** (start 0%) — rośnie z każdą spójną odpowiedzią i uczciwie rozegranym meczem; incydenty też ją podnoszą, bo są wiedzą.
 
-Zaufanie kupuje przywileje: dostęp do rankingu, wyższy limit równoczesnych meczów, publikacje wersji bez ręcznej moderacji, wyróżnienie „sprawdzona". Nowa gra jest „niewinna, ale niesprawdzona"; gra po aferze — „znana i skompromitowana", co jest gorsze. Konto dewelopera dziedziczy reputację: oszust nie zresetuje się nową grą.
+Zaufanie kupuje przywileje: wyższy limit równoczesnych meczów, publikacje wersji bez ręcznej moderacji, wyróżnienie „sprawdzona". Nowa gra jest „niewinna, ale niesprawdzona"; gra po aferze — „znana i skompromitowana", co jest gorsze. Konto dewelopera dziedziczy reputację: oszust nie zresetuje się nową grą.
 
 Nad integralnością czuwa **judge — sędzia prawdy**: niezapowiedziane audyty nieodróżnialne od zwykłego ruchu (powtórzenie historycznej rundy musi dać identyczny wynik; stan lustrzany musi dać lustrzany wynik; mecze-pułapki, w których platforma zna obie strony). Cele audytów wybierają heurystyki, admin lub — konfigurowalnie — AI; **werdykty zapadają wyłącznie na twardych dowodach**.
 
@@ -40,7 +40,7 @@ Nad integralnością czuwa **judge — sędzia prawdy**: niezapowiedziane audyty
 ## Czego platforma świadomie nie robi
 
 - **Nie jest silnikiem real-time** — minimalny czas fazy planowania to 2 s; napięcie budują tajne decyzje, nie refleks.
-- **Nie wykonuje kodu gier** — logika i frontend gry żyją na infrastrukturze dewelopera (frontend rankingowy: statyczny bundle u nas).
+- **Nie wykonuje kodu gier** — logika i frontend gry zewnętrznej żyją w całości na infrastrukturze dewelopera; dlatego gry zewnętrzne nie grają rankingowo.
 - **Nie pozwala grze prosić o hasło** — cała autoryzacja gry płynie z platformy; formularz logowania w grze to sygnał oszustwa.
 - **Nie ocenia gier algorytmem bez dowodu** — AI może wskazywać, komu się przyjrzeć; kary wymagają odtwarzalnego dowodu.
 

@@ -116,7 +116,7 @@ Progi przywilejów (zaufanie efektywne):
 |---|---|
 | < 20 | unpublish (gra znika z katalogu do wyjaśnienia) |
 | ≥ 20 | katalog, mecze towarzyskie |
-| ≥ 45 | ranked / szybki mecz (dodatkowo wymagane: UI bundle z CSP) |
+| ≥ 45 | ~~ranked / szybki mecz~~ *(wycofane 2026-07-12: gry zewnętrzne nie grają ranked — ADR „Gry zewnętrzne = tylko towarzyskie"; próg zostaje wolny do przyszłego użycia)* |
 | ≥ 60 | limit meczów równoległych ×5 (bazowo 20) |
 | ≥ 75 | publikacja nowej wersji manifestu bez ręcznego approve |
 | ≥ 85 | rzadszy reżim audytów, wyróżnienie „sprawdzona" |
@@ -125,7 +125,7 @@ Progi przywilejów (zaufanie efektywne):
 
 Audyt integralności jako oddzielny serwis: asynchroniczny, z własnym budżetem, widokiem między grami i kontami devów; jego awaria nie dotyka meczów. Dwie twardo rozdzielone warstwy:
 
-- **Targeting — kogo poddać testom:** heurystyki (anomalie win-rate, statystyka kontr, wzorce czasowe, grafy powiązanych kont, historia trust_events dewelopera) + ręczne zlecenia admina + opcjonalnie AI. Tryb konfigurowalny przez admina platformy: `off` (tylko harmonogram bazowy + zlecenia ręczne) / `assist` (AI podpowiada adminowi cele z uzasadnieniem) / `auto` (AI sam alokuje budżet audytów w ramach limitów).
+- **Targeting — kogo poddać testom:** heurystyki (anomalie win-rate, statystyka kontr, wzorce czasowe, grafy powiązanych kont, historia trust_events dewelopera) + **zgłoszenia graczy** („zgłoś, że coś było nie tak" po meczu; ważone anty-brigadingowo, nigdy nie są dowodem — tylko wskazują, gdzie patrzeć) + ręczne zlecenia admina + opcjonalnie AI. Tryb konfigurowalny przez admina platformy: `off` (tylko harmonogram bazowy + zlecenia ręczne) / `assist` (AI podpowiada adminowi cele z uzasadnieniem) / `auto` (AI sam alokuje budżet audytów w ramach limitów).
 - **Werdykty — czy winny:** wyłącznie deterministyczne dowody (replay niezgodny, lustro niesymetryczne, przeciek w pułapce). **AI wybiera cele, nigdy nie ferruje wyroków.** Każdy werdykt = `trust_event` z załączonym dowodem (wejście/wyjście do odtworzenia).
 
 Sędzia prowadzi `audit_cases` — dossier per gra i per konto deweloperskie (sygnały, zlecone audyty, dowody, werdykty) — to jest panel admina „kto ewentualnie oszukuje". Dostęp: odczyt `resolve_log` i statystyk games (read-only), wywołania audytowe do serwisów gier (nieodróżnialne od produkcji), zapis `trust_events`/`audit_cases`.
@@ -138,7 +138,7 @@ Harmonogram bazowy — niezapowiedziany, wpleciony w ruch produkcyjny, częstotl
 | 45–85 | 1% | 0,5% | 1/2 tyg. |
 | > 85 | 0,2% | 0,1% | 1/mies. |
 
-Pułapki wymagają bota per gra — MVP: boty tylko dla naszych gier (RPS, snajperzy, arrowsoccer); dla obcych gier pułapki startują, gdy dev opcjonalnie dostarczy bota (zachęta: szybszy wzrost sprawdzalności), inaczej tylko replay+lustro.
+Pułapki wymagają bota per gra — MVP: boty tylko dla naszych gier (RPS, snajperzy, arrowsoccer); dla obcych gier pułapki startują, gdy dev opcjonalnie dostarczy bota (zachęta: szybszy wzrost sprawdzalności; NIE jest warunkiem niczego — decyzja 2026-07-12), inaczej tylko replay+lustro. **Rola botów jest podwójna (decyzja 2026-07-12): primarnie zawodnicy** — bot nieodróżnialny od gracza dołącza np. do pustego lobby, żeby zawsze było z kim grać — **wtórnie instrument audytowy** (pułapki, testowanie zewnętrznych aplikacji). Ta sama tożsamość „zwykłego gracza" obsługuje oba cele.
 
 ### Matchmaking i pokoje
 
@@ -178,23 +178,23 @@ Maszyna stanów pełna (z Paused/Cancelled), kolekcje prywatne games, `resolve_l
 Kolejka szybkiego meczu (na razie bez ELO — FIFO + accept), lista pokoi publicznych, presence, opcje meczu w lobby (schemat z manifestu, generyczny renderer), toast manager, kwoty równoległych meczów (stała bazowa).
 *Akceptacja:* pełny przepływ: katalog → szybki mecz → gra → wynik → rewanż; presence live na liście znajomych pokoju.
 
-**Etap 4 — Stawka, społeczność i otwarcie na gry zewnętrzne.** *(zredefiniowany 2026-07-12 — szczegóły i podetapy: `docs/ETAP4_PLAN.md`; ADR „Gry wbudowane vs zewnętrzne")*
-Znajomi + presence, czat lobby/meczu, adnotacje + profile, konwersja gościa w konto (4a–4c); **gry zewnętrzne casual** — konta deweloperów, rejestracja gry (ręczny approve admina), katalog data-driven, przekierowanie na UI deva z handoffem cross-origin (4d); **ranked na grach wbudowanych** — ELO + walkowery + kolejka szybkiego meczu na wbudowanym RPS (4e). Hosting zaufanych bundli UI (publish-ui, osobna domena D2, CSP) **przesunięty** do etapu pierwszej zewnętrznej gry rankingowej — RPS pozostaje wbudowany na stałe.
+**Etap 4 — Stawka, społeczność i otwarcie na gry zewnętrzne.** *(zredefiniowany 2026-07-12 — szczegóły i podetapy: `docs/ETAP4_PLAN.md`; ADR-y „Gry wbudowane vs zewnętrzne" i „Gry zewnętrzne = tylko towarzyskie")*
+Znajomi + presence, czat lobby/meczu, adnotacje + profile, konwersja gościa w konto (4a–4c — ZROBIONE); **gry zewnętrzne casual** — konta deweloperów, rejestracja gry (ręczny approve admina), katalog data-driven, przekierowanie na UI deva z handoffem cross-origin (4d); **ranked na grach wbudowanych** — ELO + walkowery + kolejka szybkiego meczu na wbudowanym RPS (4e). **Gry zewnętrzne NIE grają ranked w ogóle** (decyzja 2026-07-12, sesja 2) — hosting bundli UI + CSP usunięty z planu (nie tylko przesunięty).
 *Akceptacja:* deweloper bez uprawnień admina rejestruje grę i gracz gra ją end-to-end na domenie deva (casual); token meczu z obcego originu nie otwiera nic poza swoim meczem; walkower liczy ELO wg reguł; adnotacja negative niewidoczna dla innych.
 
 **Etap 5 — Gospodarka zaufania.**
 `trust_events` + agregaty + formuły + progi (konfiguracja), mikroserwis **`judge`** (harmonogram bazowy replay + lustro, pułapki dla naszych gier z botami, `audit_cases`, tryb targetingu `off`/ręczny; warstwa AI w trybie `assist`/`auto` jako opcja po stabilizacji sygnałów), **automatyczny pipeline walidacji rejestracji** (zdalne kontrakt-testy, stany `validating/validated`, auto-approve od progu — konta devów i ręczny approve istnieją od Etapu 4d), dziedziczenie renomy konta, **pojedynek snajperów** jako druga gra — rejestrowana wyłącznie ścieżką self-service (dogfooding) i test krótkich tur (3 s).
 *Akceptacja:* S4, S5 (celowo zepsute serwisy-fixtury: niedeterministyczny i faworyzujący — audytor je łapie, renoma spada, unpublish poniżej progu); snajperzy grywalni przy 3-sekundowych turach; katalog pokazuje renomę/sprawdzalność live.
 
-**Etap 6 — Flagowiec i tutorial.**
-Arrowsoccer (wg `games/ARROWSOCCER.md`): moduł fizyki kwantowej (współdzielony), serwis logiki, UI three.js na własnej domenie (casual) **+ hosting zaufanych bundli przeniesiony z Etapu 4** — publish-ui, osobna domena rejestrowalna (D2), CSP z blokadą kanałów nawigacyjnych (D1), test S3 e2e; arrowsoccer jako pierwsza zewnętrzna gra ranked (UI wgrane jako bundle). Opcje fizyki, formacje w prefs, odznaki, bot do pułapek. Tutorial publiczny: „od `npm create` do published" na przykładzie easy (RPS — z zastrzeżeniem, że RPS jest wbudowany; przykład rejestracji = snajperzy) i zaawansowanym (arrowsoccer). Playtesty i kalibracja parametrów zaufania.
-*Akceptacja:* arrowsoccer przechodzi całą ścieżkę zewnętrznego deva bez używania uprawnień admina, łącznie z wgraniem bundla i grą ranked; S3 zielone na produkcyjnym hostingu bundli; mecz na telefonie (portrait) z animacją siatki; tutorial wykonalny przez osobę spoza projektu.
+**Etap 6 — Flagowiec i tutorial.** *(odchudzony 2026-07-12, sesja 2: hosting bundli + CSP + D2 + S3 USUNIĘTE z planu — ADR „Gry zewnętrzne = tylko towarzyskie")*
+Arrowsoccer (wg `games/ARROWSOCCER.md`): moduł fizyki kwantowej (współdzielony), serwis logiki, UI three.js na własnej domenie (casual). **DECYZJA OTWARTA przed startem etapu:** arrowsoccer jako gra zewnętrzna gra tylko casual; jeśli ma grać ranked — musi być grą wbudowaną (first-party). Opcje fizyki, formacje w prefs, odznaki, bot do pułapek. Tutorial publiczny: „od `npm create` do published" na przykładzie easy (RPS — z zastrzeżeniem, że RPS jest wbudowany; przykład rejestracji = snajperzy) i zaawansowanym (arrowsoccer). Playtesty i kalibracja parametrów zaufania.
+*Akceptacja:* arrowsoccer przechodzi całą ścieżkę zewnętrznego deva bez używania uprawnień admina (casual end-to-end na domenie deva); mecz na telefonie (portrait) z animacją siatki; tutorial wykonalny przez osobę spoza projektu.
 
 ## Testy sekretu (stały pakiet w CI)
 
 - **S1 — Szpieg API:** konto z ważnym JWT próbuje wszystkich kolekcji i filtrów — nigdy nie widzi treści cudzego ruchu przed reveal ani cudzych `match_views`/`prefs`/`data`.
 - **S2 — Głuchy dev:** mock serwisu gry rejestruje wszystkie wywołania — żadne nie zawiera ruchu przed zamknięciem fazy; timing acków `ready` stały. Dodatkowo: **wielokrotne nadpisanie złożonego ruchu nie generuje żadnego zdarzenia w kolekcjach subskrybowalnych** (nadpisanie dotyka tylko prywatnej `moves`; „przeciwnik zmienia zdanie N razy" nie może być obserwowalną informacją). *(A3)*
-- **S3 — Niemy bundle:** zaufany bundle UI z wstrzykniętą próbą eksfiltracji — blokowaną przez CSP w prawdziwej przeglądarce (test e2e). Pokrywa nie tylko kanały danych (fetch, WebSocket, WebRTC, obrazek-beacon), ale też **kanały nawigacyjne**: `location =`, `form-action`, `<a ping>`, prefetch, `window.open`, rejestracja service workera. Rezydualne ryzyko kanałów nawigacyjnych (nie da się ich zamknąć w 100% bez zabicia UX) zapisane wprost w ADR — warstwa detekcji pozostaje siatką. *(D1)*
+- **S3 — Niemy bundle:** *(WYCOFANY 2026-07-12 razem z hostingiem bundli — ADR „Gry zewnętrzne = tylko towarzyskie". Zapis zostaje jako historia: gdyby bundle kiedyś wrócił, wraca i ten test.)* Zaufany bundle UI z wstrzykniętą próbą eksfiltracji — blokowaną przez CSP w prawdziwej przeglądarce (test e2e), łącznie z kanałami nawigacyjnymi. *(D1)*
 - **S4 — Fałszerz:** serwis-fixtura zmieniający odpowiedzi między wywołaniami — replay-audit go wykrywa, trust spada zgodnie z tabelą.
 - **S5 — Stronniczy sędzia:** serwis-fixtura faworyzujący gracza po ID — test lustrzany go wykrywa.
 
