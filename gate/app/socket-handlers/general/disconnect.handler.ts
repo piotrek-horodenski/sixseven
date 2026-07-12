@@ -1,5 +1,7 @@
 import { HandlerObject, AuthenticatedSocket } from '..'
 import { App } from '../../app'
+import { getPresenceService } from '../../services/presence.service'
+import logger from '../../logger'
 
 export const disconnectHandler: HandlerObject = {
   event: 'disconnect',
@@ -14,5 +16,13 @@ export const disconnectHandler: HandlerObject = {
       return
     }
     App.subManager.unsubscribeSocket(subscriberId, socket.id, [])
+
+    // Presence (4a): decrement the shared live-session counter for this user.
+    // Only the LAST socket closing flips the user offline (goOffline). Guests /
+    // match tokens have no presence.
+    if (socket.user) {
+      const uid = String(socket.user._id)
+      void getPresenceService().onDisconnect(uid).catch(err => logger.error({ err, uid }, 'presence onDisconnect failed'))
+    }
   }
 }

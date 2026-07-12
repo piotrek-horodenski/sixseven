@@ -78,10 +78,10 @@ describe('subscribeHandler', () => {
   it('default-deny: an unregistered collection is never subscribable', async () => {
     socket.user = { _id: 'uid1', permissions: ['manage-users'] }
     const tickets = [
-      // messages nie jest (jeszcze) w rejestrze polityk → odmowa.
-      // To samo chroni kolekcje prywatne games (moves, match_states, ...).
-      { collection: 'messages', filter: {} },
+      // Kolekcje prywatne games spoza rejestru polityk → odmowa (default-deny).
+      // (messages ma już politykę od Etapu 4b — używamy tu moves/match_states.)
       { collection: 'moves', filter: {} },
+      { collection: 'match_states', filter: {} },
     ]
 
     await subscribeHandler.handler(socket, { tickets })

@@ -68,4 +68,10 @@ export const MatchSchema = new Schema({
 // Pętla harmonogramu: „daj mecze w fazie czasowej z minionym deadline".
 MatchSchema.index({ phase: 1, deadline: 1 })
 
+// Historia gracza / gościa (Etap 4b/4c): zapytania po członkostwie w składzie.
+// `players`/`guestIds` to tablice → indeks wielokluczowy. Bez nich player-history,
+// guest-matches i attach-guest robiłyby collection scan (skarbiec rośnie z meczami).
+MatchSchema.index({ players: 1 })
+MatchSchema.index({ guestIds: 1 })
+
 export const Match = model('matches', MatchSchema)

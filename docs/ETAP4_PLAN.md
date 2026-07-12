@@ -12,13 +12,15 @@ Dla każdego podetapu najpierw pytamy: **co robi z sekretem?** Społeczność (4
 
 ## Mapa podetapów
 
-| Podetap | Cel jednym zdaniem | Zależy od | Bramka |
-|---|---|---|---|
-| **4a** | Presence + znajomi: kto jest online, zaproszenia/akceptacje, lista znajomych na żywo | Etap 3 | Dwóch graczy widzi wzajemny status live; zaproszenie→akceptacja→znajomy |
-| **4b** | Czat (lobby/mecz) + profile + adnotacje na profilu | 4a | Czat w lobby i meczu działa; profil pokazuje ELO/historię/odznaki; **adnotacja negative niewidoczna dla innych** |
-| **4c** | Konwersja gościa w konto (podpięcie meczów z 7 dni) | 4a (model kont/sesji) | Gość zakłada konto, jego mecze towarzyskie z ostatnich 7 dni lądują na koncie |
-| **4d** | Zaufany hosting bundli UI + CSP + osobna domena + RPS na bundle | Etap 3 (równolegle do 4a–4c) | **S3 na produkcyjnym hostingu bundli** (bundle nie wykona żądania poza platformę, w tym kanały nawigacyjne) |
-| **4e** | Ranked: ELO + walkowery + kolejka szybkiego meczu (+ hak na bota) | 4d | Walkower liczy ELO wg reguł; szybki mecz dobiera i gra na bundlu; ranking per gra live |
+> **Status (sesja 2026-07-12): 4a+4b+4c NAPISANE** (5 agentów + integracja + weryfikacja krzyżowa; kontrakt `docs/ETAP4_ABC_CONTRACT.md`). Czeka na weryfikację Piotra (type-check + testy + live). 4d/4e nietknięte. Dług/decyzje: patrz `HANDOFF.md` sekcja „Etap 4".
+
+| Podetap | Cel jednym zdaniem | Zależy od | Bramka | Status |
+|---|---|---|---|---|
+| **4a** | Presence + znajomi: kto jest online, zaproszenia/akceptacje, lista znajomych na żywo | Etap 3 | Dwóch graczy widzi wzajemny status live; zaproszenie→akceptacja→znajomy | ✍️ napisane (status online/offline; lobby/match hak do wpięcia) |
+| **4b** | Czat (lobby/mecz) + profile + adnotacje na profilu | 4a | Czat w lobby i meczu działa; profil pokazuje ELO/historię/odznaki; **adnotacja negative niewidoczna dla innych** | ✍️ napisane (adnotacje ODCZYT+widoczność=bramka OK; czat bez punktu montażu w meczu — decyzja) |
+| **4c** | Konwersja gościa w konto (podpięcie meczów z 7 dni) | 4a (model kont/sesji) | Gość zakłada konto, jego mecze towarzyskie z ostatnich 7 dni lądują na koncie | ✍️ napisane (MVP: bieżący guestId z 7 dni; multi-sesja=follow-up) |
+| **4d** | Zaufany hosting bundli UI + CSP + osobna domena + RPS na bundle | Etap 3 (równolegle do 4a–4c) | **S3 na produkcyjnym hostingu bundli** (bundle nie wykona żądania poza platformę, w tym kanały nawigacyjne) | ⬜ nietknięte |
+| **4e** | Ranked: ELO + walkowery + kolejka szybkiego meczu (+ hak na bota) | 4d | Walkower liczy ELO wg reguł; szybki mecz dobiera i gra na bundlu; ranking per gra live | ⬜ nietknięte |
 
 **Kolejność i równoległość.** Twarda zależność jest jedna: **4e (ranked) wymaga bundle'a z 4d** (ranked = UI na platformie z CSP — ADR „Safe secret"). Reszta jest luźniejsza: 4d to głównie backend+hosting (rozłączne pliki od gate/web społeczności), więc **4d może iść równolegle do 4a–4c** dwoma frontami agentów, spięte kontraktem — dokładnie wzorzec z Etapu 2/Fali 3. 4b zależy od 4a (znajomi/presence pod czat i profile), 4c od modelu kont z Etapu 1.
 

@@ -71,6 +71,21 @@ export const collectionPolicies: Record<string, CollectionPolicy> = {
   // Publiczny ranking per gra.
   ratings:      {},
 
+  // --- Kolekcje społeczności (Etap 4a/4b) ---
+  // ROW-LEVEL: presence widoczne WYŁĄCZNIE znajomym. `visibleTo` to zdenormalizowana
+  // lista userId zaakceptowanych znajomych (pisze presence.service). Obcy nie widzą
+  // dokumentu wcale. Tryb niewidzialny degraduje status/currentMatchId przy zapisie
+  // (sekret nie trafia do dokumentu). MVP: brak publicznego "bare status" (dług).
+  presence:     { filter: (user) => ({ visibleTo: user._id } as unknown as SubscriptionTicketFilter) },
+  // ROW-LEVEL: relacja widoczna tylko jej dwóm stronom (para znormalizowana a<b).
+  friendships:  { filter: (user) => ({ $or: [ { a: user._id }, { b: user._id } ] } as unknown as SubscriptionTicketFilter) },
+  // ROW-LEVEL: wiadomość widoczna członkom pokoju/meczu. `members` to snapshot
+  // uprawnionych userId w chwili wysłania (pisze chat handler).
+  messages:     { filter: (user) => ({ members: user._id } as unknown as SubscriptionTicketFilter) },
+  // ROW-LEVEL (bramka Etapu 4): adnotacje pozytywne są publiczne; neutralne/negatywne
+  // widzi TYLKO właściciel. Kolekcja należy do games (gate czyta raw driverem).
+  annotations:  { filter: (user) => ({ $or: [ { sentiment: 'positive' }, { playerId: user._id } ] } as unknown as SubscriptionTicketFilter) },
+
   // UWAGA: moves, match_states, resolve_log, player_memory, registrations są
   // CELOWO nieobecne — pozostają prywatne dla games (default-deny je blokuje).
 }

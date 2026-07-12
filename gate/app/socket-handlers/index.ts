@@ -13,6 +13,10 @@ import { adminHandlers } from './admin'
 import { colorPresetHandlers } from './color-presets'
 import { gamesHandlers } from './games'
 import { roomsHandlers } from './rooms'
+import { friendsHandlers } from './friends'
+import { chatHandlers } from './chat'
+import { profileHandlers } from './profile-public'
+import { guestConvertHandlers } from './guest-convert'
 
 export interface AuthenticatedSocket extends Socket {
   user?: {
@@ -59,4 +63,8 @@ export const socketHandlers: HandlerObject[] = [
   ...colorPresetHandlers,
   ...gamesHandlers,
   ...roomsHandlers,
+  ...friendsHandlers,
+  ...chatHandlers,
+  ...profileHandlers,
+  ...guestConvertHandlers,
 ]

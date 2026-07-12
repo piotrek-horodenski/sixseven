@@ -14,6 +14,7 @@ import { checkSocketRateLimit, clearSocketRateLimits } from './socket-rate-limit
 import logger from './logger'
 import { seed } from './services/seed.service'
 import { peekTokenType, verifyScopedToken } from './services/tokens.service'
+import { getPresenceService } from './services/presence.service'
 
 export enum RequestMethod {
   GET = 'GET',
@@ -152,7 +153,13 @@ export class AppClass {
           permissions: u.permissions,
           roles: u.roles,
           allRoles: u.allRoles,
+          privacy: u.privacy,
         })
+
+        // Presence (4a): count this live socket; the first socket for a user
+        // flips them online. Multi-device safe (onConnect guards internally).
+        const uid = String(u._id)
+        void getPresenceService().onConnect(uid).catch(err => logger.error({ err, uid }, 'presence onConnect failed'))
       }
 
       socketHandlers.forEach(handler => {

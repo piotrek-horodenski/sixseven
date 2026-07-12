@@ -326,4 +326,120 @@ describe('command API', () => {
       expect(res.status).toBe(413)
     })
   })
+
+  describe('annotate (Etap 4b — MINIMALNY zapis)', () => {
+    it('woła wstrzyknięty annotate z earnedAt z zegara i params={} gdy pominięte', async () => {
+      const annotate = vi.fn(async () => {})
+      await start(makeDeps({ annotate, now: () => 12345 }))
+      const res = await post('/annotate', { playerId: 'u1', gameId: 'rps', badgeId: 'b1', sentiment: 'positive' }, auth)
+      expect(res.status).toBe(200)
+      expect(await res.json()).toEqual({ ok: true })
+      expect(annotate).toHaveBeenCalledWith({
+        playerId: 'u1', gameId: 'rps', badgeId: 'b1', sentiment: 'positive', params: {}, earnedAt: 12345,
+      })
+    })
+
+    it('przekazuje params gdy podane', async () => {
+      const annotate = vi.fn(async () => {})
+      await start(makeDeps({ annotate }))
+      await post('/annotate', { playerId: 'u1', gameId: 'rps', badgeId: 'b1', sentiment: 'neutral', params: { x: 1 } }, auth)
+      expect(annotate).toHaveBeenCalledWith(expect.objectContaining({ params: { x: 1 }, sentiment: 'neutral' }))
+    })
+
+    it('zły sentiment → 400, bez zapisu', async () => {
+      const annotate = vi.fn(async () => {})
+      await start(makeDeps({ annotate }))
+      const res = await post('/annotate', { playerId: 'u1', gameId: 'rps', badgeId: 'b1', sentiment: 'meh' }, auth)
+      expect(res.status).toBe(400)
+      expect(annotate).not.toHaveBeenCalled()
+    })
+
+    it('brak playerId/gameId/badgeId → 400', async () => {
+      await start(makeDeps())
+      expect((await post('/annotate', { gameId: 'rps', badgeId: 'b', sentiment: 'positive' }, auth)).status).toBe(400)
+      expect((await post('/annotate', { playerId: 'u', badgeId: 'b', sentiment: 'positive' }, auth)).status).toBe(400)
+      expect((await post('/annotate', { playerId: 'u', gameId: 'rps', sentiment: 'positive' }, auth)).status).toBe(400)
+    })
+
+    it('params nie-obiekt → 400, params > 1KB → 413', async () => {
+      const annotate = vi.fn(async () => {})
+      await start(makeDeps({ annotate }))
+      expect((await post('/annotate', { playerId: 'u', gameId: 'rps', badgeId: 'b', sentiment: 'positive', params: ['x'] }, auth)).status).toBe(400)
+      const big = { blob: 'x'.repeat(2000) }
+      expect((await post('/annotate', { playerId: 'u', gameId: 'rps', badgeId: 'b', sentiment: 'positive', params: big }, auth)).status).toBe(413)
+      expect(annotate).not.toHaveBeenCalled()
+    })
+
+    it('wymaga sekretu wewnętrznego (401)', async () => {
+      await start(makeDeps())
+      const res = await post('/annotate', { playerId: 'u', gameId: 'rps', badgeId: 'b', sentiment: 'positive' })
+      expect(res.status).toBe(401)
+    })
+  })
+
+  describe('player-history / guest-matches (Etap 4b/4c)', () => {
+    it('player-history woła wstrzyknięty playerHistory(userId, gameId?) i zwraca { history }', async () => {
+      const history = { games: [{ gameId: 'rps', played: 1, wins: 1, losses: 0, draws: 0 }], recent: [] }
+      const playerHistory = vi.fn(async () => history)
+      await start(makeDeps({ playerHistory }))
+      const res = await post('/player-history', { userId: 'u1', gameId: 'rps' }, auth)
+      expect(res.status).toBe(200)
+      expect(await res.json()).toEqual({ history })
+      expect(playerHistory).toHaveBeenCalledWith('u1', 'rps')
+    })
+
+    it('player-history bez gameId → drugi arg undefined', async () => {
+      const playerHistory = vi.fn(async () => ({ games: [], recent: [] }))
+      await start(makeDeps({ playerHistory }))
+      await post('/player-history', { userId: 'u1' }, auth)
+      expect(playerHistory).toHaveBeenCalledWith('u1', undefined)
+    })
+
+    it('player-history: brak userId → 400', async () => {
+      await start(makeDeps())
+      expect((await post('/player-history', {}, auth)).status).toBe(400)
+    })
+
+    it('guest-matches woła wstrzyknięty guestMatches(guestId, sinceMs)', async () => {
+      const guestMatches = vi.fn(async () => [{ matchId: 'm1', gameId: 'rps', finishedAt: 99 }])
+      await start(makeDeps({ guestMatches }))
+      const res = await post('/guest-matches', { guestId: 'g1', sinceMs: 1000 }, auth)
+      expect(res.status).toBe(200)
+      expect(await res.json()).toEqual({ matches: [{ matchId: 'm1', gameId: 'rps', finishedAt: 99 }] })
+      expect(guestMatches).toHaveBeenCalledWith('g1', 1000)
+    })
+
+    it('guest-matches: sinceMs nie-liczba → 400', async () => {
+      await start(makeDeps())
+      expect((await post('/guest-matches', { guestId: 'g1', sinceMs: 'soon' }, auth)).status).toBe(400)
+      expect((await post('/guest-matches', { guestId: 'g1' }, auth)).status).toBe(400)
+    })
+  })
+
+  describe('attach-guest (Etap 4c — okno 7 dni)', () => {
+    const SEVEN_DAYS = 7 * 24 * 60 * 60 * 1000
+
+    it('liczy okno z wstrzykniętego now i przekazuje windowStartMs; zwraca { attached }', async () => {
+      const attachGuest = vi.fn(async () => 3)
+      const NOW = 1_000_000_000
+      await start(makeDeps({ attachGuest, now: () => NOW }))
+      const res = await post('/attach-guest', { guestId: 'g1', userId: 'u1' }, auth)
+      expect(res.status).toBe(200)
+      expect(await res.json()).toEqual({ attached: 3 })
+      expect(attachGuest).toHaveBeenCalledWith('g1', 'u1', NOW - SEVEN_DAYS)
+    })
+
+    it('brak guestId/userId → 400', async () => {
+      const attachGuest = vi.fn(async () => 0)
+      await start(makeDeps({ attachGuest }))
+      expect((await post('/attach-guest', { userId: 'u1' }, auth)).status).toBe(400)
+      expect((await post('/attach-guest', { guestId: 'g1' }, auth)).status).toBe(400)
+      expect(attachGuest).not.toHaveBeenCalled()
+    })
+
+    it('wymaga sekretu wewnętrznego (401)', async () => {
+      await start(makeDeps())
+      expect((await post('/attach-guest', { guestId: 'g1', userId: 'u1' })).status).toBe(401)
+    })
+  })
 })

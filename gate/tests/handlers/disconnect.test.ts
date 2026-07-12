@@ -11,6 +11,14 @@ vi.mock('../../app/app', () => ({
   },
 }))
 
+// Presence (4a): disconnect handler wywołuje prod-singleton presence.service,
+// który leniwie robi require('../app'). W teście mockujemy go na no-op —
+// weryfikujemy tu wyłącznie teardown subskrypcji, nie licznik presence.
+const { mockOnDisconnect } = vi.hoisted(() => ({ mockOnDisconnect: vi.fn().mockResolvedValue(undefined) }))
+vi.mock('../../app/services/presence.service', () => ({
+  getPresenceService: () => ({ onDisconnect: mockOnDisconnect }),
+}))
+
 describe('disconnectHandler', () => {
   let socket: any
 

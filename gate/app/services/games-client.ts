@@ -46,6 +46,36 @@ export interface MatchInfo {
   phase: string
 }
 
+/** Agregat historii per gra (4b — profil publiczny). Kształt wg A3. */
+export interface PlayerHistoryGame {
+  gameId: string
+  played: number
+  wins: number
+  losses: number
+  draws: number
+}
+
+/** Ostatnie mecze (4b — profil publiczny). Kształt wg A3. */
+export interface PlayerHistoryRecent {
+  matchId: string
+  gameId: string
+  finishedAt: number | null
+  result: 'win' | 'loss' | 'draw'
+  score?: Record<string, number>
+}
+
+export interface PlayerHistory {
+  games: PlayerHistoryGame[]
+  recent: PlayerHistoryRecent[]
+}
+
+/** Mecz gościa w oknie konwersji (4c). Kształt wg A3. */
+export interface GuestMatch {
+  matchId: string
+  gameId: string
+  finishedAt: number
+}
+
 export interface GamesClient {
   createMatch(input: CreateMatchInput): Promise<CommandResult<{ matchId: string }>>
   /** Gracz zgłasza gotowość w lobby (Etap 3 pkt 5) — Planning startuje po komplecie rosteru. */
@@ -66,6 +96,21 @@ export interface GamesClient {
   getPrefs(gameId: string, playerId: string): Promise<CommandResult<{ prefs: Record<string, unknown> }>>
   /** Zapis prefs per (gra, gracz) POZA meczem. */
   setPrefs(gameId: string, playerId: string, prefs: Record<string, unknown>): Promise<CommandResult>
+  /**
+   * Historia meczów gracza (4b — profil publiczny). `gameId` zawęża do jednej gry.
+   * Źródło: agregat `matches` po stronie games (A3).
+   */
+  playerHistory(userId: string, gameId?: string): Promise<CommandResult<PlayerHistory>>
+  /**
+   * Mecze gościa od `sinceMs` (4c — okno konwersji). Zwraca listę meczów, w których
+   * `guestId` uczestniczył jako gość.
+   */
+  guestMatches(guestId: string, sinceMs: number): Promise<CommandResult<{ matches: GuestMatch[] }>>
+  /**
+   * Podpięcie meczów gościa do świeżo utworzonego konta (4c). Games przenosi guestId
+   * z `guestIds` do `players` dla meczów z okna 7 dni, zero ELO. Idempotentne.
+   */
+  attachGuest(args: { guestId: string; userId: string }): Promise<CommandResult<{ attached: number }>>
 }
 
 const DEFAULT_TIMEOUT_MS = 5000
@@ -202,6 +247,42 @@ export function createGamesClient(config: GamesClientConfig): GamesClient {
     async setPrefs(gameId, playerId, prefs) {
       const { status, body } = await guardedCall('/set-prefs', { gameId, playerId, prefs })
       if (status === 200) return { ok: true, data: {} }
+      return { ok: false, status, error: errorOf(status, body) }
+    },
+
+    async playerHistory(userId, gameId) {
+      // `gameId` opcjonalny — dokładamy tylko gdy podany (zawężenie do jednej gry).
+      const payload: Record<string, unknown> = { userId }
+      if (typeof gameId === 'string' && gameId) payload.gameId = gameId
+      const { status, body } = await guardedCall('/player-history', payload)
+      if (status === 200) {
+        const raw = (body.history && typeof body.history === 'object' && !Array.isArray(body.history)
+          ? (body.history as Record<string, unknown>)
+          : {})
+        const history: PlayerHistory = {
+          games: Array.isArray(raw.games) ? (raw.games as PlayerHistoryGame[]) : [],
+          recent: Array.isArray(raw.recent) ? (raw.recent as PlayerHistoryRecent[]) : [],
+        }
+        return { ok: true, data: history }
+      }
+      return { ok: false, status, error: errorOf(status, body) }
+    },
+
+    async guestMatches(guestId, sinceMs) {
+      const { status, body } = await guardedCall('/guest-matches', { guestId, sinceMs })
+      if (status === 200) {
+        const matches = Array.isArray(body.matches) ? (body.matches as GuestMatch[]) : []
+        return { ok: true, data: { matches } }
+      }
+      return { ok: false, status, error: errorOf(status, body) }
+    },
+
+    async attachGuest(args) {
+      const { status, body } = await guardedCall('/attach-guest', { guestId: args.guestId, userId: args.userId })
+      if (status === 200) {
+        const attached = typeof body.attached === 'number' ? body.attached : Number(body.attached ?? 0)
+        return { ok: true, data: { attached: Number.isFinite(attached) ? attached : 0 } }
+      }
       return { ok: false, status, error: errorOf(status, body) }
     },
   }

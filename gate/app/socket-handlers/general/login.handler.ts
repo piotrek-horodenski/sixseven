@@ -63,6 +63,7 @@ export const loginHandler: HandlerObject = {
       email: User.email,
       profile: User.profile,
       permissions: User.permissions,
+      privacy: (User as any).privacy,
       token,
     })
   }

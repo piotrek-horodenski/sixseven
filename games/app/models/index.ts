@@ -8,6 +8,7 @@ import { MatchEvent } from './match-events.schema'
 import { ResolveLog } from './resolve-log.schema'
 import { PlayerMemory } from './player-memory.schema'
 import { Registration } from './registrations.schema'
+import { Annotation } from './annotations.schema'
 
 export interface ModelCollectionMapping {
   name: string
@@ -29,6 +30,9 @@ export const models: ModelCollectionMapping[] = [
   { name: 'resolve_log', model: ResolveLog, exposed: false },
   { name: 'player_memory', model: PlayerMemory, exposed: false },
   { name: 'registrations', model: Registration, exposed: false },
+  // Adnotacje/odznaki (Etap 4b) — wystawiane; widoczność egzekwuje polityka gate
+  // (positive publiczne, neutral/negative tylko właściciel). Gate czyta surowo.
+  { name: 'annotations', model: Annotation, exposed: true },
 ]
 
 export {
@@ -40,4 +44,5 @@ export {
   ResolveLog,
   PlayerMemory,
   Registration,
+  Annotation,
 }

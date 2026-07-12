@@ -7,6 +7,19 @@ export const profileSchema = new Schema({
 })
 
 /**
+ * Preferencje prywatności (4a). `invisible` — tryb niewidzialny: gdy true,
+ * presence.service degraduje status do 'online' i nie ujawnia `currentMatchId`
+ * znajomym (Decyzja projektowa 3 kontraktu ETAP4). Sekret nie trafia do
+ * dokumentu presence.
+ */
+export const privacySchema = new Schema(
+  {
+    invisible: { type: Boolean, default: false },
+  },
+  { _id: false },
+)
+
+/**
  * Sesja logowania (E — wielotokenowe sesje). Każde urządzenie/logowanie dopisuje
  * własny wpis (login NIE nadpisuje istniejących). Middleware weryfikuje usera po
  * `sessions.token`; logout usuwa TYLKO bieżącą sesję (nie wylogowuje wszystkich
@@ -36,6 +49,8 @@ export const UserSchema = new Schema({
   allRoles: [String],
   token: String,
   sessions: { type: [sessionSchema], default: [] },
+  // 4a — tryb niewidzialny (patrz privacySchema / presence.service).
+  privacy: { type: privacySchema, default: () => ({ invisible: false }) },
 })
 
 export const User = model('users', UserSchema)

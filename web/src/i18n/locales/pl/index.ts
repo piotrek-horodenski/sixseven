@@ -9,6 +9,8 @@ import home from './home'
 import rooms from './rooms'
 import games from './games'
 import preferences from './preferences'
+import social from './social'
+import community from './community'
 
 export default {
   common,
@@ -22,4 +24,6 @@ export default {
   rooms,
   games,
   preferences,
+  social,
+  community,
 }

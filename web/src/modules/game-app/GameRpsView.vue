@@ -437,6 +437,13 @@ onUnmounted(() => {
           <p class="match-screen__target">{{ $t('games.scoreTarget', { target }) }}</p>
           <div class="rps-finished__actions">
             <UiButton icon="caret-left" @click="goBack">{{ $t('games.back') }}</UiButton>
+            <!-- Konwersja gościa (4c): tylko dla gracza-gościa. Pełna nawigacja
+                 (apka gry jest standalone); token gościa jest w hydra_guest_token. -->
+            <a
+              v-if="meId && match?.guestIds?.includes(meId)"
+              href="/guest/convert"
+              class="rps-finished__list"
+            >{{ $t('community.guest.cta') }}</a>
           </div>
         </div>
 

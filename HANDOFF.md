@@ -2,9 +2,34 @@
 
 > Cel pliku: pełny reset sesji nie może kosztować kontekstu. Nowa sesja: przeczytaj ten plik, potem `README.md` (mapa dokumentacji). Cała wiedza projektowa jest w dokumentach — ten plik mówi, jak z nich korzystać i co jest między wierszami.
 
-## Stan projektu (2026-07-11)
+## Stan projektu (2026-07-12)
 
-**Faza: kod ISTNIEJE. Etapy 0, 1, 2 zaimplementowane i przeszły na żywo. Etap 3 (UI/przepływ „gry", N-graczy) ZROBIONY i ZWERYFIKOWANY na żywo (2026-07-12: przepływ N-graczy, kafelki, „X", upload obrazków, `test:integration` zielone). Fala 3 (i18n pl/en) NAPISANA w sesji 2026-07-12; testy web zielone, blocker vue-tsc naprawiony (sesja 2) — czeka na potwierdzenie type-check + rebuild + smoke po stronie Piotra (sekcja „Fala 3" niżej).**
+**Faza: kod ISTNIEJE. Etapy 0, 1, 2 zaimplementowane i przeszły na żywo. Etap 3 (UI/przepływ „gry", N-graczy) ZROBIONY i ZWERYFIKOWANY na żywo. Fala 3 (i18n pl/en) POTWIERDZONA przez Piotra. Etap 4 — podetapy 4a+4b+4c (społeczność: presence+znajomi, czat+profile+adnotacje-odczyt, konwersja gościa) NAPISANE tej sesji 5 agentami + integracja + weryfikacja krzyżowa; sandbox nie odpala testów/Dockera → czeka na weryfikację Piotra (sekcja „Etap 4" niżej). 4d/4e (bundle+CSP, ranked) NIE ruszane.**
+
+## Etap 4 — 4a+4b+4c (społeczność) NAPISANE (sesja 2026-07-12)
+
+> Kontrakt integracyjny (źródło prawdy): `docs/ETAP4_ABC_CONTRACT.md`. Praca 5 agentami na rozłącznych obszarach + integrator, wzorzec Etapu 2/Fali 3. **Sandbox nie odpala testów/Dockera — czeka na weryfikację Piotra (type-check + `npm test` gate/web/games + integ games na RS:27140 + live).**
+
+**Zakres zrobiony:** 4a presence+znajomi, 4b czat+profile+adnotacje(ODCZYT+widoczność), 4c konwersja gościa. 4d/4e (bundle+CSP, ranked) NIE ruszane.
+
+**Nowe kolekcje/polityki (gate `policies.ts`):** `presence` (pisze gate; `{userId,status,lastSeen,currentMatchId,visibleTo[],updatedAt}`; polityka `{visibleTo:user._id}` — widoczne tylko znajomym), `friendships` (gate; para znormalizowana `a<b`+`invitedBy`; polityka strony), `messages` (gate; reshape zalążka na `{scope,scopeId,authorId,authorNick,text,members[],ts}`; polityka `{members:user._id}`), `annotations` (pisze **games**, exposed; `{playerId,gameId,badgeId,sentiment,params,earnedAt}`; polityka gate `{$or:[{sentiment:'positive'},{playerId:user._id}]}` = **bramka Etapu 4**).
+
+**Komendy socket (gate):** `friends:invite/accept/remove`, `presence:set-invisible`, `chat:send {scope,scopeId,text}` (serwerowy rate-limit+limit długości+członkostwo), `profile:get {userId}` (publiczny profil+historia), `guest:convert {username,email,password}` (tylko `socket.guest`; guestId z tokenu, NIE z payloadu; limit dzienny per IP). Wszystkie identyfikatory z tożsamości tokenu.
+
+**games — nowe endpointy internal (`command-api.ts`):** `/command/annotate` (MINIMALNY zapis — walidacja z manifestu odłożona do Etapu 5), `/command/player-history` (agregat win/loss/draw z `score`, argmax; czysta funkcja stanu), `/command/guest-matches` (okno), `/command/attach-guest` (przenosi guestId→players dla meczów z 7 dni, idempotentne, zero ELO). Indeksy `{players:1}`,`{guestIds:1}` na `matches`.
+
+**web:** stores `social` (friends+presence) i `chat`; moduł `modules/social/` (FriendsAsidePanel w slocie `aside` Home, ChatAsidePanel, PlayerProfileView `/u/:userId`, AnnotationsBadges, GuestConvertView `/guest/convert`); i18n ns `social`+`community` (pl/en, parytet `typeof pl`); tryb niewidzialny w `/preferences` (SocialPrivacyToggle); CTA konwersji gościa po `finished` w `GameRpsView`. Token gościa: `hydra_guest_token` (spójny z RoomJoinView).
+
+**Presence: pole `users.privacy.invisible`** (schemat + `session`/`login-complete` niosą `privacy`). Tryb niewidzialny degraduje status→`online` i zeruje `currentMatchId` przy zapisie (sekret nie trafia do dokumentu). Multi-device: licznik żywych socketów w `presence.service` (Map, per-proces — dług: multi-instancja gate wymaga wspólnego store).
+
+**DECYZJE/DŁUG do świadomości Piotra:**
+- **Presence widoczne TYLKO znajomym (całość dok.), nie „bare status publiczny"** — plan wspominał publiczny status, ale mechanizm polityk nie robi field-level-conditional; MVP bardziej prywatny, pokrywa deliverable. Rozbudowa = dług.
+- **Status lobby/match NIEwpięty w cykl życia** — presence działa na granulacji online/offline. Hak lobby/match wymaga wpięcia w handlery rooms/games (A1 zaproponował miejsca w raporcie; do decyzji). Bez tego znajomi widzą „online", nie „w meczu X".
+- **Czat: komponent gotowy, ale BEZ punktu montażu** — lobby/mecz żyje w standalone `/game/rps` (brak slotu `aside`). Wpięcie czatu w mecz wymaga decyzji (osadzić panel w `GameRpsView` vs osobny layout). Na Home `aside` jest panel znajomych.
+- **4c ograniczenie:** brak trwałego „cookie sesji gościa" (dług Etapu 1) — konwersja podpina mecze BIEŻĄCEGO zweryfikowanego `guestId` z 7 dni. „Ten sam cookie przez wiele sesji" = follow-up.
+- **Rate-limit/limit dzienny per-proces** (Map), nie Redis — MVP jednoinstancyjny.
+
+**Weryfikacja krzyżowa (agent-recenzent):** eventy web↔gate, kształty games↔client, parytet i18n, wiring — CZYSTE po naprawie 3 defektów (blocker: payload `guest:convert-complete` `{userData,attached}` wyłuskiwany w GuestConvertView; 2× typ `score/finishedAt`). Zaktualizowano test `subscribe.test.ts` (messages ma teraz politykę → default-deny testowany na `moves`/`match_states`).
 
 ## Etap 3 — sesja 2026-07-11 (UI + przepływ „gry" + N-graczy + prefs)
 

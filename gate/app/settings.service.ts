@@ -23,6 +23,12 @@ const envSchema = z.object({
   // games/.env (nagłówek x-sixseven-internal, porównanie w stałym czasie).
   GAMES_URL:              z.string().default('http://localhost:4120'),
   INTERNAL_SECRET:        z.string().default('dev-internal-secret-change-me'),
+  // Czat (Etap 4b): maks długość wiadomości + rate-limit per autor (serwerowo).
+  MAX_CHAT_LEN:           z.string().default('500'),
+  CHAT_RATE_MAX:          z.string().default('10'),
+  CHAT_RATE_WINDOW_MS:    z.string().default('10000'),
+  // Konwersja gościa (Etap 4c): dzienny limit konwersji per IP.
+  GUEST_CONVERT_DAILY_LIMIT: z.string().default('5'),
 })
 
 const parsed = envSchema.safeParse(process.env)
@@ -50,4 +56,8 @@ export const SettingsService = () => ({
   jwtExpiresIn: env.JWT_EXPIRES_IN,
   gamesUrl:       env.GAMES_URL,
   internalSecret: env.INTERNAL_SECRET,
+  maxChatLen:              Number(env.MAX_CHAT_LEN),
+  chatRateMax:             Number(env.CHAT_RATE_MAX),
+  chatRateWindowMs:        Number(env.CHAT_RATE_WINDOW_MS),
+  guestConvertDailyLimit:  Number(env.GUEST_CONVERT_DAILY_LIMIT),
 })

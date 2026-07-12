@@ -39,6 +39,46 @@ export type LoadPlayerMemoryFn = (
 export type GetPrefsFn = (gameId: string, playerId: string) => Promise<Record<string, unknown>>
 export type SetPrefsFn = (gameId: string, playerId: string, prefs: Record<string, unknown>) => Promise<void>
 
+// ─── Adnotacje + historia + goście (Etap 4b/4c, OBSZAR A3) ──────────────────
+
+export type Sentiment = 'positive' | 'neutral' | 'negative'
+
+/** Zapis pojedynczej adnotacji/odznaki (Etap 4b, MINIMALNY). */
+export type AnnotateFn = (input: {
+  playerId: string
+  gameId: string
+  badgeId: string
+  sentiment: Sentiment
+  params: Record<string, unknown>
+  earnedAt: number
+}) => Promise<void>
+
+/** Wynik meczu z punktu widzenia gracza (argmax score). */
+export type MatchResult = 'win' | 'loss' | 'draw'
+
+export interface PlayerHistory {
+  /** Agregat per gra. */
+  games: { gameId: string; played: number; wins: number; losses: number; draws: number }[]
+  /** Ostatnie N meczów (malejąco po finishedAt). `score` to pełna mapa playerId→punkty. */
+  recent: {
+    matchId: string
+    gameId: string
+    finishedAt: number | null
+    result: MatchResult
+    score: Record<string, number>
+  }[]
+}
+
+export type PlayerHistoryFn = (userId: string, gameId?: string) => Promise<PlayerHistory>
+
+export type GuestMatchesFn = (
+  guestId: string,
+  sinceMs: number,
+) => Promise<{ matchId: string; gameId: string; finishedAt: number | null }[]>
+
+/** Podpięcie meczów gościa do konta w oknie [windowStartMs, ∞). Zwraca liczbę NOWO przeniesionych. */
+export type AttachGuestFn = (guestId: string, userId: string, windowStartMs: number) => Promise<number>
+
 export interface GameRegistrationInfo {
   version: string
   endpoint: GameServiceEndpoint
@@ -82,6 +122,16 @@ export interface CommandDeps {
   /** Odczyt/zapis prefs per (gra, gracz) poza meczem (Etap 3B pkt 5). Domyślnie `player_memory`. */
   getPrefs?: GetPrefsFn
   setPrefs?: SetPrefsFn
+  /** Zegar (Etap 4c — okno 7 dni dla attach-guest, earnedAt adnotacji). Domyślnie `Date.now`. */
+  now?: () => number
+  /** Zapis adnotacji (Etap 4b). Domyślnie kolekcja `annotations`. */
+  annotate?: AnnotateFn
+  /** Historia meczów gracza (Etap 4b). Domyślnie z `matches`. */
+  playerHistory?: PlayerHistoryFn
+  /** Mecze gościa w oknie (Etap 4c). Domyślnie z `matches`. */
+  guestMatches?: GuestMatchesFn
+  /** Podpięcie meczów gościa do konta (Etap 4c). Domyślnie mutacja `matches`. */
+  attachGuest?: AttachGuestFn
 }
 
 function safeEqual(a: string, b: string): boolean {
@@ -124,6 +174,136 @@ async function defaultSetPrefs(gameId: string, playerId: string, prefs: Record<s
   )
 }
 
+/** Limit rozmiaru `params` adnotacji (Etap 4b) — ~1 KB, serializacja JSON. */
+const MAX_ANNOTATION_PARAMS_BYTES = 1024
+
+/** Ile ostatnich meczów zwraca player-history. */
+const RECENT_MATCHES_LIMIT = 20
+
+/** Okno podpięcia meczów gościa (Etap 4c): 7 dni. Liczone w games (kontrakt decyzja #5). */
+const GUEST_ATTACH_WINDOW_MS = 7 * 24 * 60 * 60 * 1000
+
+const VALID_SENTIMENTS: readonly Sentiment[] = ['positive', 'neutral', 'negative']
+
+/**
+ * Wynik meczu dla gracza z mapy `score` (playerId→punkty). Zwycięzca = UNIKALNY
+ * max; remis = współdzielony max; inaczej porażka. `userScore` startuje jako
+ * kandydat na max, więc gracz jest liczony nawet gdy nie ma go w mapie (score 0).
+ */
+function deriveResult(score: Record<string, unknown>, userId: string): MatchResult {
+  const map = score ?? {}
+  const userScore = Number((map as Record<string, unknown>)[userId] ?? 0)
+  let max = userScore
+  for (const v of Object.values(map)) {
+    const n = Number(v)
+    if (Number.isFinite(n) && n > max) max = n
+  }
+  if (userScore < max) return 'loss'
+  // userScore === max: policz, ilu uczestników dzieli maksimum.
+  let sharers = 0
+  let userCounted = false
+  for (const [pid, v] of Object.entries(map)) {
+    if (Number(v) === max) {
+      sharers++
+      if (pid === userId) userCounted = true
+    }
+  }
+  if (!userCounted) sharers++ // gracz dzieli max, ale nie ma wpisu w mapie
+  return sharers === 1 ? 'win' : 'draw'
+}
+
+/** Czy mecz liczy się do historii: zakończony i NIE anulowany. */
+function isCountedFinished(phase: unknown, endReason: unknown): boolean {
+  return phase === 'finished' && !(typeof endReason === 'string' && endReason.startsWith('cancelled'))
+}
+
+async function defaultAnnotate(input: {
+  playerId: string
+  gameId: string
+  badgeId: string
+  sentiment: Sentiment
+  params: Record<string, unknown>
+  earnedAt: number
+}): Promise<void> {
+  const { Annotation } = await import('./models')
+  // Etap 5: walidacja badgeId/params względem puli manifestu gry. Tu MINIMALNY zapis.
+  await Annotation.create({
+    playerId: input.playerId,
+    gameId: input.gameId,
+    badgeId: input.badgeId,
+    sentiment: input.sentiment,
+    params: input.params,
+    earnedAt: input.earnedAt,
+    createdAt: input.earnedAt,
+  })
+}
+
+async function defaultPlayerHistory(userId: string, gameId?: string): Promise<PlayerHistory> {
+  const { Match } = await import('./models')
+  const filter: Record<string, unknown> = { players: userId, phase: 'finished' }
+  if (gameId) filter.gameId = gameId
+  // Malejąco po czasie zakończenia (updatedAt = moment przejścia w 'finished').
+  const docs = (await Match.find(filter).sort({ updatedAt: -1 })) as any[]
+
+  const agg = new Map<string, { gameId: string; played: number; wins: number; losses: number; draws: number }>()
+  const recent: PlayerHistory['recent'] = []
+  for (const doc of docs) {
+    if (!isCountedFinished(doc.phase, doc.endReason)) continue
+    const gid = String(doc.gameId)
+    const score = (doc.score ?? {}) as Record<string, number>
+    const result = deriveResult(score, userId)
+
+    const g = agg.get(gid) ?? { gameId: gid, played: 0, wins: 0, losses: 0, draws: 0 }
+    g.played++
+    if (result === 'win') g.wins++
+    else if (result === 'loss') g.losses++
+    else g.draws++
+    agg.set(gid, g)
+
+    if (recent.length < RECENT_MATCHES_LIMIT) {
+      recent.push({
+        matchId: String(doc._id),
+        gameId: gid,
+        finishedAt: typeof doc.updatedAt === 'number' ? doc.updatedAt : null,
+        result,
+        score,
+      })
+    }
+  }
+  return { games: [...agg.values()], recent }
+}
+
+async function defaultGuestMatches(
+  guestId: string,
+  sinceMs: number,
+): Promise<{ matchId: string; gameId: string; finishedAt: number | null }[]> {
+  const { Match } = await import('./models')
+  const docs = (await Match.find({ guestIds: guestId, createdAt: { $gte: sinceMs } }).sort({
+    createdAt: -1,
+  })) as any[]
+  return docs.map((d) => ({
+    matchId: String(d._id),
+    gameId: String(d.gameId),
+    // finishedAt tylko dla zakończonych (brak osobnego pola — updatedAt = czas finiszu).
+    finishedAt: d.phase === 'finished' && typeof d.updatedAt === 'number' ? d.updatedAt : null,
+  }))
+}
+
+async function defaultAttachGuest(guestId: string, userId: string, windowStartMs: number): Promise<number> {
+  const { Match } = await import('./models')
+  // Podpina mecze z okna 7 dni, w których guestId WCIĄŻ figuruje jako gość. `$pull`
+  // usuwa guestId, `$addToSet` dokłada userId do `players` (mecz staje się kontowy).
+  // Idempotentne: po przeniesieniu filtr `guestIds: guestId` już NIE trafia w dokument,
+  // więc modifiedCount liczy tylko NOWO przeniesione. Filtr po guestId nie rusza meczów
+  // innego gościa; w meczu ruszamy TYLKO tego guestId ($pull konkretnej wartości).
+  // Zero ELO/rankingu — do 4e nie ma wpisów rankingowych, te mecze ich nie generują.
+  const res = await Match.updateMany(
+    { guestIds: guestId, createdAt: { $gte: windowStartMs } },
+    { $pull: { guestIds: guestId }, $addToSet: { players: userId }, $set: { updatedAt: Date.now() } },
+  )
+  return (res.modifiedCount as number) ?? 0
+}
+
 export function createCommandRouter(deps: CommandDeps): express.Router {
   const router = express.Router()
   const genId = deps.genId ?? (() => crypto.randomBytes(12).toString('hex'))
@@ -131,6 +311,11 @@ export function createCommandRouter(deps: CommandDeps): express.Router {
   const loadPlayerMemory = deps.loadPlayerMemory ?? defaultLoadPlayerMemory
   const getPrefs = deps.getPrefs ?? defaultGetPrefs
   const setPrefs = deps.setPrefs ?? defaultSetPrefs
+  const now = deps.now ?? (() => Date.now())
+  const annotate = deps.annotate ?? defaultAnnotate
+  const playerHistory = deps.playerHistory ?? defaultPlayerHistory
+  const guestMatches = deps.guestMatches ?? defaultGuestMatches
+  const attachGuest = deps.attachGuest ?? defaultAttachGuest
 
   // Auth wewnętrzny (stały czas) na wszystkich endpointach komend.
   router.use((req, res, next) => {
@@ -400,6 +585,109 @@ export function createCommandRouter(deps: CommandDeps): express.Router {
       res.json({ ok: true })
     } catch (err) {
       logger.error({ err }, 'set-prefs failed')
+      res.status(500).json({ error: 'internal error' })
+    }
+  })
+
+  // ─── Adnotacje + historia + goście (Etap 4b/4c, OBSZAR A3) ──────────────────
+
+  // Zapis adnotacji/odznaki (Etap 4b). MINIMALNY: waliduje tylko sentiment (enum)
+  // i rozmiar params (~1 KB). Walidacja badgeId/params względem puli manifestu gry
+  // to Etap 5. Zasila kolekcję `annotations` (widoczność egzekwuje polityka gate).
+  router.post('/annotate', async (req, res) => {
+    try {
+      const { playerId, gameId, badgeId, sentiment, params } = req.body ?? {}
+      if (
+        typeof playerId !== 'string' || !playerId ||
+        typeof gameId !== 'string' || !gameId ||
+        typeof badgeId !== 'string' || !badgeId
+      ) {
+        res.status(400).json({ error: 'playerId, gameId and badgeId required' })
+        return
+      }
+      if (!VALID_SENTIMENTS.includes(sentiment)) {
+        res.status(400).json({ error: 'invalid sentiment' })
+        return
+      }
+      let paramsObj: Record<string, unknown> = {}
+      if (params !== undefined) {
+        if (typeof params !== 'object' || params === null || Array.isArray(params)) {
+          res.status(400).json({ error: 'params must be an object' })
+          return
+        }
+        const bytes = Buffer.byteLength(JSON.stringify(params), 'utf8')
+        if (bytes > MAX_ANNOTATION_PARAMS_BYTES) {
+          res.status(413).json({ error: 'params too large' })
+          return
+        }
+        paramsObj = params as Record<string, unknown>
+      }
+      await annotate({ playerId, gameId, badgeId, sentiment, params: paramsObj, earnedAt: now() })
+      res.json({ ok: true })
+    } catch (err) {
+      logger.error({ err }, 'annotate failed')
+      res.status(500).json({ error: 'internal error' })
+    }
+  })
+
+  // Historia meczów gracza (Etap 4b — sekcja profilu publicznego). Czysta funkcja
+  // stanu: agregat win/loss/draw z `matches.score` (argmax) + ostatnie N meczów.
+  router.post('/player-history', async (req, res) => {
+    try {
+      const { userId, gameId } = req.body ?? {}
+      if (typeof userId !== 'string' || !userId) {
+        res.status(400).json({ error: 'userId required' })
+        return
+      }
+      if (gameId !== undefined && typeof gameId !== 'string') {
+        res.status(400).json({ error: 'gameId must be a string' })
+        return
+      }
+      const history = await playerHistory(userId, gameId || undefined)
+      res.json({ history })
+    } catch (err) {
+      logger.error({ err }, 'player-history failed')
+      res.status(500).json({ error: 'internal error' })
+    }
+  })
+
+  // Mecze gościa w oknie (Etap 4c). Zwraca mecze, w których `guestIds` zawiera
+  // guestId i `createdAt >= sinceMs`. guestId pochodzi z tokenu gościa po stronie
+  // gate (anti-hijack) — tu tylko surowe zapytanie.
+  router.post('/guest-matches', async (req, res) => {
+    try {
+      const { guestId, sinceMs } = req.body ?? {}
+      if (typeof guestId !== 'string' || !guestId) {
+        res.status(400).json({ error: 'guestId required' })
+        return
+      }
+      if (typeof sinceMs !== 'number' || !Number.isFinite(sinceMs)) {
+        res.status(400).json({ error: 'sinceMs must be a number' })
+        return
+      }
+      const matches = await guestMatches(guestId, sinceMs)
+      res.json({ matches })
+    } catch (err) {
+      logger.error({ err }, 'guest-matches failed')
+      res.status(500).json({ error: 'internal error' })
+    }
+  })
+
+  // Konwersja gościa (Etap 4c): podpięcie meczów gościa z okna 7 DNI do konta.
+  // Okno liczone TU (games), z wstrzykiwalnego zegara. Idempotentne — `attached`
+  // liczy tylko NOWO przeniesione mecze. Zero ELO (brak wpisów rankingowych do 4e).
+  router.post('/attach-guest', async (req, res) => {
+    try {
+      const { guestId, userId } = req.body ?? {}
+      if (typeof guestId !== 'string' || !guestId || typeof userId !== 'string' || !userId) {
+        res.status(400).json({ error: 'guestId and userId required' })
+        return
+      }
+      const windowStartMs = now() - GUEST_ATTACH_WINDOW_MS
+      const attached = await attachGuest(guestId, userId, windowStartMs)
+      res.json({ attached })
+    } catch (err) {
+      logger.error({ err }, 'attach-guest failed')
       res.status(500).json({ error: 'internal error' })
     }
   })

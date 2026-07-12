@@ -9,6 +9,7 @@ import { usePrefsStore } from '@/stores/prefs/prefs.store'
 import { useGamePrefsStore } from '@/stores/prefs/game-prefs.store'
 import { GAME_PREFS_CATALOG } from '@/stores/prefs/game-prefs.catalog'
 import { LANGUAGES, type Language } from '@/stores/prefs/prefs.model'
+import SocialPrivacyToggle from '@/modules/social/SocialPrivacyToggle.vue'
 
 /**
  * Ekran Preferencje (menu profilu). Etap 3B, fala 2B:
@@ -94,6 +95,8 @@ onUnmounted(() => {
         :placeholder="$t('preferences.app.languagePlaceholder')"
       />
     </div>
+
+    <SocialPrivacyToggle />
   </section>
 
   <section
