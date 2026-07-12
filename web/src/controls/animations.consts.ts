@@ -10,7 +10,13 @@ import {
 
 export const FadeAnimation: IAnimationDefinition = {
   name: 'fade',
-  mode: ETransitionMode.outIn,
+  // Tryb symultaniczny (nie out-in): CSS `fade.scss` ustawia position:absolute na
+  // obu stanach (enter-active i leave-active), czyli jest napisany pod nakładający
+  // się cross-fade. Przy out-in nawigacja kliencka (typ `changing`) zacinała slot
+  // `default`: faza leave kończyła się, ale wejście nowego widoku nie odpalało —
+  // wrapper zostawał `--active` z zamrożoną wysokością i BEZ zamontowanego dziecka
+  // (nowy content pojawiał się dopiero po F5, gdzie ścieżka to `appearing` bez leave).
+  mode: ETransitionMode.default,
   duration: 500,
   wrapperOverflow: EAnimationWrapperOverflow.visible,
   heightBehavior: EAnimationHeightBehavior.default,
