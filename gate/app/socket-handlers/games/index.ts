@@ -22,7 +22,9 @@ function getClient(): GamesClient {
 }
 
 // Handlery delegują do leniwego klienta — bez efektu ubocznego przy imporcie.
-const lazyClient: GamesClient = {
+// EKSPORTOWANY, żeby moduły dev/queue/admin-games używały tej samej leniwej
+// instancji (jedna konfiguracja, jeden klient).
+export const lazyClient: GamesClient = {
   createMatch: (input) => getClient().createMatch(input),
   start: (matchId, playerId) => getClient().start(matchId, playerId),
   submitMove: (matchId, playerId, move) => getClient().submitMove(matchId, playerId, move),
@@ -37,6 +39,15 @@ const lazyClient: GamesClient = {
   playerHistory: (userId, gameId) => getClient().playerHistory(userId, gameId),
   guestMatches: (guestId, sinceMs) => getClient().guestMatches(guestId, sinceMs),
   attachGuest: (args) => getClient().attachGuest(args),
+  // Metody 4d/4e (rejestr gier, kolejka, abandon) — delegacja jak reszta.
+  registerGame: (input) => getClient().registerGame(input),
+  updateGame: (input) => getClient().updateGame(input),
+  approveGame: (gameId) => getClient().approveGame(gameId),
+  unpublishGame: (gameId) => getClient().unpublishGame(gameId),
+  queueJoin: (gameId, userId) => getClient().queueJoin(gameId, userId),
+  queueLeave: (gameId, userId) => getClient().queueLeave(gameId, userId),
+  queueAccept: (gameId, userId, proposalId) => getClient().queueAccept(gameId, userId, proposalId),
+  abandon: (matchId, playerId) => getClient().abandon(matchId, playerId),
 }
 
 export const gamesHandlers: HandlerObject[] = createGamesHandlers(lazyClient)

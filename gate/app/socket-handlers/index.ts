@@ -17,6 +17,8 @@ import { friendsHandlers } from './friends'
 import { chatHandlers } from './chat'
 import { profileHandlers } from './profile-public'
 import { guestConvertHandlers } from './guest-convert'
+import { devHandlers } from './dev'
+import { queueHandlers } from './queue'
 
 export interface AuthenticatedSocket extends Socket {
   user?: {
@@ -67,4 +69,6 @@ export const socketHandlers: HandlerObject[] = [
   ...chatHandlers,
   ...profileHandlers,
   ...guestConvertHandlers,
+  ...devHandlers,
+  ...queueHandlers,
 ]

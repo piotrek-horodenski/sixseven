@@ -13,7 +13,8 @@ import logger from '../../logger'
  *  - `socket.user`  — pełne polityki (permission gating + row-level). Klucz: user._id.
  *  - `socket.match` — WYŁĄCZNIE `matches` {_id: matchId} i `match_views`
  *                     {playerId, matchId}. Klucz: playerId (z tokenu, nie payloadu).
- *  - `socket.guest` — WYŁĄCZNIE `rooms` {'members.id': guestId}. Klucz: guestId.
+ *  - `socket.guest` — `rooms` {'members.id': guestId} oraz katalog `games`
+ *                     wyłącznie {status:'published'} (kontrakt 4d §1). Klucz: guestId.
  */
 export const subscribeHandler: HandlerObject = {
   event: 'subscribe',
@@ -121,15 +122,21 @@ function handleGuest(
 ) {
   const { guestId } = guest
   const authorized = tickets.reduce<SubscriptionTicket[]>((acc, ticket) => {
-    if (ticket.collection !== 'rooms') {
+    let serverFilter: SubscriptionTicketFilter
+    if (ticket.collection === 'rooms') {
+      serverFilter = { 'members.id': guestId } as unknown as SubscriptionTicketFilter
+    } else if (ticket.collection === 'games') {
+      // Gość widzi WYŁĄCZNIE opublikowany katalog (kontrakt 4d §1) — twardy
+      // filtr serwera; klient może tylko zawęzić ($and), nigdy poszerzyć.
+      serverFilter = { status: 'published' } as unknown as SubscriptionTicketFilter
+    } else {
       logger.warn(
         { socketId: socket.id, guestId, collection: ticket.collection },
-        'subscription denied: guest may only see rooms',
+        'subscription denied: guest may only see rooms and published games',
       )
       return acc
     }
-    const serverFilter = { 'members.id': guestId } as unknown as SubscriptionTicketFilter
-    acc.push({ collection: 'rooms', filter: mergeFilters(serverFilter, ticket.filter), socket })
+    acc.push({ collection: ticket.collection, filter: mergeFilters(serverFilter, ticket.filter), socket })
     return acc
   }, [])
 

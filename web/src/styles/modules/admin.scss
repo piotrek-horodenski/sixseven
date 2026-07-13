@@ -66,6 +66,7 @@
 
 .admin-users,
 .admin-roles,
+.admin-games,
 .admin-settings {
   padding: 1.5rem;
 
@@ -90,6 +91,21 @@
         width: 100%;
       }
     }
+  }
+}
+
+// Moderacja katalogu gier (4d) — lista przewijana na wąskich ekranach,
+// długie uiUrl łamane, żeby nie rozpychały tabeli.
+.admin-games {
+  &__list {
+    overflow-x: auto;
+  }
+
+  &__url {
+    font-family: monospace;
+    font-size: 0.8rem;
+    max-width: 16rem;
+    overflow-wrap: anywhere;
   }
 }
 

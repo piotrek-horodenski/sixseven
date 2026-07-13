@@ -294,6 +294,17 @@
     margin: 0;
     padding: 0;
   }
+
+  // Link „Zobacz ranking" w sekcji ELO (4e)
+  &__ranking-link {
+    color: var(--primary-color);
+    font-size: .85rem;
+    text-decoration: none;
+
+    &:hover {
+      text-decoration: underline;
+    }
+  }
 }
 
 .profile-match {

@@ -46,6 +46,27 @@ const admin: typeof pl = {
   displayName: 'Display Name',
   inheritedRoles: 'Inherited Roles',
   userNotFound: 'User not found',
+
+  // Moderacja katalogu gier (4d)
+  games: 'Games',
+  gamesIntro: 'External games approval',
+  gamesPendingTitle: 'Pending approval',
+  gamesAllTitle: 'All external games',
+  gameName: 'Name',
+  gameSlug: 'Slug',
+  gameDev: 'Developer',
+  gameStatus: 'Status',
+  gameVersion: 'Version',
+  gameUiUrl: 'UI',
+  approve: 'Approve',
+  unpublish: 'Unpublish',
+  noPendingGames: 'No games pending approval.',
+  noExternalGames: 'No external games registered.',
+  gameStatuses: {
+    registered: 'pending',
+    published: 'published',
+    unpublished: 'unpublished',
+  },
 }
 
 export default admin

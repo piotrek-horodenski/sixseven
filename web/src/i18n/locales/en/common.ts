@@ -22,6 +22,8 @@ const common: typeof pl = {
   removePreset: 'Remove preset',
   noSavedPresets: 'No saved presets yet',
   switchFormat: 'Switch format (current: {format})',
+  copy: 'Copy',
+  copied: 'Copied',
 }
 
 export default common

@@ -3,6 +3,15 @@ import crypto from 'crypto'
 
 import type { CreateMatchInput, AddPlayerResult } from './engine/engine'
 import type { GameServiceEndpoint } from './engine/resolve-client'
+import {
+  CatalogConfig,
+  defaultCatalogConfig,
+  validateRegisterGame,
+  validateManifest,
+  isHttpUrl,
+  PublicManifest,
+} from './services/game-catalog'
+import { defaultEloConfig } from './engine/elo'
 import logger from './logger'
 
 /**
@@ -28,6 +37,12 @@ export interface EngineCommands {
   addPlayer(matchId: string, playerId: string, kind: 'user' | 'guest', initialState: unknown, nick?: string): Promise<AddPlayerResult>
   /** Anulowanie meczu (Etap 3B pkt 6 — leave twórcy w lobby). */
   cancel(matchId: string, reason: 'cancelled_lobby' | 'cancelled_paused' | 'cancelled'): Promise<void>
+  /** Walkower w ranked (Etap 4e — abandon / rozłączenie). Casual → 'noop'. */
+  finishWalkover(
+    matchId: string,
+    loserId: string,
+    reason: 'abandoned' | 'disconnected',
+  ): Promise<'finished' | 'noop' | 'not-found' | 'not-member'>
 }
 
 /** Pamięć gracza per gra (Etap 3B pkt 4/5): `{ data, prefs }`, brak wpisu = `{}`/`{}`. */
@@ -108,6 +123,79 @@ export interface MatchInfo {
   manifestVersion?: string
 }
 
+// ─── Katalog gier + kolejka ranked (Etap 4d/4e, kontrakt §1–2) ───────────────
+
+/** Dokument katalogu `games` widziany przez endpointy (bez sekretów — I1). */
+export interface GameCatalogDoc {
+  gameId: string
+  name: string
+  builtin: boolean
+  status: 'registered' | 'published' | 'unpublished'
+  devAccountId: string | null
+  uiUrl: string | null
+  rankedEligible: boolean
+  manifest: PublicManifest | Record<string, unknown>
+}
+
+/** Wstrzykiwalny magazyn katalogu `games`. Domyślnie kolekcja `games`. */
+export interface CatalogStore {
+  get(gameId: string): Promise<GameCatalogDoc | null>
+  countByDev(devAccountId: string): Promise<number>
+  /** Insert nowego dokumentu; duplikat _id MUSI rzucić (klucz unikalny). */
+  insert(doc: GameCatalogDoc & { createdAt: number; updatedAt: number }): Promise<void>
+  update(gameId: string, set: Record<string, unknown>): Promise<boolean>
+}
+
+/** Wpis kolejki widziany przez endpointy (kontrakt §1 `queue`). */
+export interface QueueEntryDoc {
+  gameId: string
+  userId: string
+  elo: number
+  since: number
+  status: 'waiting' | 'proposed' | 'matched'
+  accepted: boolean
+  proposalId: string | null
+  proposalDeadline: number | null
+  matchId: string | null
+}
+
+/** Wstrzykiwalny magazyn kolejki. Domyślnie kolekcja `queue`. */
+export interface QueueStore {
+  get(gameId: string, userId: string): Promise<QueueEntryDoc | null>
+  /** Idempotentny join: istniejący wpis zostaje NIETKNIĘTY (zachowuje `since`). */
+  joinWaiting(entry: { gameId: string; userId: string; elo: number; since: number }): Promise<void>
+  /** Usuwa wpis; zwraca stan sprzed usunięcia (albo null). */
+  remove(gameId: string, userId: string): Promise<QueueEntryDoc | null>
+  /** Wpisy propozycji (status proposed) wracają do waiting BEZ zmiany since. */
+  releaseProposal(proposalId: string, now: number): Promise<void>
+  /**
+   * Atomowo oznacza akcept wpisu proposed (accepted:false→true). 'accepted' =
+   * TEN zapis przestawił flagę (wyłączność tworzenia meczu przy komplecie).
+   */
+  markAccepted(gameId: string, userId: string, proposalId: string): Promise<'accepted' | 'already' | 'not-proposed'>
+  getByProposal(proposalId: string): Promise<QueueEntryDoc[]>
+  markMatched(proposalId: string, matchId: string, now: number): Promise<void>
+}
+
+/** Zapis rejestracji (prywatna `registrations`) przy register-game. */
+export type SaveRegistrationFn = (input: {
+  gameId: string
+  name: string
+  version: string
+  serviceUrl: string
+  hmacSecret: string
+  manifest: Record<string, unknown>
+}) => Promise<void>
+
+/** Aktualizacja rejestracji przy update-game (BEZ rotacji sekretu — poza MVP). */
+export type UpdateRegistrationFn = (
+  gameId: string,
+  set: { serviceUrl?: string; version?: string; manifest?: Record<string, unknown> },
+) => Promise<void>
+
+/** Odczyt ratingu do snapshotu elo przy queue-join. */
+export type GetRatingFn = (gameId: string, userId: string) => Promise<{ elo: number; matches: number } | null>
+
 export interface CommandDeps {
   engine: EngineCommands
   internalSecret: string
@@ -132,6 +220,24 @@ export interface CommandDeps {
   guestMatches?: GuestMatchesFn
   /** Podpięcie meczów gościa do konta (Etap 4c). Domyślnie mutacja `matches`. */
   attachGuest?: AttachGuestFn
+
+  // ─── Etap 4d/4e ─────────────────────────────────────────────────────────
+  /** Magazyn katalogu `games`. Domyślnie kolekcja `games`. */
+  catalog?: CatalogStore
+  /** Magazyn kolejki. Domyślnie kolekcja `queue`. */
+  queue?: QueueStore
+  /** Zapis rejestracji przy register-game. Domyślnie `registrations`. */
+  saveRegistration?: SaveRegistrationFn
+  /** Aktualizacja rejestracji przy update-game. Domyślnie `registrations`. */
+  updateRegistration?: UpdateRegistrationFn
+  /** Rating do snapshotu elo przy queue-join. Domyślnie `ratings`. */
+  getRating?: GetRatingFn
+  /** Generator hmacSecret dla register-game (testy). Domyślnie 32 losowe bajty hex. */
+  genSecret?: () => string
+  /** Parametry katalogu (limit gier per dev, min planningPhaseMs). */
+  catalogConfig?: Partial<CatalogConfig>
+  /** Rating startowy przy braku wpisu w `ratings` (kontrakt: 1200). */
+  startElo?: number
 }
 
 function safeEqual(a: string, b: string): boolean {
@@ -304,6 +410,163 @@ async function defaultAttachGuest(guestId: string, userId: string, windowStartMs
   return (res.modifiedCount as number) ?? 0
 }
 
+// ─── Domyślne magazyny 4d/4e (lazy require — testy DI bez bazy) ──────────────
+
+function docToCatalog(doc: any): GameCatalogDoc {
+  return {
+    gameId: String(doc._id),
+    name: String(doc.name ?? ''),
+    builtin: !!doc.builtin,
+    status: doc.status,
+    devAccountId: doc.devAccountId ?? null,
+    uiUrl: doc.uiUrl ?? null,
+    rankedEligible: !!doc.rankedEligible,
+    manifest: doc.manifest ?? {},
+  }
+}
+
+const defaultCatalogStore: CatalogStore = {
+  async get(gameId) {
+    const { GameCatalog } = await import('./models')
+    const doc = await GameCatalog.findById(gameId)
+    return doc ? docToCatalog(doc) : null
+  },
+  async countByDev(devAccountId) {
+    const { GameCatalog } = await import('./models')
+    return GameCatalog.countDocuments({ devAccountId })
+  },
+  async insert(doc) {
+    const { GameCatalog } = await import('./models')
+    // create rzuca przy duplikacie _id (E11000) — endpoint mapuje na 409.
+    await GameCatalog.create({
+      _id: doc.gameId,
+      name: doc.name,
+      builtin: doc.builtin,
+      status: doc.status,
+      devAccountId: doc.devAccountId,
+      uiUrl: doc.uiUrl,
+      rankedEligible: doc.rankedEligible,
+      manifest: doc.manifest,
+      createdAt: doc.createdAt,
+      updatedAt: doc.updatedAt,
+      publishedAt: null,
+    })
+  },
+  async update(gameId, set) {
+    const { GameCatalog } = await import('./models')
+    const res = await GameCatalog.updateOne({ _id: gameId }, { $set: set })
+    return (res.matchedCount as number) > 0
+  },
+}
+
+function queueId(gameId: string, userId: string): string {
+  return `${gameId}_${userId}`
+}
+
+function docToQueueEntry(doc: any): QueueEntryDoc {
+  return {
+    gameId: String(doc.gameId),
+    userId: String(doc.userId),
+    elo: Number(doc.elo),
+    since: Number(doc.since),
+    status: doc.status,
+    accepted: !!doc.accepted,
+    proposalId: doc.proposalId ?? null,
+    proposalDeadline: doc.proposalDeadline ?? null,
+    matchId: doc.matchId ?? null,
+  }
+}
+
+const defaultQueueStore: QueueStore = {
+  async get(gameId, userId) {
+    const { QueueEntry } = await import('./models')
+    const doc = await QueueEntry.findById(queueId(gameId, userId))
+    return doc ? docToQueueEntry(doc) : null
+  },
+  async joinWaiting(entry) {
+    const { QueueEntry } = await import('./models')
+    // Idempotentny join (kontrakt: ponowny join ZACHOWUJE since): wszystko w
+    // $setOnInsert — istniejący wpis (waiting/proposed/matched) nietknięty.
+    await QueueEntry.updateOne(
+      { _id: queueId(entry.gameId, entry.userId) },
+      {
+        $setOnInsert: {
+          gameId: entry.gameId,
+          userId: entry.userId,
+          elo: entry.elo,
+          since: entry.since,
+          status: 'waiting',
+          accepted: false,
+          proposalId: null,
+          proposalDeadline: null,
+          matchId: null,
+          updatedAt: entry.since,
+        },
+      },
+      { upsert: true },
+    )
+  },
+  async remove(gameId, userId) {
+    const { QueueEntry } = await import('./models')
+    const doc = await QueueEntry.findOneAndDelete({ _id: queueId(gameId, userId) })
+    return doc ? docToQueueEntry(doc) : null
+  },
+  async releaseProposal(proposalId, now) {
+    const { QueueEntry } = await import('./models')
+    // Druga strona propozycji wraca do waiting BEZ zmiany since (kontrakt §2
+    // queue-leave: „jak brak accept").
+    await QueueEntry.updateMany(
+      { proposalId, status: 'proposed' },
+      { $set: { status: 'waiting', proposalId: null, proposalDeadline: null, accepted: false, updatedAt: now } },
+    )
+  },
+  async markAccepted(gameId, userId, proposalId) {
+    const { QueueEntry } = await import('./models')
+    const res = await QueueEntry.updateOne(
+      { _id: queueId(gameId, userId), status: 'proposed', proposalId, accepted: false },
+      { $set: { accepted: true, updatedAt: Date.now() } },
+    )
+    if ((res.modifiedCount as number) > 0) return 'accepted'
+    const doc = await QueueEntry.findById(queueId(gameId, userId))
+    if (doc && doc.proposalId === proposalId && (doc.status === 'proposed' || doc.status === 'matched') && doc.accepted) {
+      return 'already'
+    }
+    return 'not-proposed'
+  },
+  async getByProposal(proposalId) {
+    const { QueueEntry } = await import('./models')
+    const docs = await QueueEntry.find({ proposalId })
+    return (docs as any[]).map(docToQueueEntry)
+  },
+  async markMatched(proposalId, matchId, now) {
+    const { QueueEntry } = await import('./models')
+    await QueueEntry.updateMany(
+      { proposalId },
+      { $set: { status: 'matched', matchId, proposalDeadline: null, updatedAt: now } },
+    )
+  },
+}
+
+const defaultSaveRegistration: SaveRegistrationFn = async (input) => {
+  const { registerGame } = await import('./services/register-game')
+  await registerGame(input)
+}
+
+const defaultUpdateRegistration: UpdateRegistrationFn = async (gameId, set) => {
+  const { Registration } = await import('./models')
+  const fields: Record<string, unknown> = { updatedAt: Date.now() }
+  if (set.serviceUrl !== undefined) fields.serviceUrl = set.serviceUrl
+  if (set.version !== undefined) fields.version = set.version
+  if (set.manifest !== undefined) fields.manifest = set.manifest
+  await Registration.updateOne({ gameId }, { $set: fields })
+}
+
+const defaultGetRating: GetRatingFn = async (gameId, userId) => {
+  const { Rating } = await import('./models')
+  const doc = await Rating.findById(`${gameId}_${userId}`)
+  return doc ? { elo: Number(doc.elo), matches: Number(doc.matches ?? 0) } : null
+}
+
 export function createCommandRouter(deps: CommandDeps): express.Router {
   const router = express.Router()
   const genId = deps.genId ?? (() => crypto.randomBytes(12).toString('hex'))
@@ -316,6 +579,78 @@ export function createCommandRouter(deps: CommandDeps): express.Router {
   const playerHistory = deps.playerHistory ?? defaultPlayerHistory
   const guestMatches = deps.guestMatches ?? defaultGuestMatches
   const attachGuest = deps.attachGuest ?? defaultAttachGuest
+  // Etap 4d/4e.
+  const catalog = deps.catalog ?? defaultCatalogStore
+  const queue = deps.queue ?? defaultQueueStore
+  const saveRegistration = deps.saveRegistration ?? defaultSaveRegistration
+  const updateRegistration = deps.updateRegistration ?? defaultUpdateRegistration
+  const getRating = deps.getRating ?? defaultGetRating
+  const genSecret = deps.genSecret ?? (() => crypto.randomBytes(32).toString('hex'))
+  const catalogConfig = { ...defaultCatalogConfig, ...(deps.catalogConfig ?? {}) }
+  const startElo = deps.startElo ?? defaultEloConfig.startElo
+
+  /**
+   * Wspólna ścieżka założenia meczu (create-match ORAZ kolejka ranked):
+   * /init serwisu gry z pełnym rosterem (stan początkowy liczy GRA), przeniesienie
+   * planningPhaseMs z manifestu do opcji, engine.createMatch.
+   */
+  async function initAndCreateMatch(input: {
+    gameId: string
+    players: string[]
+    guestIds?: string[]
+    nicks?: Record<string, string>
+    roomCode?: string
+    capacity?: number
+    ranked?: boolean
+    options?: Record<string, unknown>
+  }): Promise<{ ok: true; matchId: string } | { ok: false; status: number; error: string }> {
+    const reg = await deps.getRegistration(input.gameId)
+    if (!reg) {
+      return { ok: false, status: 404, error: 'game not registered' }
+    }
+    const matchId = genId()
+    const seed = genSeed()
+    // Pełny skład = zalogowani gracze + goście. Gra (init/resolve) nie rozróżnia
+    // typu tożsamości — musi znać KAŻDEGO uczestnika, żeby policzyć jego wynik.
+    const roster = [...input.players, ...(input.guestIds ?? [])]
+    // Etap 3B pkt 4: prefs/dane graczy z player_memory — paliwo dla np. RPS fallback.
+    const playerData = await loadPlayerMemory(input.gameId, roster)
+    const initRes = await deps.init(reg.endpoint, {
+      matchId,
+      manifestVersion: reg.version,
+      playerIds: roster,
+      seed,
+      playerData,
+      options: input.options ?? {},
+    })
+    if (!initRes.ok) {
+      return { ok: false, status: 502, error: 'game init failed' }
+    }
+
+    // Czas fazy planowania jest atrybutem GRY (manifest, ustawiany przez twórcę).
+    // Przenosimy go z manifestu (zwróconego przez /init) do opcji meczu — silnik
+    // czyta `match.options.planningPhaseMs` przy otwieraniu każdej rundy.
+    const manifestPlanningMs = Number(initRes.manifest?.planningPhaseMs)
+    const mergedOptions = {
+      ...(input.options && typeof input.options === 'object' ? input.options : {}),
+      ...(Number.isFinite(manifestPlanningMs) ? { planningPhaseMs: manifestPlanningMs } : {}),
+    }
+
+    await deps.engine.createMatch({
+      matchId,
+      gameId: input.gameId,
+      manifestVersion: reg.version,
+      players: input.players,
+      guestIds: input.guestIds,
+      nicks: input.nicks,
+      roomCode: input.roomCode,
+      capacity: input.capacity,
+      ranked: input.ranked,
+      options: mergedOptions,
+      initialState: initRes.state,
+    })
+    return { ok: true, matchId }
+  }
 
   // Auth wewnętrzny (stały czas) na wszystkich endpointach komend.
   router.use((req, res, next) => {
@@ -334,54 +669,21 @@ export function createCommandRouter(deps: CommandDeps): express.Router {
         res.status(400).json({ error: 'gameId and players required' })
         return
       }
-      const reg = await deps.getRegistration(gameId)
-      if (!reg) {
-        res.status(404).json({ error: 'game not registered' })
-        return
-      }
-      const matchId = genId()
-      const seed = genSeed()
-      // Pełny skład = zalogowani gracze + goście. Gra (init/resolve) nie rozróżnia
-      // typu tożsamości — musi znać KAŻDEGO uczestnika, żeby policzyć jego wynik.
-      const roster = [...players, ...(Array.isArray(guestIds) ? guestIds : [])]
-      // Etap 3B pkt 4: prefs/dane graczy z player_memory — paliwo dla np. RPS fallback.
-      const playerData = await loadPlayerMemory(gameId, roster)
-      const initRes = await deps.init(reg.endpoint, {
-        matchId,
-        manifestVersion: reg.version,
-        playerIds: roster,
-        seed,
-        playerData,
-        options: options ?? {},
-      })
-      if (!initRes.ok) {
-        res.status(502).json({ error: 'game init failed' })
-        return
-      }
-
-      // Czas fazy planowania jest atrybutem GRY (manifest, ustawiany przez twórcę).
-      // Przenosimy go z manifestu (zwróconego przez /init) do opcji meczu — silnik
-      // czyta `match.options.planningPhaseMs` przy otwieraniu każdej rundy.
-      const manifestPlanningMs = Number(initRes.manifest?.planningPhaseMs)
-      const mergedOptions = {
-        ...(options && typeof options === 'object' ? options : {}),
-        ...(Number.isFinite(manifestPlanningMs) ? { planningPhaseMs: manifestPlanningMs } : {}),
-      }
-
-      await deps.engine.createMatch({
-        matchId,
+      const created = await initAndCreateMatch({
         gameId,
-        manifestVersion: reg.version,
         players,
-        guestIds,
+        guestIds: Array.isArray(guestIds) ? guestIds : undefined,
         nicks: nicks && typeof nicks === 'object' ? nicks : undefined,
         roomCode: typeof roomCode === 'string' ? roomCode : undefined,
         capacity: typeof capacity === 'number' && capacity > 0 ? capacity : undefined,
         ranked,
-        options: mergedOptions,
-        initialState: initRes.state,
+        options: options && typeof options === 'object' ? options : undefined,
       })
-      res.json({ ok: true, matchId })
+      if (!created.ok) {
+        res.status(created.status).json({ error: created.error })
+        return
+      }
+      res.json({ ok: true, matchId: created.matchId })
     } catch (err) {
       logger.error({ err }, 'create-match failed')
       res.status(500).json({ error: 'internal error' })
@@ -690,6 +992,343 @@ export function createCommandRouter(deps: CommandDeps): express.Router {
       res.json({ attached })
     } catch (err) {
       logger.error({ err }, 'attach-guest failed')
+      res.status(500).json({ error: 'internal error' })
+    }
+  })
+
+  // ─── Rejestr gier zewnętrznych (Etap 4d, kontrakt §2) ───────────────────────
+
+  // Rejestracja gry dewelopera. devAccountId przychodzi z GATE (zawsze z tokenu,
+  // nigdy z payloadu klienta — kontrakt §6). Generuje hmacSecret i zwraca go
+  // TEN JEDEN RAZ; sekret żyje wyłącznie w prywatnej `registrations`.
+  router.post('/register-game', async (req, res) => {
+    try {
+      const { devAccountId, gameId, name, manifest, serviceUrl, uiUrl } = req.body ?? {}
+      if (typeof devAccountId !== 'string' || !devAccountId) {
+        res.status(400).json({ error: 'devAccountId required' })
+        return
+      }
+      const validated = validateRegisterGame({ gameId, name, manifest, serviceUrl, uiUrl }, catalogConfig)
+      if (!validated.ok) {
+        res.status(400).json({ error: validated.error })
+        return
+      }
+      const candidate = validated.value
+
+      // Unikalność (w tym vs builtin — 'rps' i tak odcina walidacja slug/reserved).
+      if (await catalog.get(candidate.gameId)) {
+        res.status(409).json({ error: 'gameId already taken' })
+        return
+      }
+      // Limit gier per konto dewelopera (decyzja sesji: default 5, konfig).
+      const owned = await catalog.countByDev(devAccountId)
+      if (owned >= catalogConfig.maxGamesPerDev) {
+        res.status(409).json({ error: 'dev games limit reached' })
+        return
+      }
+
+      const hmacSecret = genSecret()
+      const ts = now()
+      try {
+        // Insert katalogu NAJPIERW — unikalny _id rozstrzyga wyścig dwóch
+        // jednoczesnych rejestracji tego samego slug (duplikat → 409).
+        await catalog.insert({
+          gameId: candidate.gameId,
+          name: candidate.name,
+          builtin: false,
+          status: 'registered',
+          devAccountId,
+          uiUrl: candidate.uiUrl,
+          rankedEligible: false, // gry zewnętrzne NIGDY ranked (ADR)
+          manifest: candidate.manifest,
+          createdAt: ts,
+          updatedAt: ts,
+        })
+      } catch (err: any) {
+        if (err?.code === 11000) {
+          res.status(409).json({ error: 'gameId already taken' })
+          return
+        }
+        throw err
+      }
+      await saveRegistration({
+        gameId: candidate.gameId,
+        name: candidate.name,
+        version: candidate.manifest.version,
+        serviceUrl: candidate.serviceUrl,
+        hmacSecret,
+        manifest: candidate.manifest as unknown as Record<string, unknown>,
+      })
+
+      // Sekret zwracany TEN JEDEN RAZ — nigdzie później nie do odczytania.
+      res.json({ gameId: candidate.gameId, hmacSecret })
+    } catch (err) {
+      logger.error({ err }, 'register-game failed')
+      res.status(500).json({ error: 'internal error' })
+    }
+  })
+
+  // Edycja gry przez właściciela. KAŻDA zmiana cofa status do 'registered'
+  // (wymaga ponownego approve). Bez rotacji sekretu (poza MVP).
+  router.post('/update-game', async (req, res) => {
+    try {
+      const { devAccountId, gameId, serviceUrl, uiUrl, manifest } = req.body ?? {}
+      if (typeof devAccountId !== 'string' || !devAccountId || typeof gameId !== 'string' || !gameId) {
+        res.status(400).json({ error: 'devAccountId and gameId required' })
+        return
+      }
+      if (serviceUrl === undefined && uiUrl === undefined && manifest === undefined) {
+        res.status(400).json({ error: 'nothing to update' })
+        return
+      }
+      if (serviceUrl !== undefined && !isHttpUrl(serviceUrl)) {
+        res.status(400).json({ error: 'serviceUrl must be a valid http(s) URL' })
+        return
+      }
+      if (uiUrl !== undefined && !isHttpUrl(uiUrl)) {
+        res.status(400).json({ error: 'uiUrl must be a valid http(s) URL' })
+        return
+      }
+      let publicManifest: PublicManifest | undefined
+      if (manifest !== undefined) {
+        const validated = validateManifest(manifest, catalogConfig)
+        if (!validated.ok) {
+          res.status(400).json({ error: validated.error })
+          return
+        }
+        publicManifest = validated.value
+      }
+
+      const doc = await catalog.get(gameId)
+      if (!doc) {
+        res.status(404).json({ error: 'game not found' })
+        return
+      }
+      // Tylko właściciel (builtin ma devAccountId null → nikt nie „edytuje" RPS).
+      if (doc.devAccountId === null || doc.devAccountId !== devAccountId) {
+        res.status(403).json({ error: 'not the owner' })
+        return
+      }
+
+      const set: Record<string, unknown> = { status: 'registered', updatedAt: now() }
+      if (uiUrl !== undefined) set.uiUrl = uiUrl
+      if (publicManifest !== undefined) set.manifest = publicManifest
+      await catalog.update(gameId, set)
+
+      const regSet: { serviceUrl?: string; version?: string; manifest?: Record<string, unknown> } = {}
+      if (serviceUrl !== undefined) regSet.serviceUrl = serviceUrl
+      if (publicManifest !== undefined) {
+        regSet.version = publicManifest.version
+        regSet.manifest = publicManifest as unknown as Record<string, unknown>
+      }
+      if (Object.keys(regSet).length > 0) {
+        await updateRegistration(gameId, regSet)
+      }
+
+      res.json({ ok: true, status: 'registered' })
+    } catch (err) {
+      logger.error({ err }, 'update-game failed')
+      res.status(500).json({ error: 'internal error' })
+    }
+  })
+
+  // Approve gry (autoryzacja ról po stronie gate — tu tylko efekt domenowy).
+  router.post('/approve-game', async (req, res) => {
+    try {
+      const { gameId } = req.body ?? {}
+      if (typeof gameId !== 'string' || !gameId) {
+        res.status(400).json({ error: 'gameId required' })
+        return
+      }
+      const doc = await catalog.get(gameId)
+      if (!doc) {
+        res.status(404).json({ error: 'game not found' })
+        return
+      }
+      await catalog.update(gameId, { status: 'published', publishedAt: now(), updatedAt: now() })
+      res.json({ ok: true, status: 'published' })
+    } catch (err) {
+      logger.error({ err }, 'approve-game failed')
+      res.status(500).json({ error: 'internal error' })
+    }
+  })
+
+  router.post('/unpublish-game', async (req, res) => {
+    try {
+      const { gameId } = req.body ?? {}
+      if (typeof gameId !== 'string' || !gameId) {
+        res.status(400).json({ error: 'gameId required' })
+        return
+      }
+      const doc = await catalog.get(gameId)
+      if (!doc) {
+        res.status(404).json({ error: 'game not found' })
+        return
+      }
+      await catalog.update(gameId, { status: 'unpublished', updatedAt: now() })
+      res.json({ ok: true, status: 'unpublished' })
+    } catch (err) {
+      logger.error({ err }, 'unpublish-game failed')
+      res.status(500).json({ error: 'internal error' })
+    }
+  })
+
+  // ─── Kolejka szybkiego meczu — ranked (Etap 4e, kontrakt §2) ────────────────
+
+  // Dołączenie do kolejki. userId z tokenu (gate); gość (g_*) NIGDY — podwójna
+  // gwarancja ranked-bez-gości. Idempotentne: ponowny join zachowuje `since`.
+  router.post('/queue-join', async (req, res) => {
+    try {
+      const { gameId, userId } = req.body ?? {}
+      if (typeof gameId !== 'string' || !gameId || typeof userId !== 'string' || !userId) {
+        res.status(400).json({ error: 'gameId and userId required' })
+        return
+      }
+      if (userId.startsWith('g_')) {
+        res.status(403).json({ error: 'guests cannot join ranked queue' })
+        return
+      }
+      const game = await catalog.get(gameId)
+      if (!game) {
+        res.status(404).json({ error: 'game not found' })
+        return
+      }
+      if (!game.rankedEligible || game.status !== 'published') {
+        res.status(409).json({ error: 'game not ranked eligible' })
+        return
+      }
+      // Snapshot elo z ratings przy join (brak ratingu = startElo).
+      const rating = await getRating(gameId, userId)
+      await queue.joinWaiting({ gameId, userId, elo: rating?.elo ?? startElo, since: now() })
+      res.json({ ok: true })
+    } catch (err) {
+      logger.error({ err }, 'queue-join failed')
+      res.status(500).json({ error: 'internal error' })
+    }
+  })
+
+  // Wyjście z kolejki. W stanie 'proposed' = jak brak akceptu: druga strona
+  // wraca do 'waiting' bez zmiany `since`.
+  router.post('/queue-leave', async (req, res) => {
+    try {
+      const { gameId, userId } = req.body ?? {}
+      if (typeof gameId !== 'string' || !gameId || typeof userId !== 'string' || !userId) {
+        res.status(400).json({ error: 'gameId and userId required' })
+        return
+      }
+      const removed = await queue.remove(gameId, userId)
+      if (removed && removed.status === 'proposed' && removed.proposalId) {
+        await queue.releaseProposal(removed.proposalId, now())
+      }
+      res.json({ ok: true })
+    } catch (err) {
+      logger.error({ err }, 'queue-leave failed')
+      res.status(500).json({ error: 'internal error' })
+    }
+  })
+
+  // Akcept propozycji. Gdy OBAJ zaakceptowali — create-match (ranked:true,
+  // capacity:2, opcje domyślne z manifestu katalogu) i oba wpisy 'matched'.
+  // Wyłączność tworzenia: mecz zakłada TEN akcept, który jako drugi przestawił
+  // atomowo accepted:false→true (markAccepted zwraca 'accepted' tylko wtedy).
+  // ZNANE OKNO (dług, akceptowalne w MVP z jedną instancją games): dwa akcepty
+  // przeplecione tak, że OBA flipną zanim którykolwiek odczyta partnera, mogłyby
+  // stworzyć dwa mecze — domknięcie wymaga atomowego claimu na parze (Etap 5).
+  router.post('/queue-accept', async (req, res) => {
+    try {
+      const { gameId, userId, proposalId } = req.body ?? {}
+      if (
+        typeof gameId !== 'string' || !gameId ||
+        typeof userId !== 'string' || !userId ||
+        typeof proposalId !== 'string' || !proposalId
+      ) {
+        res.status(400).json({ error: 'gameId, userId and proposalId required' })
+        return
+      }
+
+      const own = await queue.get(gameId, userId)
+      if (own && own.proposalId === proposalId && own.status === 'matched' && own.matchId) {
+        // Idempotencja: propozycja już przekuta w mecz.
+        res.json({ ok: true, matchId: own.matchId })
+        return
+      }
+
+      const marked = await queue.markAccepted(gameId, userId, proposalId)
+      if (marked === 'not-proposed') {
+        res.status(409).json({ error: 'no such proposal' })
+        return
+      }
+      if (marked === 'already') {
+        res.json({ ok: true, matchId: own?.matchId ?? null })
+        return
+      }
+
+      const entries = await queue.getByProposal(proposalId)
+      const partner = entries.find((e) => e.userId !== userId)
+      if (!partner || !partner.accepted) {
+        // Pierwszy akcept — czekamy na drugiego (deadline pilnuje scheduler).
+        res.json({ ok: true, matchId: null })
+        return
+      }
+
+      // Komplet akceptów → mecz rankingowy. Kolejność graczy = FIFO (starszy since).
+      const self = entries.find((e) => e.userId === userId)
+      if (!self) {
+        // Wyścig: własny wpis zniknął (leave/sprzątanie) między markAccepted a odczytem.
+        res.status(409).json({ error: 'no such proposal' })
+        return
+      }
+      const players = [self, partner]
+        .sort((a, b) => a.since - b.since || a.userId.localeCompare(b.userId))
+        .map((e) => e.userId)
+      // Opcje domyślne z manifestu katalogu (defaultTarget → target gry).
+      const game = await catalog.get(gameId)
+      const defaultTarget = Number((game?.manifest as PublicManifest | undefined)?.defaultTarget)
+      const options = Number.isFinite(defaultTarget) ? { target: defaultTarget } : {}
+
+      const created = await initAndCreateMatch({ gameId, players, capacity: 2, ranked: true, options })
+      if (!created.ok) {
+        // Nieudane założenie meczu: nie gubimy graczy — propozycja wraca do
+        // waiting (bez zmiany since), klienci spróbują ponownie.
+        await queue.releaseProposal(proposalId, now())
+        res.status(created.status).json({ error: created.error })
+        return
+      }
+      await queue.markMatched(proposalId, created.matchId, now())
+      res.json({ ok: true, matchId: created.matchId })
+    } catch (err) {
+      logger.error({ err }, 'queue-accept failed')
+      res.status(500).json({ error: 'internal error' })
+    }
+  })
+
+  // Porzucenie meczu (Etap 4e). Ranked w toku → walkower (przegrana porzucającego
+  // z pełnym K, wygrana przeciwnika z K/2 — nalicza silnik). Casual → noop
+  // (wyjście z casual nie kończy meczu — defaultMove gra dalej). Lobby → noop
+  // (od tego jest rooms:close / cancel). matchId+playerId z tokenu meczu (gate).
+  router.post('/abandon', async (req, res) => {
+    try {
+      const { matchId, playerId } = req.body ?? {}
+      if (typeof matchId !== 'string' || !matchId || typeof playerId !== 'string' || !playerId) {
+        res.status(400).json({ error: 'matchId and playerId required' })
+        return
+      }
+      const result = await deps.engine.finishWalkover(matchId, playerId, 'abandoned')
+      if (result === 'not-found') {
+        res.status(404).json({ error: 'match not found' })
+        return
+      }
+      if (result === 'not-member') {
+        res.status(403).json({ error: 'not a participant' })
+        return
+      }
+      if (result === 'noop') {
+        res.json({ ok: true, noop: true })
+        return
+      }
+      res.json({ ok: true, walkover: true })
+    } catch (err) {
+      logger.error({ err }, 'abandon failed')
       res.status(500).json({ error: 'internal error' })
     }
   })

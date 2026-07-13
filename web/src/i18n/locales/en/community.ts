@@ -32,6 +32,21 @@ const community: typeof pl = {
       loss: 'Loss',
       draw: 'Draw',
     },
+    /** Sekcja ELO (4e) — subskrypcja `ratings` po userId. */
+    elo: 'Rating (ELO)',
+    eloEmpty: 'No ranked matches played yet.',
+    eloGame: 'Game',
+    eloRating: 'ELO',
+    eloMatches: 'Matches',
+    eloRankingLink: 'See leaderboard',
+  },
+  /**
+   * Etykiety odznak per `badgeId` — parytet kluczy z pl wymusza typ;
+   * fallback na surowe badgeId w komponencie.
+   */
+  badges: {
+    flawless: 'Flawless',
+    'mind-reader': 'Mind reader',
   },
   guest: {
     title: 'Create an account',

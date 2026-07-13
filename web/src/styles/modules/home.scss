@@ -125,6 +125,88 @@
   }
 }
 
+// --- Etap 4d/4e: kafelek szybkiego meczu, etykieta gry zewnętrznej ----------
+.home-tile {
+  &--quick {
+    border-color: var(--warning-color);
+    position: relative;
+
+    .home-tile__icon {
+      color: var(--warning-color);
+    }
+  }
+
+  // Etykieta „UI poza platformą" (gra zewnętrzna, 4d)
+  &__ext {
+    background-color: var(--neutral-color-soft);
+    border-radius: 999px;
+    color: var(--background-color);
+    font-size: .62rem;
+    padding: .08rem .5rem;
+  }
+
+  // Link do rankingu w rogu kafelka szybkiego meczu (4e)
+  &__ranking {
+    align-items: center;
+    background-color: var(--background-color);
+    border: 1px solid var(--neutral-color-soft);
+    border-radius: 999px;
+    color: var(--neutral-color-soft);
+    display: flex;
+    font-size: .65rem;
+    height: 1.4rem;
+    justify-content: center;
+    position: absolute;
+    right: .4rem;
+    text-decoration: none;
+    top: .4rem;
+    transition: color .15s ease, border-color .15s ease;
+    width: 1.4rem;
+
+    &:hover {
+      border-color: var(--primary-color);
+      color: var(--primary-color);
+    }
+  }
+}
+
+// --- Overlay kolejki szybkiego meczu (4e) ------------------------------------
+.quick-match {
+  align-items: center;
+  display: flex;
+  flex-direction: column;
+  gap: .9rem;
+  padding: .5rem 0;
+  text-align: center;
+
+  &__glyph {
+    color: var(--primary-color);
+    font-size: 2.2rem;
+
+    &--hot {
+      color: var(--warning-color);
+    }
+  }
+
+  &__body {
+    color: var(--neutral-color-soft);
+    margin: 0;
+  }
+
+  &__countdown {
+    font-size: 2rem;
+    font-variant-numeric: tabular-nums;
+    font-weight: 700;
+    margin: 0;
+  }
+
+  &__actions {
+    display: flex;
+    gap: .75rem;
+    justify-content: center;
+  }
+}
+
 .home-empty {
   color: var(--neutral-color-soft);
   font-style: italic;

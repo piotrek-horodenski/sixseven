@@ -44,4 +44,25 @@ export default {
   displayName: 'Wyświetlana nazwa',
   inheritedRoles: 'Odziedziczone role',
   userNotFound: 'Nie znaleziono użytkownika',
+
+  // Moderacja katalogu gier (4d)
+  games: 'Gry',
+  gamesIntro: 'Zatwierdzanie gier zewnętrznych',
+  gamesPendingTitle: 'Oczekujące na zatwierdzenie',
+  gamesAllTitle: 'Wszystkie gry zewnętrzne',
+  gameName: 'Nazwa',
+  gameSlug: 'Identyfikator',
+  gameDev: 'Deweloper',
+  gameStatus: 'Status',
+  gameVersion: 'Wersja',
+  gameUiUrl: 'UI',
+  approve: 'Zatwierdź',
+  unpublish: 'Wycofaj',
+  noPendingGames: 'Brak gier oczekujących na zatwierdzenie.',
+  noExternalGames: 'Brak zarejestrowanych gier zewnętrznych.',
+  gameStatuses: {
+    registered: 'oczekuje',
+    published: 'opublikowana',
+    unpublished: 'wycofana',
+  },
 }

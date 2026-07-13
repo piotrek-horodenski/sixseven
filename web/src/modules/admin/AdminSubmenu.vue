@@ -18,6 +18,12 @@ const { hasPermission } = usePermission()
         <span class="label">{{ $t('admin.roles') }}</span>
       </RouterLink>
     </li>
+    <li v-if="hasPermission('manage-games')">
+      <RouterLink to="/admin/games">
+        <span class="icon"><fa icon="gamepad" /></span>
+        <span class="label">{{ $t('admin.games') }}</span>
+      </RouterLink>
+    </li>
     <li v-if="hasPermission('manage-settings')">
       <RouterLink to="/admin/settings">
         <span class="icon"><fa icon="sliders" /></span>

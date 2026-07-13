@@ -39,6 +39,8 @@ export function useMatchClient(fetchFn: typeof fetch = fetch) {
   const matches = ref<Match[]>([]) as Ref<Match[]>
   const views = ref<MatchView[]>([]) as Ref<MatchView[]>
   const rejected = ref(false)
+  /** Ack porzucenia meczu (`games:abandon-complete`) — sygnał „można wychodzić". */
+  const abandonAcked = ref(false)
 
   let client: TokenSocket | null = null
 
@@ -72,6 +74,9 @@ export function useMatchClient(fetchFn: typeof fetch = fetch) {
   }
   function onError({ message }: { message?: string }) {
     error.value = message || t('games.errors.operationFailed')
+  }
+  function onAbandonComplete() {
+    abandonAcked.value = true
   }
 
   /**
@@ -119,6 +124,8 @@ export function useMatchClient(fetchFn: typeof fetch = fetch) {
     client.on('games:submit-move-rejected', onRejected)
     client.on('games:submit-move-error', onError)
     client.on('games:reveal-done-error', onError)
+    client.on('games:abandon-complete', onAbandonComplete)
+    client.on('games:abandon-error', onError)
   }
 
   function submitMove(move: RpsMove) {
@@ -128,6 +135,16 @@ export function useMatchClient(fetchFn: typeof fetch = fetch) {
 
   function revealDone() {
     client?.call('games:reveal-done', { matchId: matchId.value })
+  }
+
+  /**
+   * Porzucenie meczu (fix „wyjście z gry" + 4e). Idzie NA SOCKECIE TOKENU MECZU
+   * — matchId i playerId gate bierze z tokenu, payload jest PUSTY (kontrakt §3).
+   * Ranked → walkower z pełną karą ELO; casual → noop po stronie games.
+   */
+  function abandon() {
+    abandonAcked.value = false
+    client?.call('games:abandon', {})
   }
 
   // Zgłoszenie gotowości w lobby (Etap 3 pkt 5). W przepływie pokoi mecz powstaje
@@ -154,6 +171,7 @@ export function useMatchClient(fetchFn: typeof fetch = fetch) {
     matches,
     views,
     rejected,
+    abandonAcked,
     // pochodne
     match,
     latestView,
@@ -165,6 +183,7 @@ export function useMatchClient(fetchFn: typeof fetch = fetch) {
     startMatch,
     submitMove,
     revealDone,
+    abandon,
     cleanup,
   }
 }

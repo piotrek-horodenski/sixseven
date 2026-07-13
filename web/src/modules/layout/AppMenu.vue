@@ -140,6 +140,7 @@ onUnmounted(() => {
         <UiButton @click="profileOpen = false; $router.push('/profile')">{{ $t('layout.profileMenu.profile') }}</UiButton>
         <UiButton v-if="myProfileId" @click="profileOpen = false; $router.push(`/u/${myProfileId}`)">{{ $t('layout.profileMenu.history') }}</UiButton>
         <UiButton @click="profileOpen = false; $router.push('/preferences')">{{ $t('layout.profileMenu.preferences') }}</UiButton>
+        <UiButton @click="profileOpen = false; $router.push('/dev')">{{ $t('layout.profileMenu.dev') }}</UiButton>
         <UiButton @click="logout">{{ $t('layout.profileMenu.logout') }}</UiButton>
       </div>
     </div>

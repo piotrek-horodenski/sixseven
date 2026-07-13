@@ -21,4 +21,6 @@ export default {
   removePreset: 'Usuń preset',
   noSavedPresets: 'Brak zapisanych presetów',
   switchFormat: 'Przełącz format (obecny: {format})',
+  copy: 'Kopiuj',
+  copied: 'Skopiowano',
 }

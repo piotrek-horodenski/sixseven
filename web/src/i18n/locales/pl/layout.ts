@@ -14,6 +14,7 @@ export default {
     profile: 'Profil',
     history: 'Historia i odznaki',
     preferences: 'Preferencje',
+    dev: 'Dla deweloperów',
     logout: 'Wyloguj',
   },
 }

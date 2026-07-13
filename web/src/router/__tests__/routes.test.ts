@@ -4,6 +4,11 @@ import { describe, it, expect, vi } from 'vitest'
 vi.mock('@/modules/admin/AdminUsersView.vue', () => ({ default: {} }))
 vi.mock('@/modules/admin/AdminRolesView.vue', () => ({ default: {} }))
 vi.mock('@/modules/admin/AdminSettingsView.vue', () => ({ default: {} }))
+// Etap 4d: admin.route importuje widok approve gier — bez mocka realny łańcuch
+// (AdminGamesView → catalog.store → gate.store → @/router) domyka CYKL z
+// routes/index.ts i element tablicy routes jest undefined w trakcie ewaluacji.
+vi.mock('@/modules/admin/AdminGamesView.vue', () => ({ default: {} }))
+vi.mock('@/modules/admin/AdminGamesIntro.vue', () => ({ default: {} }))
 vi.mock('@/modules/admin/AdminSubmenu.vue', () => ({ default: {} }))
 vi.mock('@/modules/admin/AdminBreadcrumb.vue', () => ({ default: {} }))
 vi.mock('@/modules/admin/UserEditPanel.vue', () => ({ default: {} }))

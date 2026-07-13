@@ -1,8 +1,15 @@
 import mongoose from 'mongoose'
 
-import { Match, Move, MatchState, MatchView, MatchEvent, ResolveLog } from '../models'
+import { Match, Move, MatchState, MatchView, MatchEvent, ResolveLog, Rating } from '../models'
 import { transition, MatchFsm, EngineEvent } from './state-machine'
 import { callResolve, GameServiceEndpoint, ResolveCallResult } from './resolve-client'
+import {
+  EloConfig,
+  defaultEloConfig,
+  settleMatchElo,
+  defaultedWalkoverLoser,
+  PlayerRating,
+} from './elo'
 import { ResolveRequest, PlayerMove } from '../contract/wire'
 import { settings } from '../settings'
 import logger from '../logger'
@@ -22,6 +29,8 @@ export interface EngineDeps {
   now?: () => number
   /** Wstrzykiwalny klient /resolve (testy). Domyślnie realny callResolve. */
   call?: typeof callResolve
+  /** Konfiguracja ELO/walkowerów (Etap 4e). Domyślnie defaultEloConfig. */
+  eloConfig?: EloConfig
 }
 
 export interface CreateMatchInput {
@@ -59,11 +68,13 @@ export class MatchEngine {
   private readonly resolveEndpoint: EngineDeps['resolveEndpoint']
   private readonly now: () => number
   private readonly call: typeof callResolve
+  private readonly eloConfig: EloConfig
 
   constructor(deps: EngineDeps) {
     this.resolveEndpoint = deps.resolveEndpoint
     this.now = deps.now ?? (() => Date.now())
     this.call = deps.call ?? callResolve
+    this.eloConfig = deps.eloConfig ?? defaultEloConfig
   }
 
   private planningMs(match: any): number {
@@ -293,6 +304,27 @@ export class MatchEngine {
     )
     if (upd.modifiedCount === 0) return // ktoś już zamknął (double trigger)
 
+    // Etap 4e (kontrakt „Walkower z rozłączenia"): przy seal policz defaulty.
+    // Wykonywane DOKŁADNIE raz na rundę — tylko zwycięzca guardowanego przejścia
+    // wyżej tu dociera. Złożony ruch → reset licznika do 0; brak ruchu → +1.
+    // Sam walkower (próg defaultedStreakLimit) zapada dopiero PO zastosowaniu
+    // wyniku rundy (applyResult) — gracz „dostaje" jeszcze wynik tej rundy.
+    const roster = [...match.players, ...match.guestIds]
+    const readyMoves = await Move.find({ matchId, round: match.round, ready: true })
+    const submitted = new Set(readyMoves.map((m: any) => String(m.playerId)))
+    const streakSet: Record<string, unknown> = {}
+    const streakInc: Record<string, number> = {}
+    for (const pid of roster) {
+      if (submitted.has(pid)) streakSet[`defaultedStreak.${pid}`] = 0
+      else streakInc[`defaultedStreak.${pid}`] = 1
+    }
+    const streakUpdate: Record<string, unknown> = {}
+    if (Object.keys(streakSet).length > 0) streakUpdate.$set = streakSet
+    if (Object.keys(streakInc).length > 0) streakUpdate.$inc = streakInc
+    if (Object.keys(streakUpdate).length > 0) {
+      await Match.updateOne({ _id: matchId }, streakUpdate)
+    }
+
     await this.resolveOnce(matchId)
   }
 
@@ -514,6 +546,15 @@ export class MatchEngine {
     } finally {
       await session.endSession()
     }
+
+    // ─── Etap 4e: PO commicie wyniku rundy ───────────────────────────────────
+    // Finisz bez revealu → nalicz ELO (idempotentne — garda eloApplied).
+    // Runda nie kończy meczu → sprawdź walkower z rozłączenia (defaultedStreak).
+    if (res.effect === 'apply_result_finish') {
+      await this.applyEloIfDue(matchId)
+    } else {
+      await this.walkoverFromDefaults(matchId)
+    }
   }
 
   // ─── Reveal ──────────────────────────────────────────────────────────────
@@ -530,6 +571,8 @@ export class MatchEngine {
         { _id: matchId, phase: 'revealing', round: match.round },
         { $set: { phase: 'finished', pendingFinish: false, deadline: null, endReason: 'finished', updatedAt: this.now() } },
       )
+      // Etap 4e: finisz po revealu — nalicz ELO (idempotentne, garda eloApplied).
+      await this.applyEloIfDue(matchId)
     } else {
       await this.openPlanning(matchId, res.next.round)
     }
@@ -563,5 +606,143 @@ export class MatchEngine {
     )
     // Oznacz dotychczasową historię jako anulowaną (ELO/adnotacje jej nie liczą).
     await MatchEvent.updateMany({ matchId }, { $set: { cancelled: true } })
+  }
+
+  // ─── Ranked: walkower + ELO (Etap 4e, kontrakt §2) ───────────────────────
+
+  /**
+   * Zakończenie meczu RANKED walkowerem (abandon gracza lub 2 kolejne defaulty).
+   * Guardowane przejście (jak cancel): wygrywa dokładnie JEDEN zapis — mecz w
+   * `resolving` może mieć /resolve w locie, ale `applyResult` jest guardowany
+   * na fazę `resolving` (A2/A5), więc po tym zapisie jego wynik zostaje
+   * odrzucony bez naruszenia inwariantów. Casual → 'noop' (wyjście z casual
+   * nie kończy meczu — defaultMove gra dalej).
+   */
+  async finishWalkover(
+    matchId: string,
+    loserId: string,
+    reason: 'abandoned' | 'disconnected',
+  ): Promise<'finished' | 'noop' | 'not-found' | 'not-member'> {
+    const match = await Match.findById(matchId)
+    if (!match) return 'not-found'
+    const roster = [...match.players, ...match.guestIds]
+    if (!roster.includes(loserId)) return 'not-member'
+    if (!match.ranked) return 'noop'
+    if (!['planning', 'resolving', 'revealing'].includes(match.phase)) return 'noop'
+    const players = match.players as string[]
+    // Ranked = dokładnie 2 zalogowanych (ścieżka kolejki); inne składy nie
+    // podlegają walkowerowi (i tak nie dostałyby ELO — patrz settleMatchElo).
+    if (players.length !== 2 || (match.guestIds as string[]).length > 0) return 'noop'
+    const winnerId = players.find((p) => p !== loserId)!
+
+    const upd = await Match.updateOne(
+      { _id: matchId, phase: { $in: ['planning', 'resolving', 'revealing'] } },
+      {
+        $set: {
+          phase: 'finished',
+          deadline: null,
+          pendingFinish: false,
+          endReason: 'walkover',
+          walkover: { loserId, winnerId, reason },
+          updatedAt: this.now(),
+        },
+      },
+    )
+    if (upd.modifiedCount === 0) return 'noop' // wyścig — mecz zdążył się zakończyć
+    logger.info({ matchId, loserId, winnerId, reason }, 'match finished by walkover')
+    await this.applyEloIfDue(matchId)
+    return 'finished'
+  }
+
+  /**
+   * Walkower z rozłączenia (kontrakt): po zastosowaniu wyniku rundy w meczu
+   * RANKED gracz z `defaultedStreak >= limit` przegrywa walkowerem
+   * ('disconnected'). Obaj naraz → mecz cancelled bez ELO (patologiczny).
+   * Pomijane, gdy mecz i tak kończy się naturalnie (pendingFinish po revealu).
+   */
+  private async walkoverFromDefaults(matchId: string): Promise<void> {
+    const match = await Match.findById(matchId)
+    if (!match || !match.ranked) return
+    if (!['planning', 'revealing'].includes(match.phase)) return
+    if (match.pendingFinish) return // wynik naturalny zapadnie przy reveal_done
+    const verdict = defaultedWalkoverLoser(
+      (match.defaultedStreak ?? {}) as Record<string, number>,
+      match.players as string[],
+      this.eloConfig,
+    )
+    if (!verdict) return
+    if ('cancelBoth' in verdict) {
+      await this.cancel(matchId, 'cancelled')
+      return
+    }
+    await this.finishWalkover(matchId, verdict.loserId, 'disconnected')
+  }
+
+  /**
+   * Naliczenie ELO po finiszu (kontrakt §2 „Aplikacja"). Decyzja jest CZYSTA
+   * (settleMatchElo: ranked && !eloApplied && bez gości && finished, walkower
+   * pełne/pół K); tu wyłącznie efekty. Idempotencja: atomowy claim
+   * `eloApplied:false→true` w TEJ SAMEJ transakcji co upserty `ratings` —
+   * podwójny trigger (scheduler/reveal/abandon naraz) nic nie naliczy drugi raz.
+   */
+  async applyEloIfDue(matchId: string): Promise<void> {
+    const match = await Match.findById(matchId)
+    if (!match) return
+
+    const players = (match.players ?? []) as string[]
+    const ratingsIn: Record<string, PlayerRating> = {}
+    for (const pid of players) {
+      const doc = await Rating.findById(`${match.gameId}_${pid}`)
+      ratingsIn[pid] = doc
+        ? { elo: Number(doc.elo), matches: Number(doc.matches ?? 0) }
+        : { elo: this.eloConfig.startElo, matches: 0 }
+    }
+
+    const updates = settleMatchElo(
+      {
+        phase: match.phase as string,
+        endReason: match.endReason as string | null,
+        ranked: !!match.ranked,
+        eloApplied: !!match.eloApplied,
+        players,
+        guestIds: (match.guestIds ?? []) as string[],
+        score: (match.score ?? {}) as Record<string, number>,
+        walkover: (match.walkover ?? null) as { loserId: string; winnerId: string } | null,
+      },
+      ratingsIn,
+      this.eloConfig,
+    )
+    if (!updates) return
+
+    const now = this.now()
+    const session = await mongoose.startSession()
+    try {
+      await session.withTransaction(async () => {
+        const claim = await Match.updateOne(
+          { _id: matchId, phase: 'finished', ranked: true, eloApplied: { $ne: true } },
+          { $set: { eloApplied: true, updatedAt: now } },
+          { session },
+        )
+        if (claim.modifiedCount === 0) return // ktoś już naliczył (idempotencja)
+        for (const u of updates) {
+          await Rating.updateOne(
+            { _id: `${match.gameId}_${u.userId}` },
+            {
+              $set: {
+                gameId: match.gameId,
+                userId: u.userId,
+                elo: u.elo,
+                matches: u.matches,
+                k: u.k,
+                updatedAt: now,
+              },
+            },
+            { upsert: true, session },
+          )
+        }
+      })
+    } finally {
+      await session.endSession()
+    }
   }
 }

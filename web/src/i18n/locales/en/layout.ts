@@ -16,6 +16,7 @@ const layout: typeof pl = {
     profile: 'Profile',
     history: 'History & badges',
     preferences: 'Preferences',
+    dev: 'For developers',
     logout: 'Logout',
   },
 }

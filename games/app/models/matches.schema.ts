@@ -69,6 +69,18 @@ export const MatchSchema = new Schema({
 
   // Powód zakończenia/anulowania (dla historii i UI).
   endReason: { type: String, default: null }, // 'finished' | 'cancelled_lobby' | 'cancelled_paused' | 'walkover'
+
+  // ─── Ranked (Etap 4e, kontrakt §1 „matches — nowe pola") ──────────────────
+  // Idempotencja naliczenia ELO przy finish: atomowy claim false→true w tej
+  // samej transakcji co upserty `ratings` — podwójny trigger nic nie naliczy.
+  eloApplied: { type: Boolean, default: false },
+  // Walkower (abandon w ranked / 2 kolejne defaulty): kto przegrał, kto wygrał
+  // i dlaczego. null = zwykły finish. { loserId, winnerId, reason: 'abandoned'|'disconnected' }
+  walkover: { type: Schema.Types.Mixed, default: null },
+  // Mapa playerId → liczba KOLEJNYCH rund zamkniętych bez złożonego ruchu
+  // (defaultMove). Inkrement przy seal, reset do 0 przy własnym ruchu; w ranked
+  // próg (defaultedStreakLimit) wyzwala walkower 'disconnected'.
+  defaultedStreak: { type: Schema.Types.Mixed, default: {} },
 })
 
 // Pętla harmonogramu: „daj mecze w fazie czasowej z minionym deadline".

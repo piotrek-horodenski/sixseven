@@ -272,6 +272,38 @@ describe('SubscriptionsManager', () => {
       expect(socket.emit).toHaveBeenCalledWith('collection-delete', 'messages', '1')
     })
 
+    it('delete BEZ pre-image dociera do subskrybenta z filtrem row-level (regresja: „Anuluj oczekiwanie" w queue)', () => {
+      const socket: any = { emit: vi.fn(), id: 's1' }
+      const realManager = new SubscriptionsManager()
+      // Filtr row-level jak polityka `queue` ({ userId: self }) — NIEpusty.
+      realManager.subscribe('user1', [{ collection: 'messages', filter: { userId: 'u1' }, socket }])
+
+      // Mongo bez włączonych pre-images: delete niesie tylko documentKey.
+      mockStreamEmitter.emit('change', {
+        operationType: 'delete',
+        documentKey: { _id: 'rps_u1' },
+        fullDocumentBeforeChange: null,
+      })
+
+      // Fallback (jak w gałęzi update): emit do wszystkich ticketów kolekcji —
+      // klient usuwa, jeśli miał. Bez tego overlay kolejki wisiał po leave.
+      expect(socket.emit).toHaveBeenCalledWith('collection-delete', 'messages', 'rps_u1')
+    })
+
+    it('delete Z pre-image nadal filtruje precyzyjnie (nie-pasujący subskrybent bez emitu)', () => {
+      const socket: any = { emit: vi.fn(), id: 's1' }
+      const realManager = new SubscriptionsManager()
+      realManager.subscribe('user1', [{ collection: 'messages', filter: { userId: 'u1' }, socket }])
+
+      mockStreamEmitter.emit('change', {
+        operationType: 'delete',
+        documentKey: { _id: 'rps_u2' },
+        fullDocumentBeforeChange: { _id: 'rps_u2', userId: 'u2' },
+      })
+
+      expect(socket.emit).not.toHaveBeenCalledWith('collection-delete', 'messages', 'rps_u2')
+    })
+
     it('emits collection-update with the full document when doc still matches filter', () => {
       const socket: any = { emit: vi.fn(), id: 's1' }
       const realManager = new SubscriptionsManager()

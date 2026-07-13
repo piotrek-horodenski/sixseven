@@ -3,6 +3,8 @@ import type { RouteRecordRaw } from 'vue-router'
 import AdminUsersView from '@/modules/admin/AdminUsersView.vue'
 import AdminRolesView from '@/modules/admin/AdminRolesView.vue'
 import AdminSettingsView from '@/modules/admin/AdminSettingsView.vue'
+import AdminGamesView from '@/modules/admin/AdminGamesView.vue'
+import AdminGamesIntro from '@/modules/admin/AdminGamesIntro.vue'
 import AdminSubmenu from '@/modules/admin/AdminSubmenu.vue'
 import AdminBreadcrumb from '@/modules/admin/AdminBreadcrumb.vue'
 import AdminUsersIntro from '@/modules/admin/AdminUsersIntro.vue'
@@ -82,6 +84,13 @@ const adminRoute: RouteRecordRaw = {
       name: 'admin-role-edit',
       components: { intro: AdminRolesIntro, default: AdminRolesView, submenu: AdminSubmenu, subintro: AdminBreadcrumb, aside: RoleEditPanel },
       meta: { requiredPermission: 'manage-roles' },
+    },
+    {
+      // Moderacja katalogu gier (4d): approve/unpublish gier zewnętrznych.
+      path: 'games',
+      name: 'admin-games',
+      components: { intro: AdminGamesIntro, default: AdminGamesView, submenu: AdminSubmenu, subintro: AdminBreadcrumb },
+      meta: { requiredPermission: 'manage-games' },
     },
     {
       path: 'settings',

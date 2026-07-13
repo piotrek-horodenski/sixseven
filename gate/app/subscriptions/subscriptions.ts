@@ -376,14 +376,23 @@ export class SubscriptionsManager {
               return
             }
 
-            // fullDocumentBeforeChange may be null if pre-images aren't enabled.
-            // For unfiltered subscriptions (empty filter), emit to all subscribers.
-            // For filtered subscriptions, use the before-change doc to match if available.
+            // fullDocumentBeforeChange bywa NULL — pre-images sa domyslnie
+            // wylaczone w mongo. Gdy pre-image JEST: precyzyjne dopasowanie do
+            // filtra subskrybenta. Gdy go NIE MA: fallback jak w galezi update —
+            // emitujemy collection-delete do WSZYSTKICH ticketow kolekcji
+            // („klient usuwa, jesli mial"; obcy klient nie ma dokumentu, wiec
+            // emit jest dla niego no-opem). Bez fallbacku delete NIGDY nie
+            // docieral do subskrybenta z filtrem row-level — bug z live-testu
+            // 4e: „Anuluj oczekiwanie" usuwalo wpis `queue` w bazie, ale klient
+            // sie nie dowiadywal i overlay wisial. Uwaga: samo _id moze niesc
+            // informacje (queue: `${gameId}_${userId}`) — akceptowane jak w
+            // update-fallbacku; precyzje przywraca wlaczenie pre-images na
+            // kolekcji (db/scripts/init-db-data.js robi to dla `queue`).
             const docToMatch = next.fullDocumentBeforeChange
 
             sub.filters.forEach(({ filter, tickets }: { filter: SubscriptionTicketFilter, tickets: SubscriptionTicket[] }) => {
               const isEmptyFilter = Object.keys(filter).length === 0
-              const matches = isEmptyFilter || (docToMatch && this.matches(docToMatch, filter))
+              const matches = isEmptyFilter || !docToMatch || this.matches(docToMatch, filter)
 
               if (matches) {
                 tickets.forEach((ticket: SubscriptionTicket) => {

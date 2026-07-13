@@ -9,6 +9,9 @@ import { ResolveLog } from './resolve-log.schema'
 import { PlayerMemory } from './player-memory.schema'
 import { Registration } from './registrations.schema'
 import { Annotation } from './annotations.schema'
+import { GameCatalog } from './games.schema'
+import { Rating } from './ratings.schema'
+import { QueueEntry } from './queue.schema'
 
 export interface ModelCollectionMapping {
   name: string
@@ -33,6 +36,14 @@ export const models: ModelCollectionMapping[] = [
   // Adnotacje/odznaki (Etap 4b) — wystawiane; widoczność egzekwuje polityka gate
   // (positive publiczne, neutral/negative tylko właściciel). Gate czyta surowo.
   { name: 'annotations', model: Annotation, exposed: true },
+  // Katalog gier (Etap 4d) — wystawiany; polityka gate: published OR własne
+  // (devAccountId). Bez sekretów (serviceUrl/hmacSecret żyją w `registrations`).
+  { name: 'games', model: GameCatalog, exposed: true },
+  // Rating ELO (Etap 4e) — publiczny (polityka gate: pusty filtr).
+  { name: 'ratings', model: Rating, exposed: true },
+  // Kolejka szybkiego meczu (Etap 4e) — wystawiana; polityka gate: tylko
+  // własne wpisy ({ userId: user._id }).
+  { name: 'queue', model: QueueEntry, exposed: true },
 ]
 
 export {
@@ -45,4 +56,7 @@ export {
   PlayerMemory,
   Registration,
   Annotation,
+  GameCatalog,
+  Rating,
+  QueueEntry,
 }

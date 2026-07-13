@@ -45,6 +45,20 @@ describe('subscription policies', () => {
       expect(f).toEqual({ userId: 'u1' })
     })
 
+    it('games: published LUB własne; admin (manage-games) bez zawężenia', () => {
+      const f = collectionPolicies.games.filter!({ _id: 'u1' })
+      expect(f).toEqual({ $or: [{ status: 'published' }, { devAccountId: 'u1' }] })
+
+      const admin = collectionPolicies.games.filter!({ _id: 'adm', permissions: ['manage-games'] })
+      expect(admin).toEqual({})
+    })
+
+    it('ratings pozostają publiczne (pusty wpis, bez sanityzacji)', () => {
+      expect(getPolicy('ratings')).toBeDefined()
+      expect(collectionPolicies.ratings.filter).toBeUndefined()
+      expect(collectionPolicies.ratings.requiredPermission).toBeUndefined()
+    })
+
     it('rooms scopes to public-open OR own membership', () => {
       const f = collectionPolicies.rooms.filter!({ _id: 'u1' })
       expect(f).toEqual({ $or: [

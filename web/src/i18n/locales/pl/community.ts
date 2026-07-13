@@ -31,6 +31,22 @@ export default {
       loss: 'Przegrana',
       draw: 'Remis',
     },
+    /** Sekcja ELO (4e) — subskrypcja `ratings` po userId. */
+    elo: 'Ranking (ELO)',
+    eloEmpty: 'Brak rozegranych meczów rankingowych.',
+    eloGame: 'Gra',
+    eloRating: 'ELO',
+    eloMatches: 'Mecze',
+    eloRankingLink: 'Zobacz ranking',
+  },
+  /**
+   * Etykiety odznak per `badgeId` (fix z backlogu): klucz
+   * `community.badges.<badgeId>`, fallback na surowe badgeId w komponencie.
+   * Identyfikatory z manifestu RPS (catalog/rps).
+   */
+  badges: {
+    flawless: 'Bez skazy',
+    'mind-reader': 'Czytający w myślach',
   },
   guest: {
     title: 'Załóż konto',

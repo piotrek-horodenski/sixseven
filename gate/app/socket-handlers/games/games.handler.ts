@@ -21,7 +21,6 @@ import logger from '../../logger'
 interface CreateMatchPayload {
   gameId?: unknown
   players?: unknown
-  ranked?: unknown
   options?: unknown
 }
 
@@ -67,7 +66,7 @@ export function createGamesHandlers(client: GamesClient, deps: GamesHandlersDeps
       if (!user) return
       const uid = String(user._id) // user._id to ObjectId — normalizujemy do stringa
 
-      const { gameId, players, ranked, options } = payload
+      const { gameId, players, options } = payload
       if (typeof gameId !== 'string' || !gameId) {
         socket.emit('games:create-match-error', { message: 'gameId required' })
         return
@@ -82,10 +81,12 @@ export function createGamesHandlers(client: GamesClient, deps: GamesHandlersDeps
         return
       }
 
+      // BEZPIECZEŃSTWO (kontrakt 4d/4e §1): `ranked` ustawia WYŁĄCZNIE ścieżka
+      // kolejki wewnątrz games — klient NIGDY nie deklaruje ranked sam. Payloadowe
+      // `ranked` jest celowo ignorowane (usunięcie passthrough: audyt 2026-07-12).
       const result = await client.createMatch({
         gameId,
         players: playerList,
-        ranked: typeof ranked === 'boolean' ? ranked : undefined,
         options: options && typeof options === 'object' ? (options as Record<string, unknown>) : undefined,
       })
 
@@ -233,6 +234,33 @@ export function createGamesHandlers(client: GamesClient, deps: GamesHandlersDeps
     },
   }
 
+  // Porzucenie meczu (4e/backlog „wyjście z gry"). WYŁĄCZNIE na sockecie TOKENU
+  // MECZU (wzorzec submit-move, zaostrzony — kontrakt §3): matchId i playerId
+  // biorą się Z TOKENU, payload jest pusty. Ranked → walkower + ELO po stronie
+  // games; casual → noop (defaultMove gra dalej, wyjście nie kończy meczu).
+  const abandonHandler: HandlerObject = {
+    event: 'games:abandon',
+    handler: async (socket: AuthenticatedSocket, _payload: unknown = {}) => {
+      const matchScope = socket.match
+      if (!matchScope) {
+        // Pełny JWT / gość NIE porzuca meczu tą komendą — brak scope'u meczu.
+        socket.emit('games:abandon-error', { message: 'match token required' })
+        return
+      }
+
+      const result = await client.abandon(matchScope.matchId, matchScope.playerId)
+      if (!result.ok) {
+        socket.emit('games:abandon-error', { message: result.error })
+        return
+      }
+      logger.info(
+        { matchId: matchScope.matchId, playerId: matchScope.playerId, noop: result.data.noop },
+        'match abandon requested',
+      )
+      socket.emit('games:abandon-complete', { matchId: matchScope.matchId, noop: result.data.noop })
+    },
+  }
+
   // Odczyt/zapis prefs per (user, gra) POZA meczem (Etap 3B pkt 5 — ekran preferencji,
   // fala 2B). `playerId` ZAWSZE z `socket.user._id` — NIGDY z payloadu. Gość nie ma
   // sesji `user`, więc nie zapisuje/czyta prefs (wymagany pełny user).
@@ -290,6 +318,7 @@ export function createGamesHandlers(client: GamesClient, deps: GamesHandlersDeps
     submitMoveHandler,
     revealDoneHandler,
     requestHandoffHandler,
+    abandonHandler,
     getPrefsHandler,
     setPrefsHandler,
   ]

@@ -11,6 +11,7 @@ import games from './games'
 import preferences from './preferences'
 import social from './social'
 import community from './community'
+import dev from './dev'
 
 export default {
   common,
@@ -26,4 +27,5 @@ export default {
   preferences,
   social,
   community,
+  dev,
 }

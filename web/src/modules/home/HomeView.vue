@@ -4,25 +4,43 @@ import { useI18n } from 'vue-i18n'
 import { storeToRefs } from 'pinia'
 import { useRoomsStore } from '@/stores/rooms/rooms.store'
 import { useGamesStore } from '@/stores/games/games.store'
+import { useCatalogStore } from '@/stores/games/catalog.store'
+import { useQueueStore } from '@/stores/games/queue.store'
+import { useGameLaunch } from '@/composables/useGameLaunch'
 import type { Room } from '@/stores/rooms/rooms.model'
+import type { CatalogGame } from '@/stores/games/catalog.model'
+import QuickMatchOverlay from './QuickMatchOverlay.vue'
+import ExternalGameWarning from '@/modules/games/ExternalGameWarning.vue'
 
 /**
- * Home (Etap 3b — „nie ma pokojów, są gry"). Grid kwadratowych kafelków:
- * pierwszy = „Nowa gra" (→ `/new`), potem moje gry w toku i otwarte gry
- * innych graczy. Klik w kafelek gry = wejście na ekran gry (`/game/rps`),
- * BEZ pośredniego ekranu szczegółów pokoju (dawny `RoomDetail` zniknął).
+ * Home (Etap 3b — „nie ma pokojów, są gry"; Etap 4d/4e — katalog data-driven
+ * i ranked). Grid kwadratowych kafelków: „Nowa gra" (→ `/new`), kafelki
+ * „Szybki mecz" dla gier `rankedEligible` (kolejka 4e), potem moje gry w toku
+ * i otwarte gry innych graczy.
  *
- * Status kafelka MOJEJ gry (Etap 3C) liczymy z realnego meczu
- * (`useGamesStore().matchById`, subskrybowany w `AppLayout` — tu tylko
- * czytamy getter, nie ruszamy cyklu życia `games.store`).
+ * Katalog gier przychodzi subskrypcją `games` (catalog.store) — kafelek gry
+ * zewnętrznej dostaje etykietę „UI poza platformą", a wejście do niej to
+ * redirect na `uiUrl?handoff=…&return=…` z jednorazowym modalem ostrzegawczym
+ * (useGameLaunch). Builtin wchodzi jak dotąd na `/game/rps`.
  */
 const { t } = useI18n()
 const rooms = useRoomsStore()
 const { publicOpenRooms, myRooms, lastError } = storeToRefs(rooms)
 const games = useGamesStore()
+const catalog = useCatalogStore()
+const queue = useQueueStore()
+const launcher = useGameLaunch()
 
-onMounted(() => rooms.init())
-onUnmounted(() => rooms.cleanup())
+onMounted(() => {
+  rooms.init()
+  catalog.init()
+  queue.init()
+})
+onUnmounted(() => {
+  rooms.cleanup()
+  catalog.cleanup()
+  queue.cleanup()
+})
 
 // Kafelek, na który właśnie czekamy (dołączanie/handoff) — blokuje ponowny klik.
 const pendingId = ref<string | null>(null)
@@ -67,6 +85,29 @@ const visibleMyRooms = computed(() =>
     .filter((x) => !x.status.hidden),
 )
 
+// ---- katalog data-driven (4d) ---------------------------------------------
+
+/** Ikona kafelka wg katalogu: builtin RPS jak dotąd, zewnętrzna = glob. */
+function gameIcon(gameId: string): string {
+  const g = catalog.gameById(gameId)
+  if (!g) return 'gamepad'
+  return g.builtin ? 'hand-scissors' : 'globe'
+}
+
+/** Etykieta „UI poza platformą" — tylko gry zewnętrzne. */
+function isExternalGame(gameId: string): boolean {
+  return catalog.isExternal(gameId)
+}
+
+// ---- szybki mecz (4e) -------------------------------------------------------
+
+/** Gry z kolejką rankingową (rankedEligible — dziś builtin RPS). */
+const rankedGames = computed(() => catalog.rankedGames)
+
+function quickMatch(game: CatalogGame) {
+  queue.join(game._id)
+}
+
 /** Moja gra (już jestem członkiem) — wchodzę ponownie, bez ponownego dołączania. */
 function enterMine(room: Room) {
   if (pendingId.value || !room.matchId) return
@@ -86,16 +127,20 @@ function joinOpen(room: Room) {
   rooms.joinAndPlay(room.code)
 }
 
-// Po `games:handoff-complete`: pełne przeładowanie do aplikacji gry (osobny
-// socket meczu) — ten sam wzorzec co reszta wejść do `/game/rps`.
+// Po `games:handoff-complete`: wejście do gry przez useGameLaunch — builtin
+// pełnym przeładowaniem do `/game/rps`, zewnętrzna redirectem na `uiUrl`
+// (z jednorazowym modalem ostrzegawczym przy pierwszym wejściu).
 watch(
   () => rooms.lastHandoff,
   (h) => {
-    if (h) {
-      window.location.href = `/game/rps?handoff=${encodeURIComponent(h.code)}&return=/`
-    }
+    if (h) launcher.launch(h)
   },
 )
+
+// Anulowany modal gry zewnętrznej — odblokuj kafelek.
+watch(launcher.pendingExternal, (p, old) => {
+  if (!p && old) pendingId.value = null
+})
 
 // Błąd dołączania (np. gra się właśnie zapełniła) — odblokuj kafelek.
 watch(lastError, (e) => {
@@ -108,6 +153,33 @@ watch(lastError, (e) => {
     <fa icon="plus" class="home-tile__icon" />
     <span class="home-tile__label">{{ $t('home.newGame') }}</span>
   </RouterLink>
+
+  <!-- Szybki mecz (4e): kafelek per gra rankedEligible. Div z role="button"
+       (jak kafelek „mojej" gry), bo w środku siedzi link do rankingu. -->
+  <div
+    v-for="g in rankedGames"
+    :key="`quick-${g._id}`"
+    class="home-tile home-tile--quick"
+    :class="{ 'home-tile--pending': queue.joiningGameId === g._id }"
+    role="button"
+    tabindex="0"
+    @click="quickMatch(g)"
+    @keydown.enter="quickMatch(g)"
+    @keydown.space.prevent="quickMatch(g)"
+  >
+    <RouterLink
+      :to="`/ranking/${g._id}`"
+      class="home-tile__ranking"
+      :aria-label="$t('home.tile.ranking')"
+      :title="$t('home.tile.ranking')"
+      @click.stop
+    >
+      <fa icon="ranking-star" />
+    </RouterLink>
+    <fa icon="bolt" class="home-tile__icon" />
+    <span class="home-tile__label">{{ $t('home.tile.quickMatch') }}</span>
+    <span class="home-tile__meta">{{ $t('home.tile.quickMatchMeta', { game: g.name }) }}</span>
+  </div>
 
   <div
     v-for="x in visibleMyRooms"
@@ -130,9 +202,12 @@ watch(lastError, (e) => {
     >
       <fa icon="times" />
     </button>
-    <fa icon="hand-scissors" class="home-tile__icon" />
+    <fa :icon="gameIcon(x.room.gameId)" class="home-tile__icon" />
     <span class="home-tile__label">{{ x.room.name }}</span>
     <span class="home-tile__meta">{{ x.status.label }}</span>
+    <span v-if="isExternalGame(x.room.gameId)" class="home-tile__ext">
+      {{ $t('home.tile.external') }}
+    </span>
   </div>
 
   <button
@@ -143,9 +218,12 @@ watch(lastError, (e) => {
     :disabled="pendingId === r._id"
     @click="joinOpen(r)"
   >
-    <fa icon="hand-scissors" class="home-tile__icon" />
+    <fa :icon="gameIcon(r.gameId)" class="home-tile__icon" />
     <span class="home-tile__label">{{ r.name }}</span>
     <span class="home-tile__meta">{{ $t('home.tile.join') }}</span>
+    <span v-if="isExternalGame(r.gameId)" class="home-tile__ext">
+      {{ $t('home.tile.external') }}
+    </span>
   </button>
 </div>
 
@@ -154,4 +232,14 @@ watch(lastError, (e) => {
 </p>
 
 <UiMessage v-if="lastError" type="error" class="home-error">{{ lastError }}</UiMessage>
+
+<!-- Kolejka szybkiego meczu (4e): overlay stanu własnego wpisu queue -->
+<QuickMatchOverlay />
+
+<!-- Jednorazowe ostrzeżenie przed grą zewnętrzną (4d) -->
+<ExternalGameWarning
+  :pending="launcher.pendingExternal.value"
+  @confirm="launcher.confirmExternal()"
+  @cancel="launcher.cancelExternal()"
+/>
 </template>

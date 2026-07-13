@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed } from 'vue'
+import { useI18n } from 'vue-i18n'
 import type { Annotation } from '@/stores/social/community.model'
 
 /**
@@ -12,9 +13,21 @@ const props = defineProps<{
   badges: Annotation[]
 }>()
 
+const { t, te } = useI18n()
+
 const sorted = computed(() =>
   [...props.badges].sort((a, b) => (b.earnedAt ?? 0) - (a.earnedAt ?? 0)),
 )
+
+/**
+ * FIX (backlog): etykieta odznaki z mapy i18n `community.badges.<badgeId>`,
+ * fallback na surowe `badgeId` dla odznak bez tłumaczenia (np. gry zewnętrzne).
+ * t() per render — reaguje na zmianę języka; nic tłumaczonego nie idzie do stanu.
+ */
+function badgeLabel(badgeId: string): string {
+  const key = `community.badges.${badgeId}`
+  return te(key) ? t(key) : badgeId
+}
 
 function formatDate(ts: number): string {
   if (!ts) return ''
@@ -35,7 +48,7 @@ function formatDate(ts: number): string {
       :title="formatDate(b.earnedAt)"
     >
       <fa icon="award" class="profile-badge__icon" />
-      <span class="profile-badge__label">{{ b.badgeId }}</span>
+      <span class="profile-badge__label">{{ badgeLabel(b.badgeId) }}</span>
     </li>
   </ul>
 </div>

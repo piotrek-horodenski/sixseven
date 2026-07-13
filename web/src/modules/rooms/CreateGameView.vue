@@ -1,29 +1,28 @@
 <script setup lang="ts">
-import { ref, watch, onMounted, onUnmounted } from 'vue'
+import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { storeToRefs } from 'pinia'
 import { useGateStore } from '@/stores/gate/gate.store'
 import { useRoomsStore } from '@/stores/rooms/rooms.store'
+import { useCatalogStore } from '@/stores/games/catalog.store'
+import { useGameLaunch } from '@/composables/useGameLaunch'
 import { RPS_GAME_ID } from '@/stores/rooms/rooms.model'
 import { EMessageType } from '@/controls/controls.model'
+import ExternalGameWarning from '@/modules/games/ExternalGameWarning.vue'
 
 /**
- * Ekran tworzenia gry (`/new`, Etap 3b — zastępuje dawny `CreateRoomForm`
- * osadzony w hubie). Struktura ma miejsce na przyszłe gry/warianty graczy,
- * ale dziś jest tylko jedna opcja każdego wyboru (zablokowane).
+ * Ekran tworzenia gry (`/new`, Etap 3b; Etap 4d — katalog data-driven).
+ * Lista gier pochodzi z subskrypcji kolekcji `games` (catalog.store):
+ * builtin + opublikowane zewnętrzne. Gra zewnętrzna dostaje etykietę
+ * „UI poza platformą".
  *
  * Po „Utwórz": `rooms.createAndPlay(...)` tworzy pokój+mecz i sam poprosi o
- * handoff, gdy tylko przyjdzie `matchId` (patrz `rooms.store`). Tu tylko
- * czekamy na `lastHandoff` i robimy pełne przeładowanie do `/game/rps` —
- * dokładnie ten sam kontrakt URL, co reszta wejść do gry.
+ * handoff, gdy tylko przyjdzie `matchId` (patrz `rooms.store`). Wejście do gry
+ * robi `useGameLaunch`: builtin = pełne przeładowanie do `/game/rps`,
+ * zewnętrzna = redirect na `uiUrl?handoff=…&return=…` (z jednorazowym modalem
+ * ostrzegawczym przy pierwszym wejściu w daną grę).
  */
 
-/** `labelKey` = klucz i18n — tłumaczy template ($t), reaguje na zmianę języka. */
-type GameOption = { id: string; labelKey: string; icon: string }
-
-const GAME_OPTIONS: GameOption[] = [
-  { id: RPS_GAME_ID, labelKey: 'rooms.create.gameRps', icon: 'hand-scissors' },
-]
 /** Soft-cap tylko do UI (atrybut `max`) — serwer nie blokuje większych wartości. */
 const CAPACITY_SOFT_CAP = 8
 const DEFAULT_CAPACITY = 2
@@ -32,24 +31,63 @@ const DEFAULT_TARGET = 5
 const { t } = useI18n()
 const gate = useGateStore()
 const rooms = useRoomsStore()
+const catalog = useCatalogStore()
+const launcher = useGameLaunch()
 const { creating, lastError } = storeToRefs(rooms)
 
 // Widok może być wejściem bezpośrednim (nie tylko z Home) — refcount w store
 // (por. `rooms.store.ts`) obsłuży nakładanie się z Home, gdyby oba były aktywne.
-onMounted(() => rooms.init())
-onUnmounted(() => rooms.cleanup())
+onMounted(() => {
+  rooms.init()
+  catalog.init()
+})
+onUnmounted(() => {
+  rooms.cleanup()
+  catalog.cleanup()
+})
 
-const selectedGameId = ref(GAME_OPTIONS[0].id)
+/** Katalog do wyboru: builtin + published (builtin pierwsze). */
+const gameOptions = computed(() => catalog.playableGames)
+
+const selectedGameId = ref(RPS_GAME_ID)
+// Katalog może dopłynąć po mount — jeśli wybrana gra zniknęła/nie istnieje,
+// wróć do pierwszej dostępnej.
+watch(gameOptions, (opts) => {
+  if (opts.length && !opts.some((g) => g._id === selectedGameId.value)) {
+    selectedGameId.value = opts[0]._id
+  }
+})
+
+const selectedGame = computed(() => catalog.gameById(selectedGameId.value))
+
+/** Ikona opcji: builtin RPS jak dotąd, zewnętrzna = glob. */
+function optionIcon(gameId: string): string {
+  const g = catalog.gameById(gameId)
+  return g?.builtin ? 'hand-scissors' : 'globe'
+}
+
 /** Trzymane jako string (kontrola `UiInput`), parsowane/walidowane przy submicie. */
 const capacityInput = ref(String(DEFAULT_CAPACITY))
 const targetInput = ref(String(DEFAULT_TARGET))
 
 const awaitingHandoff = ref(false)
 
-/** Liczba graczy: min 2, bez twardego maksimum. */
+function select(gameId: string) {
+  if (gameId === selectedGameId.value) return
+  selectedGameId.value = gameId
+  // Podpowiedzi z manifestu wybranej gry (min graczy / domyślny cel).
+  const m = catalog.gameById(gameId)?.manifest
+  if (m) {
+    capacityInput.value = String(Math.max(DEFAULT_CAPACITY, m.minPlayers))
+    targetInput.value = String(m.defaultTarget ?? DEFAULT_TARGET)
+  }
+}
+
+/** Liczba graczy: min 2 (lub minPlayers manifestu), bez twardego maksimum. */
 function parseCapacity(): number {
+  const min = Math.max(2, selectedGame.value?.manifest?.minPlayers ?? 2)
   const n = Math.floor(Number(capacityInput.value))
-  return Number.isFinite(n) && n >= 2 ? n : DEFAULT_CAPACITY
+  return Number.isFinite(n) && n >= min ? n : min
 }
 
 /** Cel punktowy: min 1. */
@@ -72,14 +110,14 @@ function submit() {
   })
 }
 
-// Po `games:handoff-complete`: pełne przeładowanie do aplikacji gry (osobny
-// socket meczu) — ten sam wzorzec co reszta wejść do `/game/rps`.
+// Po `games:handoff-complete`: wejście do gry przez useGameLaunch (builtin →
+// `/game/rps`, zewnętrzna → uiUrl + jednorazowy modal ostrzegawczy).
 watch(
   () => rooms.lastHandoff,
   (h) => {
     if (h && awaitingHandoff.value) {
       awaitingHandoff.value = false
-      window.location.href = `/game/rps?handoff=${encodeURIComponent(h.code)}&return=/`
+      launcher.launch(h)
     }
   },
 )
@@ -96,17 +134,22 @@ watch(selectedGameId, () => {
     <span class="create-game__label">{{ $t('rooms.create.gameLabel') }}</span>
     <div class="create-game__options">
       <button
-        v-for="g in GAME_OPTIONS"
-        :key="g.id"
+        v-for="g in gameOptions"
+        :key="g._id"
         type="button"
         class="create-game__option"
-        :class="{ 'create-game__option--active': g.id === selectedGameId }"
-        disabled
+        :class="{ 'create-game__option--active': g._id === selectedGameId }"
+        @click="select(g._id)"
       >
-        <fa :icon="g.icon" /> {{ $t(g.labelKey) }}
+        <fa :icon="optionIcon(g._id)" /> {{ g.name }}
+        <span v-if="!g.builtin && g.uiUrl" class="create-game__ext-badge">
+          {{ $t('games.catalog.externalUi') }}
+        </span>
       </button>
     </div>
-    <p class="create-game__hint">{{ $t('rooms.create.onlyOneGameHint') }}</p>
+    <p v-if="gameOptions.length <= 1" class="create-game__hint">
+      {{ $t('rooms.create.onlyOneGameHint') }}
+    </p>
   </div>
 
   <div class="create-game__field">
@@ -147,5 +190,12 @@ watch(selectedGameId, () => {
       {{ $t('rooms.create.submit') }}
     </UiButton>
   </div>
+
+  <!-- Jednorazowe ostrzeżenie przed grą zewnętrzną (4d) -->
+  <ExternalGameWarning
+    :pending="launcher.pendingExternal.value"
+    @confirm="launcher.confirmExternal()"
+    @cancel="launcher.cancelExternal()"
+  />
 </div>
 </template>

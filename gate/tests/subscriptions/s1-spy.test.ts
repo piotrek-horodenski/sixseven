@@ -86,6 +86,54 @@ describe('S1 — API spy cannot exfiltrate secrets', () => {
     expect(mockSubscribe).not.toHaveBeenCalled()
   })
 
+  // --- Rozszerzenie S1 o kolekcje 4d/4e: games / ratings / queue (kontrakt §5) ---
+
+  it('games: szpieg NIE widzi cudzych `registered` — filtr wymusza published-lub-własne', async () => {
+    await subscribeHandler.handler(spy, {
+      tickets: [
+        // Spreparowany filtr celujący w cudze, nieopublikowane gry.
+        { collection: 'games', filter: { devAccountId: 'victim', status: 'registered' } as any },
+      ],
+    })
+
+    const tickets = subscribedTickets()
+    expect(tickets).toHaveLength(1)
+    // $and(polityka, klient): cudze `registered` nie przechodzi przez OR polityki.
+    expect(tickets[0].filter).toEqual({
+      $and: [
+        { $or: [{ status: 'published' }, { devAccountId: 'spy' }] },
+        { devAccountId: 'victim', status: 'registered' },
+      ],
+    })
+  })
+
+  it('games: bez filtra klienta zakres to published-lub-własne', async () => {
+    await subscribeHandler.handler(spy, {
+      tickets: [{ collection: 'games', filter: {} as any }],
+    })
+    const tickets = subscribedTickets()
+    expect(tickets[0].filter).toEqual({ $or: [{ status: 'published' }, { devAccountId: 'spy' }] })
+  })
+
+  it('ratings: publiczne — filtr klienta przechodzi bez zawężenia polityką', async () => {
+    await subscribeHandler.handler(spy, {
+      tickets: [{ collection: 'ratings', filter: { gameId: 'rps' } as any }],
+    })
+    const tickets = subscribedTickets()
+    expect(tickets).toHaveLength(1)
+    expect(tickets[0].filter).toEqual({ gameId: 'rps' })
+  })
+
+  it('queue: spreparowany filtr nie pokaże cudzych wpisów kolejki', async () => {
+    await subscribeHandler.handler(spy, {
+      tickets: [{ collection: 'queue', filter: { userId: 'victim' } as any }],
+    })
+    const tickets = subscribedTickets()
+    expect(tickets[0].filter).toEqual({
+      $and: [{ userId: 'spy' }, { userId: 'victim' }],
+    })
+  })
+
   it('mixed batch: only the permitted, correctly-scoped tickets survive', async () => {
     await subscribeHandler.handler(spy, {
       tickets: [

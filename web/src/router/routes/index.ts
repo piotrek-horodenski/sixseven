@@ -12,6 +12,8 @@ import gameRpsRoute from './game-rps.route'
 import preferencesRoute from './preferences.route'
 import profilePublicRoute from './profile-public.route'
 import guestConvertRoute from './guest-convert.route'
+import devRoute from './dev.route'
+import gameRankingRoute from './game-ranking.route'
 
 // Jawny typ: bez niego TS skleja route'y w unię i wymaga `redirect` od
 // wszystkich (TS2322 w router/index.ts) — z typem sprawdza każdy element osobno.
@@ -28,4 +30,6 @@ export const routes: RouteRecordRaw[] = [
   preferencesRoute,
   profilePublicRoute,
   guestConvertRoute,
+  devRoute,
+  gameRankingRoute,
 ]

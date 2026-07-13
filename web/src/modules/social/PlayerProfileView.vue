@@ -5,6 +5,7 @@ import { useI18n } from 'vue-i18n'
 import { useGateStore } from '@/stores/gate/gate.store'
 import { useCollection, type UseCollection } from '@/composables/useCollection'
 import type { Annotation, PublicProfile } from '@/stores/social/community.model'
+import type { Rating } from '@/stores/games/ranked.model'
 import AnnotationsBadges from './AnnotationsBadges.vue'
 
 /**
@@ -14,6 +15,9 @@ import AnnotationsBadges from './AnnotationsBadges.vue'
  * SUBSKRYPCJI `annotations` (`{ playerId }`) — polityka serwera przepuszcza
  * tylko pozytywne + własne. Nie mieszamy tych dwóch źródeł: historia idzie RPC,
  * odznaki subskrypcją (zgodnie z kontraktem A2/A5).
+ *
+ * Etap 4e: sekcja ELO per gra — SUBSKRYPCJA publicznej kolekcji `ratings`
+ * z filtrem `{ userId }` (ten sam wzorzec co annotations).
  */
 const route = useRoute()
 const { t } = useI18n()
@@ -30,6 +34,12 @@ const error = ref<string | null>(null)
 // shallowRef (nie ref): ref rozpakowałby wewnętrzny `docs: Ref<T[]>` (UnwrapRef).
 const annotationsCol = shallowRef<UseCollection<Annotation> | null>(null)
 const liveBadges = computed<Annotation[]>(() => annotationsCol.value?.docs.value ?? [])
+
+// ---- ELO (subskrypcja ratings po userId, 4e) ------------------------------
+const ratingsCol = shallowRef<UseCollection<Rating> | null>(null)
+const eloRows = computed<Rating[]>(() =>
+  [...(ratingsCol.value?.docs.value ?? [])].sort((a, b) => b.elo - a.elo),
+)
 
 // ---- RPC profile:get -----------------------------------------------------
 function onProfile({ profile: p }: { profile: PublicProfile }) {
@@ -72,10 +82,18 @@ function startAnnotations() {
   c.start()
 }
 
+function startRatings() {
+  ratingsCol.value?.stop()
+  const c = useCollection<Rating>('ratings', { userId: userId.value })
+  ratingsCol.value = c
+  c.start()
+}
+
 function load() {
   if (!userId.value) return
   fetchProfile()
   startAnnotations()
+  startRatings()
 }
 
 onMounted(() => {
@@ -93,6 +111,8 @@ onUnmounted(() => {
   gate.offReconnect(registerAcks)
   annotationsCol.value?.stop()
   annotationsCol.value = null
+  ratingsCol.value?.stop()
+  ratingsCol.value = null
 })
 
 // ---- pochodne dla widoku -------------------------------------------------
@@ -127,6 +147,34 @@ function formatDate(ts: number | null): string {
     <section class="player-profile__section">
       <h2 class="player-profile__section-title">{{ $t('community.profile.badges') }}</h2>
       <AnnotationsBadges :badges="liveBadges" />
+    </section>
+
+    <!-- ELO per gra (subskrypcja ratings, 4e) -->
+    <section class="player-profile__section">
+      <h2 class="player-profile__section-title">{{ $t('community.profile.elo') }}</h2>
+      <p v-if="!eloRows.length" class="player-profile__empty">{{ $t('community.profile.eloEmpty') }}</p>
+      <table v-else class="player-profile__table">
+        <thead>
+          <tr>
+            <th>{{ $t('community.profile.eloGame') }}</th>
+            <th>{{ $t('community.profile.eloRating') }}</th>
+            <th>{{ $t('community.profile.eloMatches') }}</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr v-for="r in eloRows" :key="r._id">
+            <td>{{ r.gameId }}</td>
+            <td class="player-profile__win">{{ r.elo }}</td>
+            <td>{{ r.matches }}</td>
+            <td>
+              <RouterLink :to="`/ranking/${r.gameId}`" class="player-profile__ranking-link">
+                {{ $t('community.profile.eloRankingLink') }}
+              </RouterLink>
+            </td>
+          </tr>
+        </tbody>
+      </table>
     </section>
 
     <!-- Historia: agregat per gra -->

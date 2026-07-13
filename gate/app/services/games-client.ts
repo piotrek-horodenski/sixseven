@@ -80,6 +80,29 @@ export interface GuestMatch {
   finishedAt: number
 }
 
+/**
+ * Rejestracja gry zewnętrznej (4d). Twarde walidacje (slug, manifest, limit
+ * per dev, unikalność) robi games — klient tylko przenosi payload. devAccountId
+ * podaje HANDLER z tokenu (nigdy z payloadu klienta).
+ */
+export interface RegisterGameInput {
+  devAccountId: string
+  gameId: string
+  name: string
+  manifest: Record<string, unknown>
+  serviceUrl: string
+  uiUrl: string
+}
+
+/** Edycja gry (4d) — tylko podane pola; każda zmiana cofa status do 'registered'. */
+export interface UpdateGameInput {
+  devAccountId: string
+  gameId: string
+  serviceUrl?: string
+  uiUrl?: string
+  manifest?: Record<string, unknown>
+}
+
 export interface GamesClient {
   createMatch(input: CreateMatchInput): Promise<CommandResult<{ matchId: string }>>
   /** Gracz zgłasza gotowość w lobby (Etap 3 pkt 5) — Planning startuje po komplecie rosteru. */
@@ -115,6 +138,28 @@ export interface GamesClient {
    * z `guestIds` do `players` dla meczów z okna 7 dni, zero ELO. Idempotentne.
    */
   attachGuest(args: { guestId: string; userId: string }): Promise<CommandResult<{ attached: number }>>
+  /**
+   * Rejestracja gry zewnętrznej (4d). `hmacSecret` wraca TEN JEDEN RAZ —
+   * gate go nie przechowuje, tylko przekazuje w evencie complete.
+   */
+  registerGame(input: RegisterGameInput): Promise<CommandResult<{ gameId: string; hmacSecret: string }>>
+  /** Edycja gry przez właściciela (4d) — games egzekwuje własność (devAccountId). */
+  updateGame(input: UpdateGameInput): Promise<CommandResult>
+  /** Approve gry (4d) — autoryzacja roli po stronie gate (manage-games). */
+  approveGame(gameId: string): Promise<CommandResult>
+  /** Cofnięcie publikacji gry (4d). */
+  unpublishGame(gameId: string): Promise<CommandResult>
+  /** Wejście do kolejki szybkiego meczu (4e). `userId` ZAWSZE z tokenu (nigdy gość). */
+  queueJoin(gameId: string, userId: string): Promise<CommandResult>
+  /** Wyjście z kolejki (4e). */
+  queueLeave(gameId: string, userId: string): Promise<CommandResult>
+  /** Akcept propozycji pary (4e) — po obu akceptach games tworzy mecz ranked. */
+  queueAccept(gameId: string, userId: string, proposalId: string): Promise<CommandResult>
+  /**
+   * Porzucenie meczu (4e/backlog): ranked = walkower + ELO; casual = noop
+   * (defaultMove gra dalej). `noop:true` odróżnia oba przypadki.
+   */
+  abandon(matchId: string, playerId: string): Promise<CommandResult<{ noop: boolean }>>
 }
 
 const DEFAULT_TIMEOUT_MS = 5000
@@ -287,6 +332,62 @@ export function createGamesClient(config: GamesClientConfig): GamesClient {
         const attached = typeof body.attached === 'number' ? body.attached : Number(body.attached ?? 0)
         return { ok: true, data: { attached: Number.isFinite(attached) ? attached : 0 } }
       }
+      return { ok: false, status, error: errorOf(status, body) }
+    },
+
+    async registerGame(input) {
+      const { status, body } = await guardedCall('/register-game', input)
+      // Sekret wraca WYŁĄCZNIE tutaj (jednorazowo) — nie logujemy body.
+      if (status === 200 && typeof body.gameId === 'string' && typeof body.hmacSecret === 'string') {
+        return { ok: true, data: { gameId: body.gameId, hmacSecret: body.hmacSecret } }
+      }
+      return { ok: false, status, error: errorOf(status, body) }
+    },
+
+    async updateGame(input) {
+      // Tylko pola faktycznie podane — games rozróżnia „brak pola" od wartości.
+      const payload: Record<string, unknown> = { devAccountId: input.devAccountId, gameId: input.gameId }
+      if (input.serviceUrl !== undefined) payload.serviceUrl = input.serviceUrl
+      if (input.uiUrl !== undefined) payload.uiUrl = input.uiUrl
+      if (input.manifest !== undefined) payload.manifest = input.manifest
+      const { status, body } = await guardedCall('/update-game', payload)
+      if (status === 200) return { ok: true, data: {} }
+      return { ok: false, status, error: errorOf(status, body) }
+    },
+
+    async approveGame(gameId) {
+      const { status, body } = await guardedCall('/approve-game', { gameId })
+      if (status === 200) return { ok: true, data: {} }
+      return { ok: false, status, error: errorOf(status, body) }
+    },
+
+    async unpublishGame(gameId) {
+      const { status, body } = await guardedCall('/unpublish-game', { gameId })
+      if (status === 200) return { ok: true, data: {} }
+      return { ok: false, status, error: errorOf(status, body) }
+    },
+
+    async queueJoin(gameId, userId) {
+      const { status, body } = await guardedCall('/queue-join', { gameId, userId })
+      if (status === 200) return { ok: true, data: {} }
+      return { ok: false, status, error: errorOf(status, body) }
+    },
+
+    async queueLeave(gameId, userId) {
+      const { status, body } = await guardedCall('/queue-leave', { gameId, userId })
+      if (status === 200) return { ok: true, data: {} }
+      return { ok: false, status, error: errorOf(status, body) }
+    },
+
+    async queueAccept(gameId, userId, proposalId) {
+      const { status, body } = await guardedCall('/queue-accept', { gameId, userId, proposalId })
+      if (status === 200) return { ok: true, data: {} }
+      return { ok: false, status, error: errorOf(status, body) }
+    },
+
+    async abandon(matchId, playerId) {
+      const { status, body } = await guardedCall('/abandon', { matchId, playerId })
+      if (status === 200) return { ok: true, data: { noop: body.noop === true } }
       return { ok: false, status, error: errorOf(status, body) }
     },
   }

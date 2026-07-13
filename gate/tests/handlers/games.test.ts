@@ -86,6 +86,18 @@ describe('games:create-match', () => {
     )
   })
 
+  it('ignoruje `ranked` z payloadu — ranked ustawia wyłącznie ścieżka kolejki (kontrakt 4d/4e §1)', async () => {
+    const client = fakeClient()
+    await handlerFor('games:create-match', client).handler(socket, {
+      gameId: 'rps',
+      players: ['u2'],
+      ranked: true, // próba samodeklaracji meczu rankingowego przez klienta
+    } as any)
+    expect(client.createMatch).toHaveBeenCalledTimes(1)
+    const input = (client.createMatch as any).mock.calls[0][0]
+    expect(input).not.toHaveProperty('ranked')
+  })
+
   it('ignores non-string entries in players', async () => {
     const client = fakeClient()
     await handlerFor('games:create-match', client).handler(socket, { gameId: 'rps', players: ['u2', 42, null] })

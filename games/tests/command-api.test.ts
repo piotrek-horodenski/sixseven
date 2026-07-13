@@ -15,6 +15,8 @@ function makeDeps(over: Partial<CommandDeps> = {}): CommandDeps {
       revealDone: vi.fn(async () => {}),
       addPlayer: vi.fn(async () => 'added' as const),
       cancel: vi.fn(async () => {}),
+      // Etap 4e — walkower (abandon); domyślnie noop, nadpisywane w testach 4e.
+      finishWalkover: vi.fn(async () => 'noop' as const),
     },
     internalSecret: SECRET,
     getRegistration: vi.fn(async () => ({

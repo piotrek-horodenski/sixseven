@@ -76,6 +76,46 @@ const games: typeof pl = {
     createFailed: 'Could not create the match',
     operationFailed: 'Operation failed',
   },
+  // --- Etap 4d/4e ---
+  ranked: {
+    badge: 'Ranked',
+  },
+  catalog: {
+    externalUi: 'UI outside the platform',
+    externalWarnTitle: 'You are entering an external game',
+    externalWarnBody:
+      'You are about to open the developer app "{name}", running outside the platform. The game NEVER asks for your platform password — if it does, close it and report it to us.',
+    externalWarnConfirm: 'Got it, play',
+    externalWarnCancel: 'Cancel',
+  },
+  exit: {
+    button: 'Leave',
+    stay: 'Stay in the game',
+    leaving: 'Leaving the game…',
+    lobbyHostTitle: 'Close the game?',
+    lobbyHostBody: 'You are the host — leaving closes the game and removes it for every player.',
+    lobbyHostConfirm: 'Close the game',
+    lobbyGuestTitle: 'Leave the lobby?',
+    lobbyGuestBody: 'You can return to the game from its tile on the home page.',
+    lobbyGuestConfirm: 'Leave',
+    casualTitle: 'Leave the match?',
+    casualBody:
+      'The match continues without you — your moves will be filled in automatically (default move). You can return from the game tile.',
+    casualConfirm: 'Leave',
+    rankedTitle: 'Forfeit the ranked match?',
+    rankedBody: 'This is a walkover — you lose with the full ELO penalty and your opponent gets the win.',
+    rankedConfirm: 'Forfeit (walkover)',
+  },
+  ranking: {
+    title: 'Leaderboard: {game}',
+    subtitle: 'Top {limit} by ELO',
+    loading: 'Loading leaderboard…',
+    empty: 'Nobody has played this game ranked yet.',
+    position: '#',
+    player: 'Player',
+    elo: 'ELO',
+    matches: 'Matches',
+  },
 }
 
 export default games

@@ -10,6 +10,7 @@ const { t } = useI18n()
 const crumb = computed(() => {
   const name = route.name as string
   if (name?.startsWith('admin-settings')) return t('admin.settings')
+  if (name?.startsWith('admin-games')) return t('admin.games')
   if (name?.startsWith('admin-role')) return t('admin.roles')
   return t('admin.users')
 })

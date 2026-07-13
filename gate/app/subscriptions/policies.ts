@@ -70,6 +70,19 @@ export const collectionPolicies: Record<string, CollectionPolicy> = {
   queue:        { filter: (user) => ({ userId: user._id } as unknown as SubscriptionTicketFilter) },
   // Publiczny ranking per gra.
   ratings:      {},
+  // --- Katalog gier (Etap 4d; pisze WYŁĄCZNIE games) ---
+  // ROW-LEVEL: user widzi gry OPUBLIKOWANE oraz WŁASNE (dev widzi swoje
+  // `registered`/`unpublished`). Admin (manage-games) widzi cały katalog —
+  // pusty filtr = brak zawężenia (mergeFilters traktuje {} jak brak polityki),
+  // dzięki czemu moderuje zgłoszenia `registered` cudzych devów. Gość ma
+  // osobną, twardą ścieżkę w subscribe.handler ({ status: 'published' }).
+  // Katalog nie zawiera sekretów (serviceUrl/hmacSecret żyją w prywatnej
+  // `registrations`) — sanityzacja zbędna (kontrakt 4d §1).
+  games:        { filter: (user) => (
+    user.permissions?.includes('manage-games')
+      ? ({} as unknown as SubscriptionTicketFilter)
+      : ({ $or: [ { status: 'published' }, { devAccountId: user._id } ] } as unknown as SubscriptionTicketFilter)
+  ) },
 
   // --- Kolekcje społeczności (Etap 4a/4b) ---
   // ROW-LEVEL: presence widoczne WYŁĄCZNIE znajomym. `visibleTo` to zdenormalizowana

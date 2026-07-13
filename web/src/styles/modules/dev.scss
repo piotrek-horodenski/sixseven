@@ -1,0 +1,205 @@
+// ===========================================================================
+// Moduł „Dla deweloperów" (Etap 4d) — CTA enroll, formularz rejestracji gry,
+// sekret HMAC (pokazany raz), lista własnych gier. Mobile-first, motyw przez
+// zmienne CSS (konwencja jak community.scss/games.scss).
+// ===========================================================================
+
+.dev-games {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+  margin: 0 auto;
+  max-width: 44rem;
+  padding: 1.25rem;
+
+  // --- CTA „Zostań deweloperem" ---------------------------------------------
+  &__enroll {
+    align-items: center;
+    background-color: var(--background-color-soft);
+    border: 1px solid var(--neutral-color-soft);
+    border-radius: 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+    padding: 2rem 1.5rem;
+    text-align: center;
+  }
+
+  &__enroll-glyph {
+    color: var(--primary-color);
+    font-size: 2.5rem;
+  }
+
+  &__enroll-title {
+    margin: 0;
+  }
+
+  &__enroll-body {
+    color: var(--neutral-color-soft);
+    margin: 0;
+    max-width: 28rem;
+  }
+
+  // --- Formularz rejestracji / edycji ----------------------------------------
+  &__form {
+    background-color: var(--background-color-soft);
+    border: 1px solid var(--neutral-color-soft);
+    border-radius: 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+    padding: 1.25rem;
+  }
+
+  &__form-title {
+    margin: 0;
+  }
+
+  &__field {
+    display: flex;
+    flex: 1 1 10rem;
+    flex-direction: column;
+    gap: .35rem;
+  }
+
+  &__row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 1rem;
+  }
+
+  &__hint {
+    color: var(--neutral-color-soft);
+    font-size: .8rem;
+    margin: 0;
+  }
+
+  &__actions {
+    display: flex;
+    gap: .75rem;
+    justify-content: flex-end;
+  }
+
+  // --- Lista własnych gier ----------------------------------------------------
+  &__list {
+    display: flex;
+    flex-direction: column;
+    gap: .75rem;
+  }
+
+  &__list-title {
+    border-bottom: 1px solid var(--neutral-color-soft);
+    font-size: 1rem;
+    margin: 0;
+    padding-bottom: .35rem;
+  }
+
+  &__empty {
+    color: var(--neutral-color-soft);
+    font-style: italic;
+    margin: 0;
+  }
+
+  &__items {
+    display: flex;
+    flex-direction: column;
+    gap: .6rem;
+    list-style: none;
+    margin: 0;
+    padding: 0;
+  }
+}
+
+// --- Karta gry dewelopera ----------------------------------------------------
+.dev-game {
+  align-items: center;
+  background-color: var(--background-color-soft);
+  border-left: 4px solid var(--neutral-color-soft);
+  border-radius: 10px;
+  display: flex;
+  gap: 1rem;
+  justify-content: space-between;
+  padding: .85rem 1rem;
+
+  &__main {
+    display: flex;
+    flex-direction: column;
+    gap: .25rem;
+    min-width: 0;
+  }
+
+  &__name {
+    font-weight: 600;
+  }
+
+  &__slug {
+    color: var(--neutral-color-soft);
+    font-family: monospace;
+    font-size: .8rem;
+  }
+
+  &__meta {
+    color: var(--neutral-color-soft);
+    font-size: .8rem;
+  }
+
+  &__side {
+    align-items: flex-end;
+    display: flex;
+    flex-direction: column;
+    gap: .4rem;
+  }
+
+  &__status {
+    border-radius: 999px;
+    font-size: .72rem;
+    padding: .1rem .55rem;
+    background-color: var(--neutral-color-soft);
+    color: var(--background-color);
+
+    &--registered {
+      background-color: var(--warning-color);
+    }
+
+    &--published {
+      background-color: var(--success-color);
+      color: #fff;
+    }
+  }
+}
+
+// --- Sekret HMAC (popup, pokazany RAZ) ----------------------------------------
+.dev-secret {
+  display: flex;
+  flex-direction: column;
+  gap: .9rem;
+
+  &__label {
+    color: var(--neutral-color-soft);
+    font-size: .9rem;
+    margin: 0;
+  }
+
+  &__row {
+    align-items: center;
+    display: flex;
+    gap: .5rem;
+  }
+
+  &__value {
+    background: var(--background-color-soft);
+    border: 1px solid var(--neutral-color-soft);
+    border-radius: .4rem;
+    color: inherit;
+    flex: 1 1 auto;
+    font-family: monospace;
+    font-size: .85rem;
+    min-width: 0;
+    padding: .45rem .6rem;
+  }
+
+  &__actions {
+    display: flex;
+    justify-content: flex-end;
+  }
+}

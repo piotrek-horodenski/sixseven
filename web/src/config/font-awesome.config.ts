@@ -83,6 +83,12 @@ import {
   faPaperPlane,
   faUserPlus,
   faAward,
+  // Etap 4d/4e: katalog gier, dev, ranked
+  faBolt,
+  faRankingStar,
+  faCode,
+  faArrowRightFromBracket,
+  faArrowUpRightFromSquare,
 } from '@fortawesome/free-solid-svg-icons'
 import { FontAwesomeIcon } from '@fortawesome/vue-fontawesome'
 
@@ -169,6 +175,12 @@ const icons = [
   faPaperPlane,
   faUserPlus,
   faAward,
+  // Etap 4d/4e: katalog gier, dev, ranked (niezarejestrowane ikony nie renderują się!)
+  faBolt,
+  faRankingStar,
+  faCode,
+  faArrowRightFromBracket,
+  faArrowUpRightFromSquare,
 ]
 
 export default (app: App) => {

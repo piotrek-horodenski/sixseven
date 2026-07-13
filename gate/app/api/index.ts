@@ -1,9 +1,11 @@
 import express, { Request, Response } from 'express'
 import crypto from 'crypto'
+import mongoose from 'mongoose'
 
 import { App } from '../app'
 import { SettingsService } from '../settings.service'
 import { createGamesClient, GamesClient } from '../services/games-client'
+import { createMatchTokenOriginChecker, MatchTokenOriginChecker } from '../services/cors-origins'
 import { exchangeHandoffForMatchToken } from '../services/auth-exchange'
 import { issueGuestToken } from '../services/tokens.service'
 import logger from '../logger'
@@ -17,6 +19,7 @@ import logger from '../logger'
  */
 export class Api {
   private gamesClient: GamesClient | null = null
+  private originChecker: MatchTokenOriginChecker | null = null
 
   private getGamesClient(): GamesClient {
     if (!this.gamesClient) {
@@ -24,6 +27,33 @@ export class Api {
       this.gamesClient = createGamesClient({ baseUrl: settings.gamesUrl, internalSecret: settings.internalSecret })
     }
     return this.gamesClient
+  }
+
+  /**
+   * Bramkarz CORS dla /auth/match-token (4d): WEB_URL LUB origin uiUrl gry
+   * published (cache 60 s). Kolekcję `games` pisze serwis games — gate czyta
+   * ją surowym sterownikiem (jak initial-load subskrypcji), bez modelu gate.
+   */
+  private getOriginChecker(): MatchTokenOriginChecker {
+    if (!this.originChecker) {
+      this.originChecker = createMatchTokenOriginChecker({
+        webUrl: SettingsService().webUrl,
+        loadPublishedUiUrls: async () => {
+          const docs = await mongoose.connection
+            .collection('games')
+            .find(
+              { status: 'published', uiUrl: { $type: 'string', $nin: [null, ''] } },
+              { projection: { uiUrl: 1 } },
+            )
+            .limit(500)
+            .toArray()
+          return docs
+            .map(d => (d as { uiUrl?: unknown }).uiUrl)
+            .filter((u): u is string => typeof u === 'string' && u.length > 0)
+        },
+      })
+    }
+    return this.originChecker
   }
 
   private getRoomModel() {
@@ -34,14 +64,30 @@ export class Api {
     // CORS dla REST bramki. Aplikacja gry (/game/rps) i wejście gościa wołają
     // /auth/match-token oraz /rooms/join-guest z originu web (inny port), więc
     // przeglądarka robi preflight OPTIONS i wymaga nagłówków CORS. socket.io ma
-    // własny CORS; REST dostaje go tutaj. Origin ograniczony do WEB_URL.
-    App.app.use((req: Request, res: Response, next) => {
-      // Odbijamy origin żądania (localhost i LAN IP naraz) — dev. W prod ograniczyć.
+    // własny CORS; REST dostaje go tutaj.
+    //
+    // /auth/match-token (4d): origin dozwolony gdy WEB_URL LUB origin uiUrl gry
+    // published (cache 60 s). Niedozwolony origin => BRAK nagłówka ACAO —
+    // przeglądarka utnie odpowiedź (dotyczy też preflightu OPTIONS).
+    // /rooms/join-guest i pozostałe ścieżki: bez zmian (odbijamy origin — dev;
+    // w prod ograniczyć).
+    App.app.use(async (req: Request, res: Response, next) => {
       const origin = req.headers.origin
-      res.header('Access-Control-Allow-Origin', origin || SettingsService().webUrl)
       res.header('Vary', 'Origin')
       res.header('Access-Control-Allow-Methods', 'GET, POST, OPTIONS')
       res.header('Access-Control-Allow-Headers', 'Content-Type')
+      if (req.path === '/auth/match-token') {
+        try {
+          if (origin && await this.getOriginChecker().isAllowed(origin)) {
+            res.header('Access-Control-Allow-Origin', origin)
+          }
+        } catch (err) {
+          // Awaria sprawdzenia = traktuj jak niedozwolony (brak ACAO), nie 500.
+          logger.error({ err }, 'match-token CORS check failed')
+        }
+      } else {
+        res.header('Access-Control-Allow-Origin', origin || SettingsService().webUrl)
+      }
       if (req.method === 'OPTIONS') {
         res.sendStatus(204)
         return

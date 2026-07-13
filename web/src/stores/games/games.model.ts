@@ -36,6 +36,10 @@ export interface Match extends CollectionDoc {
   score: Record<string, number>
   options: Record<string, unknown>
   endReason: string | null
+  /** Walkower (4e): kto poddał/rozłączył się i kto wygrywa — pisze games. */
+  walkover?: { loserId: string; winnerId: string; reason: 'abandoned' | 'disconnected' } | null
+  /** Idempotencja naliczenia ELO po stronie games (informacyjnie). */
+  eloApplied?: boolean
   createdAt?: number
   updatedAt?: number
 }

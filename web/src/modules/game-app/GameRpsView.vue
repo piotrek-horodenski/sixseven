@@ -4,11 +4,14 @@ import { useRoute } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { useMatchClient } from '@/composables/useMatchClient'
 import { RPS_MOVES, REVEAL_MS, playerLabel } from '@/modules/games/rps.consts'
+import { exitVariantFor, roundOutcomeFor, type ExitVariant } from './game-app.helpers'
 import type { RpsMove, RpsRevealedMove } from '@/stores/games/games.model'
 import RpsHand from '@/modules/games/RpsHand.vue'
 import RpsIcon from '@/modules/games/RpsIcon.vue'
 import ChatAsidePanel from '@/modules/social/ChatAsidePanel.vue'
 import { useGateStore } from '@/stores/gate/gate.store'
+import { useRoomsStore } from '@/stores/rooms/rooms.store'
+import { EPopupSize } from '@/controls/controls.model'
 
 /**
  * Aplikacja gry RPS (`/game/rps`) — standalone, poza AppLayout, BEZ `gate.store`
@@ -69,6 +72,17 @@ const canChat = computed<boolean>(() =>
   !!meId.value &&
   (match.value?.players ?? []).includes(meId.value as string),
 )
+
+// Stan pokoi (fix „wyjście z gry"): potrzebny WYŁĄCZNIE do rozwiązania roomId
+// (rooms:close hosta w lobby) — tylko dla zalogowanego usera (gość nie ma
+// sesji gate, więc i tak nie jest hostem pokoju z tej ścieżki).
+const rooms = useRoomsStore()
+onMounted(() => {
+  if (gate.isAuthenticated) rooms.init()
+})
+onUnmounted(() => {
+  if (gate.isAuthenticated) rooms.cleanup()
+})
 
 onMounted(() => {
   const handoff = route.query.handoff
@@ -182,11 +196,11 @@ function pickFor(pid: string): RpsRevealedMove | null {
 function roundPointsFor(pid: string): number {
   return view.value?.roundPoints?.[pid] ?? 0
 }
+// FIX (backlog): etykieta rundy liczona z `roundWinner` eventu — unikalny lider
+// = win, remis na szczycie (roundWinner === null) = draw, reszta = lose. NIE ze
+// znaku punktów rundy (suma parowa bywa ujemna także u „niewygranych").
 function outcomeFor(pid: string): 'win' | 'lose' | 'draw' {
-  const pts = roundPointsFor(pid)
-  if (pts > 0) return 'win'
-  if (pts < 0) return 'lose'
-  return 'draw'
+  return roundOutcomeFor(view.value?.roundWinner, pid)
 }
 function formatPoints(pts: number): string {
   if (pts > 0) return `+${pts}`
@@ -245,6 +259,9 @@ const leaders = computed(() => roster.value.filter((pid) => scoreOf(pid) === max
 const isTopTie = computed(() => leaders.value.length > 1)
 const winnerId = computed(() => (isTopTie.value ? null : leaders.value[0] ?? null))
 const matchOutcome = computed<'win' | 'lose' | 'draw'>(() => {
+  // Walkower (4e): zwycięzcę wskazuje mecz, nie tablica punktów.
+  const w = match.value?.walkover
+  if (w) return w.winnerId === meId.value ? 'win' : 'lose'
   if (isTopTie.value) return 'draw'
   return winnerId.value === meId.value ? 'win' : 'lose'
 })
@@ -270,8 +287,95 @@ function goBack() {
   window.location.href = returnUrl.value
 }
 
+// ---- trwały przycisk „Wyjdź" (FIX z backlogu, kontrakt §4 „Fixy" pkt 1) ----
+// Trzy warianty: host w lobby → rooms:close; casual w toku → sama nawigacja
+// (defaultMove gra dalej); ranked w toku → games:abandon (walkower, socket
+// tokenu meczu). Finished/cancelled/error mają własne `goBack` — bez przycisku.
+
+/** Pokój tego meczu (do rooms:close hosta) — z subskrypcji rooms usera. */
+const myRoom = computed(() => {
+  const m = match.value
+  if (!m) return undefined
+  return (
+    rooms.rooms.find((r) => r.matchId === m._id) ??
+    (m.roomCode ? rooms.rooms.find((r) => r.code === m.roomCode) : undefined)
+  )
+})
+const iAmRoomHost = computed(() => rooms.isHost(myRoom.value))
+
+const exitVariant = computed<ExitVariant | null>(() =>
+  exitVariantFor(match.value?.phase, !!match.value?.ranked, iAmRoomHost.value),
+)
+const showExit = computed(
+  () => client.status.value === 'ready' && !!match.value && exitVariant.value !== null,
+)
+
+const exitOpen = ref(false)
+/** Wysłano komendę wyjścia — czekamy na ack (fallback: timer poniżej). */
+const exiting = ref(false)
+let exitFallback: number | undefined
+/** Fallback nawigacji, gdyby ack nie doszedł (utrata socketu itp.). */
+const EXIT_FALLBACK_MS = 1500
+
+/** Baza klucza i18n modala wyjścia (`games.exit.<baza>Title/Body/Confirm`). */
+const exitKeyBase = computed(() => {
+  switch (exitVariant.value) {
+    case 'lobby-host':
+      return 'lobbyHost'
+    case 'lobby-guest':
+      return 'lobbyGuest'
+    case 'ranked':
+      return 'ranked'
+    default:
+      return 'casual'
+  }
+})
+
+function requestExit() {
+  exitOpen.value = true
+}
+
+function cancelExit() {
+  exitOpen.value = false
+}
+
+function confirmExit() {
+  const variant = exitVariant.value
+  exitOpen.value = false
+  if (!variant) return
+  // Warianty bez komendy: nawigacja natychmiast.
+  if (variant === 'casual' || variant === 'lobby-guest') {
+    goBack()
+    return
+  }
+  exiting.value = true
+  if (variant === 'lobby-host') {
+    const roomId = myRoom.value?._id
+    // Preferuj rooms:close (gra znika wszystkim); brak pokoju w stanie →
+    // dopuszczalny fallback games:abandon (w lobby to noop) + nawigacja.
+    if (roomId) rooms.close(roomId)
+    else client.abandon()
+  } else {
+    // ranked: walkower — komenda idzie socketem TOKENU MECZU.
+    client.abandon()
+  }
+  exitFallback = window.setTimeout(goBack, EXIT_FALLBACK_MS)
+}
+
+// Ack zamknięcia pokoju / porzucenia meczu → nawigacja bez czekania na timer.
+watch(
+  () => rooms.lastClosedRoomId,
+  (id) => {
+    if (exiting.value && id) goBack()
+  },
+)
+watch(client.abandonAcked, (acked) => {
+  if (exiting.value && acked) goBack()
+})
+
 onUnmounted(() => {
   if (clock) clearInterval(clock)
+  if (exitFallback) clearTimeout(exitFallback)
   clearRevealTimers()
   client.cleanup()
 })
@@ -293,6 +397,23 @@ onUnmounted(() => {
     </div>
 
     <template v-else>
+      <!-- Trwały afordans wyjścia (fix z backlogu) + badge meczu rankingowego (4e) -->
+      <div class="game-app__topbar">
+        <button
+          v-if="showExit"
+          type="button"
+          class="game-app__exit"
+          :disabled="exiting"
+          @click="requestExit"
+        >
+          <fa icon="arrow-right-from-bracket" />
+          {{ exiting ? $t('games.exit.leaving') : $t('games.exit.button') }}
+        </button>
+        <span v-if="match?.ranked" class="game-app__ranked">
+          <fa icon="ranking-star" /> {{ $t('games.ranked.badge') }}
+        </span>
+      </div>
+
       <header class="game-app__header">
         <div v-if="match && lobbyFull && match.phase !== 'lobby' && match.phase !== 'finished'" class="match-screen__scoreboard match-screen__scoreboard--grid">
           <div
@@ -468,6 +589,8 @@ onUnmounted(() => {
           <h2 class="rps-state__title">
             {{ $t(`games.finished.${matchOutcome}`) }}
           </h2>
+          <!-- Walkower (4e): mecz zakończony poddaniem/rozłączeniem -->
+          <p v-if="match.walkover" class="rps-state__text">{{ $t('games.cancelled.walkover') }}</p>
           <ul class="rps-finished__board">
             <li
               v-for="pid in sortedRoster"
@@ -530,5 +653,19 @@ onUnmounted(() => {
       <ChatAsidePanel scope="match" :scope-id="chatMatchId" />
     </div>
   </div>
+
+  <!-- Modal wyjścia (3 warianty: host lobby / casual / ranked-walkower) -->
+  <UiPopup :show="exitOpen" :size="EPopupSize.thin" :outsideClose="true" @update:show="cancelExit">
+    <template #title>{{ $t(`games.exit.${exitKeyBase}Title`) }}</template>
+    <div class="game-exit">
+      <p class="game-exit__body">{{ $t(`games.exit.${exitKeyBase}Body`) }}</p>
+      <div class="game-exit__actions">
+        <UiButton class="accent" @click="cancelExit">{{ $t('games.exit.stay') }}</UiButton>
+        <UiButton icon="arrow-right-from-bracket" @click="confirmExit">
+          {{ $t(`games.exit.${exitKeyBase}Confirm`) }}
+        </UiButton>
+      </div>
+    </div>
+  </UiPopup>
 </div>
 </template>
