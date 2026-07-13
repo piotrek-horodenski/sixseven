@@ -76,6 +76,11 @@ const games: typeof pl = {
     createFailed: 'Could not create the match',
     operationFailed: 'Operation failed',
   },
+  // --- Etap 4f: bot-zawodnik ---
+  bot: {
+    label: 'Bot',
+    tooltip: 'Computer player — added because no opponent was available.',
+  },
   // --- Etap 4d/4e ---
   ranked: {
     badge: 'Ranked',

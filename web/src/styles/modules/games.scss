@@ -378,6 +378,14 @@
   }
 }
 
+// Subtelny marker bota (Etap 4f) — dyskretna ikona obok nicku, nie nachalna.
+.bot-badge {
+  margin-left: .35rem;
+  font-size: .8em;
+  opacity: .6;
+  vertical-align: baseline;
+}
+
 // --- Plansza ---------------------------------------------------------------
 .rps-board {
   min-height: 22rem;

@@ -8,7 +8,7 @@ import {
   proposePairs,
   requeueAfterExpiry,
 } from './matchmaker'
-import { BotProvider, noopBotProvider } from './bot-provider'
+import { BotProvider, noopBotProvider, isBotId } from './bot-provider'
 import { settings } from '../settings'
 import logger from './../logger'
 
@@ -138,6 +138,11 @@ export class Scheduler {
         } catch (err) {
           logger.error({ err }, 'scheduler bot tick failed')
         }
+        try {
+          await this.botPlayTick()
+        } catch (err) {
+          logger.error({ err }, 'scheduler bot play tick failed')
+        }
       }
     } finally {
       this.ticking = false
@@ -222,8 +227,9 @@ export class Scheduler {
   }
 
   /**
-   * Hak na bota (Etap 4e — SCAFFOLD, pełna implementacja w Etapie 5): dla
-   * każdego meczu w lobby z wolnym slotem wołamy provider (domyślnie noop).
+   * Bot-zawodnik, dołączanie (Etap 4f): dla każdego meczu w lobby z wolnym slotem
+   * wołamy provider (domyślnie noop). Provider sam decyduje o progu czasu, obecności
+   * człowieka i wspieranych grach.
    */
   private async botTick(): Promise<void> {
     const lobbies = await Match.find({ phase: 'lobby' }).limit(this.batchSize)
@@ -239,6 +245,28 @@ export class Scheduler {
         guestIds,
         capacity,
         createdAt: (m.createdAt as number) ?? 0,
+        manifestVersion: (m.manifestVersion as string) ?? '',
+        options: (m.options as Record<string, unknown>) ?? {},
+      })
+    }
+  }
+
+  /**
+   * Bot-zawodnik, granie (Etap 4f): dla każdego meczu w fazie `planning` z co
+   * najmniej jednym botem w `guestIds` wołamy provider, który składa losowy ruch
+   * (raz na rundę — guard `hasSubmitted`). Provider decyduje wg wspieranych gier.
+   */
+  private async botPlayTick(): Promise<void> {
+    const planning = await Match.find({ phase: 'planning' }).limit(this.batchSize)
+    for (const m of planning) {
+      const guestIds = (m.guestIds ?? []) as string[]
+      const botIds = guestIds.filter((id) => isBotId(id))
+      if (botIds.length === 0) continue
+      await this.botProvider.maybePlay({
+        matchId: String(m._id),
+        gameId: m.gameId as string,
+        round: (m.round as number) ?? 1,
+        botIds,
       })
     }
   }

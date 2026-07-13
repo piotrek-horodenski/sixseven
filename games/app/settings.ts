@@ -40,6 +40,11 @@ const envSchema = z.object({
   // Harmonogram deadline'ów (A5 — deadline'y w dokumentach, jedna pętla skanująca).
   SCHEDULER_INTERVAL_MS: z.string().default('500'),
 
+  // Bot-zawodnik (Etap 4f). Dosiada do lobby (casual) z wolnym slotem, gdy czeka
+  // człowiek. BOT_ENABLED=false wyłącza całość.
+  BOT_ENABLED: z.string().default('true'),
+  BOT_JOIN_WAIT_MS: z.string().default('15000'), // ile pusty slot czeka na człowieka
+
   // Retencja resolve_log (E2).
   RESOLVE_LOG_RETENTION_DAYS: z.string().default('30'),
 })
@@ -79,6 +84,9 @@ export const settings = {
   lobbyTimeoutMs: Number(env.LOBBY_TIMEOUT_MS),
 
   schedulerIntervalMs: Number(env.SCHEDULER_INTERVAL_MS),
+
+  botEnabled: env.BOT_ENABLED === 'true',
+  botJoinWaitMs: Number(env.BOT_JOIN_WAIT_MS),
 
   resolveLogRetentionDays: Number(env.RESOLVE_LOG_RETENTION_DAYS),
 }

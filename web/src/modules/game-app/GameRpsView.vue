@@ -3,7 +3,7 @@ import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
 import { useRoute } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { useMatchClient } from '@/composables/useMatchClient'
-import { RPS_MOVES, REVEAL_MS, playerLabel } from '@/modules/games/rps.consts'
+import { RPS_MOVES, REVEAL_MS, playerLabel, isBot } from '@/modules/games/rps.consts'
 import { exitVariantFor, roundOutcomeFor, type ExitVariant } from './game-app.helpers'
 import type { RpsMove, RpsRevealedMove } from '@/stores/games/games.model'
 import RpsHand from '@/modules/games/RpsHand.vue'
@@ -422,7 +422,10 @@ onUnmounted(() => {
             class="score-chip"
             :class="{ 'score-chip--me': pid === meId, 'score-chip--lead': scoreOf(pid) === maxScore }"
           >
-            <span class="score-chip__name">{{ playerLabel(pid, meId, nicks) }}</span>
+            <span class="score-chip__name">
+              {{ playerLabel(pid, meId, nicks) }}
+              <fa v-if="isBot(pid)" icon="robot" class="bot-badge" :title="$t('games.bot.tooltip')" />
+            </span>
             <span class="score-chip__val">{{ scoreOf(pid) }}</span>
           </div>
           <span class="match-screen__target">{{ $t('games.scoreTarget', { target }) }}</span>
@@ -443,6 +446,7 @@ onUnmounted(() => {
               <li v-for="pid in roster" :key="pid" class="rps-roster__item">
                 <span class="rps-dot rps-dot--on" />
                 {{ playerLabel(pid, meId, nicks) }}
+                <fa v-if="isBot(pid)" icon="robot" class="bot-badge" :title="$t('games.bot.tooltip')" />
               </li>
               <li v-for="n in emptySlots" :key="`empty-${n}`" class="rps-roster__item rps-roster__item--empty">
                 <span class="rps-dot" />
@@ -477,6 +481,7 @@ onUnmounted(() => {
               <li v-for="pid in roster" :key="pid" class="rps-roster__item">
                 <span class="rps-dot" :class="{ 'rps-dot--on': !!match.lobbyReady?.[pid] }" />
                 {{ playerLabel(pid, meId, nicks) }}
+                <fa v-if="isBot(pid)" icon="robot" class="bot-badge" :title="$t('games.bot.tooltip')" />
                 <span v-if="match.lobbyReady?.[pid]" class="rps-roster__ready">{{ $t('games.lobby.ready') }}</span>
               </li>
             </ul>
@@ -598,7 +603,10 @@ onUnmounted(() => {
               class="rps-finished__row"
               :class="{ 'rps-finished__row--me': pid === meId, 'rps-finished__row--winner': leaders.includes(pid) }"
             >
-              <span class="rps-finished__name">{{ playerLabel(pid, meId, nicks) }}</span>
+              <span class="rps-finished__name">
+                {{ playerLabel(pid, meId, nicks) }}
+                <fa v-if="isBot(pid)" icon="robot" class="bot-badge" :title="$t('games.bot.tooltip')" />
+              </span>
               <span class="rps-finished__val">{{ scoreOf(pid) }}</span>
             </li>
           </ul>

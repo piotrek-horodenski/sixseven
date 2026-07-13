@@ -254,6 +254,14 @@ export class MatchEngine {
     return 'accepted'
   }
 
+  /**
+   * Czy gracz złożył już ruch w danej rundzie (Etap 4f — guard bota: dokładnie
+   * jedno złożenie na rundę). Czyta prywatną `moves`, nie wystawia treści.
+   */
+  async hasMove(matchId: string, round: number, playerId: string): Promise<boolean> {
+    return (await Move.exists({ matchId, round, playerId, ready: true })) != null
+  }
+
   private async openPlanning(matchId: string, round: number): Promise<void> {
     const now = this.now()
     const match = await Match.findById(matchId)

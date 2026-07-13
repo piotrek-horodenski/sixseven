@@ -31,6 +31,14 @@ export function moveMeta(move: RpsMove): RpsMoveMeta {
 /** Czas animacji odsłonięcia (ms). Krótszy niż deadline revealu w silniku. */
 export const REVEAL_MS = 1600
 
+/** Prefiks id bota (Etap 4f) — spójny z games `BOT_ID_PREFIX`. */
+export const BOT_ID_PREFIX = 'bot_'
+
+/** Czy id należy do bota-zawodnika (niepodrabialny marker po prefiksie, nie po nicku). */
+export function isBot(id: string | null | undefined): boolean {
+  return typeof id === 'string' && id.startsWith(BOT_ID_PREFIX)
+}
+
 /** Skrócony identyfikator gracza do wyświetlenia (2c nie ma jeszcze nazw). */
 export function shortId(id: string | null | undefined): string {
   if (!id) return '—'

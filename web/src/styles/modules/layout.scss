@@ -502,3 +502,49 @@
     background-color: var(--intro-background-color);
   }
 }
+
+// --- Mobile: sloty boczne sidebar/aside nie mieszczą się obok treści ---------
+// $aside-width = 36rem (576px) z flex-shrink:0 rozjeżdżał Home na telefonie:
+// panel znajomych (aside, zawsze aktywny na Home) trzymał sztywne 576px — szersze
+// niż ekran — spychając/zasłaniając kafelki i przycisk „Nowa gra". Poniżej 56rem
+// (36rem aside + ~20rem min. treści) układamy pionowo: treść na górze pełną
+// szerokością, panel boczny pod spodem; puste sloty chowamy.
+@media (max-width: 56rem) {
+  .app-layout__main-content {
+    flex-direction: column;
+  }
+
+  .app-layout__workspace-row {
+    flex-direction: column;
+  }
+
+  // Lewy slot (sidebar) → pełna szerokość na górze; ukryty gdy pusty.
+  .app-layout__main-content > .app-layout__sidebar,
+  .app-layout__main-content > .app-layout__sidebar.has-content {
+    overflow: visible;
+    width: 100%;
+  }
+  .app-layout__main-content > .app-layout__sidebar:not(.has-content) {
+    display: none;
+  }
+  .app-layout__main-content .app-layout__sidebar-content,
+  .app-layout__main-content .app-layout__sidebar-content.has-content {
+    transform: none;
+    width: 100%;
+  }
+
+  // Prawy slot (aside — np. panel znajomych) → pełna szerokość pod treścią.
+  .app-layout__workspace-row > .app-layout__aside,
+  .app-layout__workspace-row > .app-layout__aside.has-content {
+    overflow: visible;
+    width: 100%;
+  }
+  .app-layout__workspace-row > .app-layout__aside:not(.has-content) {
+    display: none;
+  }
+  .app-layout__workspace-row .app-layout__aside-content,
+  .app-layout__workspace-row .app-layout__aside-content.has-content {
+    transform: none;
+    width: 100%;
+  }
+}

@@ -74,6 +74,11 @@ export default {
     createFailed: 'Nie udało się utworzyć meczu',
     operationFailed: 'Operacja nie powiodła się',
   },
+  // --- Etap 4f: bot-zawodnik ---
+  bot: {
+    label: 'Bot',
+    tooltip: 'Gracz komputerowy — dosadzony, bo brakowało przeciwnika.',
+  },
   // --- Etap 4d/4e ---
   ranked: {
     badge: 'Rankingowy',

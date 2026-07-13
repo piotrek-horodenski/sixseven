@@ -4,9 +4,31 @@
 
 ## Stan projektu (2026-07-12)
 
-**AKTUALIZACJA (sesja 2026-07-12, trzecia): Etap 4d+4e + fixy backlogu NAPISANE (sekcja niżej) — czekają na weryfikację Piotra (testy+live). Wcześniej w tej samej dobie: decyzje planistyczne (gry zewnętrzne = tylko towarzyskie, bundle+CSP usunięte — sekcja DECYZJE).**
+**AKTUALIZACJA (sesja 2026-07-13, druga): Etap 4f — BOT-ZAWODNIK NAPISANY (sekcja „Etap 4f" niżej) — czeka na weryfikację live Piotra. Etap 4d+4e ZWERYFIKOWANE NA ŻYWO i zacommitowane (`630433f`), z drobnymi „DO DOMKNIĘCIA" (sekcja 4d+4e). Cały Etap 4 (4a–4f) domknięty co do implementacji; następny duży ruch wg planu = Etap 5 (trust+judge+snajperzy).**
 
 **Faza: kod ISTNIEJE. Etapy 0, 1, 2 zaimplementowane i przeszły na żywo. Etap 3 (UI/przepływ „gry", N-graczy) ZROBIONY i ZWERYFIKOWANY na żywo. Fala 3 (i18n pl/en) POTWIERDZONA. Etap 4 — podetapy 4a+4b+4c (społeczność: presence+znajomi, czat+profile+adnotacje-odczyt, konwersja gościa) ZAIMPLEMENTOWANE (5 agentów + integracja) i ZWERYFIKOWANE NA ŻYWO (sesja 2026-07-12): presence live, znajomi (invite po nazwie/accept/remove), czat DM 1:1 + czat w meczu, profile z historią+odznakami, BRAMKA adnotacji (negatywna niewidoczna dla obcych) OK, konwersja gościa, nicki w grze, link zaproszenia w lobby. Testy jednostkowe gate/web + integracyjne games ZIELONE u Piotra. Committed. 4d (bundle+CSP) — plan ZMIENIŁ SIĘ w międzyczasie, przeczytać `docs/ETAP4_PLAN.md` na nowo przed implementacją. 4e (ranked) — bez zmian, twardo zależy od 4d. ZALEGŁY BUG: patrz niżej „Do adresacji w nowej sesji".**
+
+## Etap 4f — Bot-zawodnik — NAPISANY (sesja 2026-07-13)
+
+> Kontrakt (źródło prawdy): `docs/ETAP4F_BOT_CONTRACT.md`. ADR: ARCHITECTURE.md „Bot-zawodnik — casual, zero ELO, subtelny sygnał". **Sandbox nie odpala testów/Dockera — czeka na weryfikację Piotra.**
+
+**Decyzje Piotra (AskUserQuestion):** (1) zakres = tylko lobby (casual); (2) ELO = zero (bot jak gość); (3) rozpoznawalność = subtelny sygnał (nie ukrywamy botowości); (4) bot LOSUJE ruch (nie polega na defaultMove — ten jest deterministyczny/przewidywalny z publicznego seedu); (5) MVP = tylko RPS, przestrzeń ruchów zaszyta.
+
+**Zakres zrobiony (pełna implementacja „haka na bota" ze scaffoldu 4e):**
+- **games** — realny `createBotProvider` w `engine/bot-provider.ts` (zastąpił noop): `maybeJoinLobby` (po progu `BOT_JOIN_WAIT_MS`=15 s, gdy czeka człowiek i wolny slot, tylko gry z zaszytą strategią → dosadza `bot_<hex>` w `guestIds`, reuse `/init` pełnego rosteru + `engine.addPlayer(kind='guest')` + `engine.playerReady`, wypełnia do capacity); `maybePlay` (mecz w planning z botem → `engine.submitMove(botId, losowy RPS)`, guard `hasSubmitted` = raz na rundę). Nowy `engine.hasMove`. Scheduler: `botTick` rozszerzony o `manifestVersion`/`options`, nowy `botPlayTick` w dławionym bloku (~2 s). `settings`: `BOT_ENABLED`, `BOT_JOIN_WAIT_MS`. Wiring w `app.ts` (wspólny `getRegistration`; `defaultLoadPlayerMemory` wyeksportowany).
+- **Tożsamość:** bot w `guestIds` → wykluczony z ELO DARMOWO (`settleMatchElo` pomija gości; `applyEloIfDue` iteruje tylko `players`). Ruch bota trafia do prywatnej `moves` → replay-safe.
+- **web** — `isBot(id)` (prefiks) w `rps.consts.ts`; subtelny marker (ikona `robot` + tooltip) w `GameRpsView` (scoreboard, roster lobby ×2, finished); i18n `games.bot.{label,tooltip}` pl/en; `faRobot` już był zarejestrowany. Styl `.bot-badge` w `games.scss`.
+- **Testy:** `games/tests/engine/bot-provider.test.ts` (16 przypadków: progi, obecność człowieka, wspierane gry, wypełnianie do capacity, wyścig „full", init-fail, losowość i guard `hasSubmitted`, wiele botów).
+
+**Weryfikacja Piotra (4f):**
+1. `npm test --workspace games` (nowy `bot-provider.test.ts`) + `npm test --workspace web` (parytet i18n `games.bot`).
+2. `npx vue-tsc --noEmit` w web + `npm run build --workspace games`.
+3. `docker compose up -d --build games web`.
+4. Smoke: załóż grę RPS w lobby, czekaj ~15 s → dosiada „Bot" (marker); mecz startuje; bot gra co rundę losowo (ruch zmienia się między rundami); mecz kończy się; profil/ranking BEZ zmian ELO; `db.ratings` bez wpisu dla bota; `db.matches.findOne({_id:...}).guestIds` zawiera `bot_…`.
+
+**NAPRAWIONE (mobile, po live-teście 4f):** na telefonie panel `aside` (znajomi, zawsze aktywny na Home) zasłaniał/spychał kafelki i „Nowa gra". Przyczyna: `$aside-width: 36rem` (576px) z `flex-shrink:0` + BRAK jakiegokolwiek breakpointu w `layout.scss` — sztywna kolumna szersza niż ekran. Fix: media query `≤56rem` w `layout.scss` układa sloty `sidebar`/`aside` PIONOWO (treść pełną szerokością na górze, panel pod spodem; puste sloty `display:none`; nadpisania o równej specyficzności, później w źródle). Desktop bez zmian. **Wymaga rebuild web.** (Ekran gry `/game/rps` jest standalone bez slotu aside — nietknięty.)
+
+**DŁUG 4f:** przestrzeń ruchów zaszyta w platformie (tylko RPS) — właściwa droga = kontraktowy `/bot-move` albo deklaracja w manifeście (KONIECZNE przed botem dla gier zewnętrznych/arrowsoccera); bot gra niemal natychmiast (brak ludzkiego jittera); ranked-backfill botem poza MVP (farming); host-toggle „dopuść boty" = globalny `BOT_ENABLED`, per-mecz = follow-up.
 
 ## Etap 4d+4e + fixy backlogu — NAPISANE i ZWERYFIKOWANE NA ŻYWO (sesja 2026-07-12/13)
 

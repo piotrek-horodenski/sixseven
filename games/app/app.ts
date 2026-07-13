@@ -1,3 +1,5 @@
+import crypto from 'crypto'
+
 import express from 'express'
 
 import { connectDb } from './db'
@@ -7,8 +9,9 @@ import { models, Registration, Match } from './models'
 import { MatchEngine } from './engine/engine'
 import { Scheduler } from './engine/scheduler'
 import { callInit } from './engine/init-client'
+import { createBotProvider, randomRpsMove } from './engine/bot-provider'
 import { createRegistrationResolver } from './services/register-game'
-import { createCommandRouter } from './command-api'
+import { createCommandRouter, defaultLoadPlayerMemory } from './command-api'
 
 /**
  * games — serwis skarbca (silnik meczów, matchmaking, trust).
@@ -28,7 +31,41 @@ export async function boot(): Promise<void> {
     // 2c: endpoint serwisu gry pochodzi z kolekcji `registrations`.
     resolveEndpoint: createRegistrationResolver(),
   })
-  const scheduler = new Scheduler(engine)
+
+  // Rozwiązanie endpointu gry z rejestracji — wspólne dla komend i bota (Etap 4f).
+  const getRegistration = async (gameId: string) => {
+    const reg = await Registration.findOne({ gameId, status: 'active' })
+    if (!reg) return null
+    return {
+      version: reg.version as string,
+      endpoint: { url: reg.serviceUrl as string, secret: reg.hmacSecret as string },
+    }
+  }
+
+  // Bot-zawodnik (Etap 4f): dosiada do lobby casual z wolnym slotem i składa losowy
+  // ruch. MVP — wspierany tylko RPS (zaszyta strategia; patrz ETAP4F_BOT_CONTRACT.md).
+  const botProvider = createBotProvider(
+    {
+      getRegistration,
+      init: (endpoint, request) => callInit(endpoint, request as never),
+      loadPlayerMemory: defaultLoadPlayerMemory,
+      addPlayer: (matchId, playerId, kind, initialState, nick) =>
+        engine.addPlayer(matchId, playerId, kind, initialState, nick),
+      playerReady: (matchId, playerId) => engine.playerReady(matchId, playerId),
+      submitMove: (matchId, playerId, move) => engine.submitMove(matchId, playerId, move),
+      hasSubmitted: (matchId, round, playerId) => engine.hasMove(matchId, round, playerId),
+      genSeed: () => crypto.randomBytes(16).toString('hex'),
+      now: () => Date.now(),
+    },
+    {
+      enabled: settings.botEnabled,
+      joinWaitMs: settings.botJoinWaitMs,
+      nick: 'Bot',
+      strategies: { rps: randomRpsMove },
+    },
+  )
+
+  const scheduler = new Scheduler(engine, undefined, undefined, undefined, { botProvider })
   scheduler.start()
 
   const app = express()
@@ -43,14 +80,7 @@ export async function boot(): Promise<void> {
     createCommandRouter({
       engine,
       internalSecret: settings.internalSecret,
-      getRegistration: async (gameId) => {
-        const reg = await Registration.findOne({ gameId, status: 'active' })
-        if (!reg) return null
-        return {
-          version: reg.version as string,
-          endpoint: { url: reg.serviceUrl as string, secret: reg.hmacSecret as string },
-        }
-      },
+      getRegistration,
       init: (endpoint, request) => callInit(endpoint, request as never),
       getMatch: async (matchId) => {
         const m = await Match.findById(matchId)

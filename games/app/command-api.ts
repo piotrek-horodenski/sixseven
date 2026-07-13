@@ -250,7 +250,7 @@ function safeEqual(a: string, b: string): boolean {
 /** Limit rozmiaru prefs (Etap 3B pkt 5) — ~4KB, serializacja JSON. */
 const MAX_PREFS_BYTES = 4096
 
-async function defaultLoadPlayerMemory(
+export async function defaultLoadPlayerMemory(
   gameId: string,
   playerIds: string[],
 ): Promise<Record<string, { data: Record<string, unknown>; prefs: Record<string, unknown> }>> {
