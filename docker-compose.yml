@@ -78,7 +78,9 @@ services:
       - NODE_ENV=production
       - GATE_PORT=4114
       - WEB_URL=http://${HOST_IP:-localhost}:5273
-      - MONGODB_URI=mongodb://hydra-mongo1:27017/hydra?directConnection=true
+      # Pelne URI replica setu (jak w games) - driver sam znajduje aktualny
+      # primary, wiec gate nie pada, gdy po elekcji primary nie jest mongo1.
+      - MONGODB_URI=mongodb://hydra-mongo1:27017,hydra-mongo2:27017,hydra-mongo3:27017/hydra?replicaSet=h2dbs
       - REDIS_URL=
       # Dev/LAN: bez TLS (telefon nie musi akceptowac self-signed). Prod: true + certy.
       - GATE_TLS=${GATE_TLS:-false}
